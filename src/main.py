@@ -20,7 +20,7 @@ import logging.handlers
 logger = logging.getLogger(__name__)
 os.makedirs("Logs", exist_ok=True)
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.INFO,
     format="[%(levelname)-8s %(asctime)s at %(funcName)s]: %(message)s",
 	datefmt="%d.%d.%Y %H:%M:%S",
     handlers=[
