@@ -1,0 +1,35 @@
+{
+	"Telegram Message Handler": {
+		"description": "Handler для сообщений.",
+		"scope": "python",
+		"prefix": [ "message handler" ],
+		"body": [
+			"# coding: utf-8",
+			"",
+			"\"\"\"Handler для команды `${1:$TM_FILENAME_BASE}`.\"\"\"",
+			"",
+			"from aiogram.types import Message as MessageType",
+			"from aiogram import Dispatcher, Bot",
+			"import logging",
+			"",
+			"BOT: Bot = None  # type: ignore",
+			"logger = logging.getLogger(__name__)",
+			"",
+			"def _setupCHandler(dp: Dispatcher, bot: Bot):",
+			"\t\"\"\"",
+			"\tИнициализирует команду `${1:$TM_FILENAME_BASE}`.",
+			"\t\"\"\"",
+			"",
+			"\tglobal BOT",
+			"",
+			"\tBOT = bot",
+			"\tdp.register_message_handler(${1:$TM_FILENAME_BASE}, commands=[\"${1:TM_FILENAME}\"])",
+			"",
+			"",
+			"async def ${1:$TM_FILENAME_BASE}(msg: MessageType):",
+			"\tlogger.info(f\"Пользователь {msg.from_user.id} вызвал команду ${1:TM_FILENAME_BASE}!\")",
+			"\tawait BOT.send_dice(msg.chat.id)",
+			""
+		]
+	}
+}
