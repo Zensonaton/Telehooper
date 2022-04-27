@@ -32,8 +32,8 @@ def _initHandlers(dp: aiogram.Dispatcher, bot: aiogram.Bot):
 	Инициализирует все handler'ы бота.
 	"""
 
-	from TelegramMessageHandlers import Start, Debug
-	MESSAGE_HANDLERS_IMPORTED = [Start, Debug]
+	from TelegramMessageHandlers import Start, Debug, Setup
+	MESSAGE_HANDLERS_IMPORTED = [Start, Debug, Setup]
 
 	# Загружаем команды.
 	logger.debug(f"Было импортировано {len(MESSAGE_HANDLERS_IMPORTED)} handler'ов, загружаю их...")
