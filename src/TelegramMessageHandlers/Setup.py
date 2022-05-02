@@ -77,7 +77,7 @@ async def SetupCallbackHandler(query: CallbackQuery):
 	elif query.data == CButtons.VK_LOGIN_VIA_PASSWORD:
 		await query.message.edit_text("Напиши логин и пароль в отдельном сообщении, в следующем формате: <code>/vklogin логин пароль</code>, пример: \n<code>/vklogin vasyapupkin 123456password</code>\nУчти, что этот метод <b>менее безопасен</b>, а так же он <b>не поддерживает двухэтапную аутентификацию</b>, поэтому, в случае ошибки, воспользуйся авторизацией через VK ID.\n\n⚙️ Введи логин и пароль в формате, описанном выше:")
 	else:
-		print("UNKNOWN", query.data)
+		logger.warning(query.data)
 
 	await query.answer()
 

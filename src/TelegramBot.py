@@ -60,7 +60,7 @@ def _initHandlers(dp: aiogram.Dispatcher, bot: aiogram.Bot):
 		if isinstance(exception, aiogram.utils.exceptions.Throttled):
 			await update.message.answer("Превышен лимит количества запросов использования команды. Попробуй позже.")
 		else:
-			await update.message.reply(f"⚠️ Произошла ошибка: <code>{exception}</code>. Попробуй позже. Так же, ты можешь зарепортить баг в <a href=\"https://github.com/Zensonaton/Telehooper/issues\">Issues</a> проекта.")
+			await update.message.answer(f"⚠️ Произошла ошибка: <code>{exception}</code>. Попробуй позже. Так же, ты можешь зарепортить баг в <a href=\"https://github.com/Zensonaton/Telehooper/issues\">Issues</a> проекта.")
 
 		return True
 

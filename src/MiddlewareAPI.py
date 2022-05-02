@@ -2,18 +2,21 @@
 
 # В этом файле находится middle-псевдо-API, благодаря которому различные 'коннекторы' могут соединяться с основым Telegram ботом.
 
+import datetime
 import logging
 import os
-import aiogram
 
+import aiogram
 import vkbottle
 import vkbottle_types.responses.account
 import vkbottle_types.responses.users
 from aiogram.types import User
-# from ServiceHandlers.VK import VKServiceHandler
+
 import Utils
+from DB import getDefaultCollection
 
 logger = logging.getLogger(__name__)
+DB = getDefaultCollection()
 
 class VKAccount:
 	"""
@@ -96,6 +99,27 @@ class VKAccount:
 				await self.vkAPI.messages.send(-notifier_group_id, Utils.generateVKRandomID(), message="(это автоматическое сообщение, не обращай на него внимание.)\n\ntelehooperSuccessAuth")
 		except:
 			logger.warning(f"Не удалось отправить опциональное сообщение об успешной авторизации бота в ВК. Пожалуйста, проверьте настройку \"VKBOT_NOTIFIER_ID\" в .env файле. (текущее значение: {os.environ['VKBOT_NOTIFIER_ID']})")
+
+		# Сохраняем информацию о авторизации:
+		DB.update_one(
+			{
+				"_id": self.telegramUser.id
+			}, 
+			{"$set": {
+				"_id": self.telegramUser.id,
+				"TelegramUserID": self.telegramUser.id,
+				"VKUserID": self.vkAccountInfo.id,
+				"Services": {
+					"VK": {
+						"Auth": True,
+						"IsAuthViaPassword": self.authViaPassword,
+						"AuthDate": datetime.datetime.now(),
+						"Token": self.vkToken,
+					}
+				}
+			}}, 
+			upsert=True
+		)
 
 class MiddlewareAPI:
 	"""
