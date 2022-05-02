@@ -8,12 +8,14 @@ import logging.handlers
 import os
 
 import aiogram
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 import dotenv
 
 import Consts
 import TelegramBot as TGBot
 import Utils
 from DB import getDefaultCollection
+from Consts import InlineButtonCallbacks as CButtons
 import MiddlewareAPI
 
 # Логирование.
@@ -61,8 +63,22 @@ async def onBotStart(dp: aiogram.Dispatcher):
 	for doc in res:
 		if doc["Services"]["VK"]["Auth"]:
 			logger.debug(f"Обнаружен авторизованный в ВК пользоватль с TID {doc['_id']}, авторизовываю...")
-			# TODO: ensure_future()
-			MiddlewareAPI.VKAccount(doc["Services"]["VK"]["Token"], (await Bot.get_chat_member(doc["_id"], doc["_id"])).user)
+
+			telegramUser = (await Bot.get_chat_member(doc["_id"], doc["_id"])).user
+			try:
+				# TODO: ensure_future()
+				mAPI = MiddlewareAPI.VKAccount(doc["Services"]["VK"]["Token"], telegramUser)
+
+				await mAPI.initUserInfo()
+				await mAPI.connectVKServiceHandler()
+			except Exception as error:
+				logger.warning(f"Ошибка авторизации пользователя с TID {doc['_id']}: {error}")
+				
+				keyboard = InlineKeyboardMarkup().add(
+					InlineKeyboardButton(text="Снова авторизоваться", callback_data=CButtons.ADD_VK_ACCOUNT),
+				)
+				await Bot.send_message(telegramUser.id, "⚠️ После моей перезагрузки я не сумел авторизоваться в твой аккаунт <b>«ВКонтакте»</b>.\nЕсли бот был отключён от ВКонтакте специально, например, путём отключения всех приложений/сессий в настройках безопасности, то волноваться незачем. \n\n⚙️ Ты снова можешь авторизоваться, нажав на кнопку ниже:", reply_markup=keyboard)
+				
 
 # Запускаем бота.
 if __name__ == "__main__":

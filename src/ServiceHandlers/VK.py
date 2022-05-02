@@ -22,7 +22,10 @@ class VKServiceHandler:
 
 		self.mAPI.vkUser.on.message()(self.onMessage)
 
-		asyncio.run_coroutine_threadsafe(self.mAPI.vkUser.run_polling(), self.mAPI.vkUser.loop)
+		try:
+			asyncio.create_task(self.mAPI.vkUser.run_polling(), name=f"VK Polling, id{self.mAPI.vkFullUser.id}")
+		except:
+			pass
 
 
 	async def onMessage(self, msg: Message):

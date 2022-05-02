@@ -24,4 +24,4 @@ def _setupCHandler(dp: Dispatcher, bot: Bot):
 async def Debug(msg: MessageType):
 	logger.info(f"Пользователь {msg.from_user.id} вызвал команду Debug!")
 
-	await msg.answer("HI!")
+	await msg.answer("HI!", disable_notification=True)

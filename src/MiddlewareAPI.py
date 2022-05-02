@@ -41,18 +41,25 @@ class VKAccount:
 		self.vkAPI = vkbottle.API(self.vkToken)
 		self.vkUser = vkbottle.User(self.vkToken)
 
-		from ServiceHandlers.VK import VKServiceHandler
-		VKServiceHandler(MiddlewareAPI(self.vkUser, self.telegramUser))
-
-
-
 
 	async def initUserInfo(self):
+		"""
+		Обращается к API ВКонтакте, чтобы получить информацию о пользователе.
+		"""
+
 		# Получаем информацию о аккаунте пользователя, который прошёл авторизацию. Из информации используется ID пользователя.
 		self.vkAccountInfo = await self.vkAPI.account.get_profile_info()
 
 		# Получаем всю открытую информацию о пользователе.
 		self.vkFullUser = (await self.vkAPI.users.get(user_ids=[self.vkAccountInfo.id]))[0]
+
+	async def connectVKServiceHandler(self):
+		"""
+		Создаёт VK Service Handler.
+		"""
+
+		from ServiceHandlers.VK import VKServiceHandler
+		VKServiceHandler(MiddlewareAPI(self.vkUser, self.vkFullUser, self.telegramUser))
 
 	async def postAuthInit(self):
 		"""Действия, выполняемые после успешной авторизации пользоваля ВКонтакте: Отправляет предупредительные сообщения, и так далее."""
@@ -81,7 +88,7 @@ class VKAccount:
 {space}* Отправлять сообщения.
 {space}* Смотреть список диалогов.
 {space}* Просматривать список твоих друзей, отправлять им сообщения.
-Если подключал бота не ты, то {"срочно в настройках подключённых приложений (https://vk.com/settings?act=apps) отключи приложение «VK Messenger», либо же " if self.authViaPassword else ""}в этот же диалог пропиши команду «logoff», (без кавычек) и если же тут появится сообщение о успешном отключении, то значит, что бот был отключён. После отключения срочно меняй пароль от ВКонтакте, поскольку произошедшее значит, что кто-то сумел войти в твой аккаунт ВКонтакте, либо же ты забыл выйти с чужого компьютера!
+Если подключал бота не ты, то срочно {"в настройках подключённых приложений (https://vk.com/settings?act=apps) отключи приложение «VK Messenger», либо же " if self.authViaPassword else "настройках «безопасности» (https://vk.com/settings?act=security) нажми на кнопку «Отключить все сеансы», либо же "}в этот же диалог пропиши команду «logoff», (без кавычек) и если же тут появится сообщение о успешном отключении, то значит, что бот был отключён. После отключения срочно меняй пароль от ВКонтакте, поскольку произошедшее значит, что кто-то сумел войти в твой аккаунт ВКонтакте, либо же ты забыл выйти с чужого компьютера!
 Информация о пользователе, который подключил бота, будет отправлена в чат бота:
 {userInfoData}
 Если же это был ты, то волноваться незачем, и ты можешь просто проигнорировать всю предыдущую часть сообщения.
@@ -98,7 +105,7 @@ class VKAccount:
 			if notifier_group_id > 0:
 				await self.vkAPI.messages.send(-notifier_group_id, Utils.generateVKRandomID(), message="(это автоматическое сообщение, не обращай на него внимание.)\n\ntelehooperSuccessAuth")
 		except:
-			logger.warning(f"Не удалось отправить опциональное сообщение об успешной авторизации бота в ВК. Пожалуйста, проверьте настройку \"VKBOT_NOTIFIER_ID\" в .env файле. (текущее значение: {os.environ['VKBOT_NOTIFIER_ID']})")
+			logger.warning(f"Не удалось отправить опциональное сообщение об успешной авторизации бота в ВК. Пожалуйста, проверьте настройку \"VKBOT_NOTIFIER_ID\" в .env файле. (текущее значение: {os.environ.get('VKBOT_NOTIFIER_ID')})")
 
 		# Сохраняем информацию о авторизации:
 		DB.update_one(
@@ -121,16 +128,34 @@ class VKAccount:
 			upsert=True
 		)
 
+	async def checkAvailability(self, no_error: bool = False) -> bool:
+		"""
+		Делает тестовый API-запрос к VK для проверки доступности пользователя.
+		Слегка быстрее чем `initUserInfo()`, поскольку этот метод делает лишь один запрос.
+		"""
+
+		try:
+			self.vkAccountInfo = await self.vkAPI.account.get_profile_info()
+		except Exception as error:
+			if not no_error:
+				raise(error)
+
+			return False
+		else:
+			return True
+
 class MiddlewareAPI:
 	"""
 	Middleware API, необходимое для создания общего API между Service Handler'ами.
 	"""
 
 	vkUser: vkbottle.User
+	vkFullUser: vkbottle_types.responses.users.UsersUserFull
 	telegramUser: aiogram.types.User
 
-	def __init__(self, vkUser: vkbottle.User, telegramUser: aiogram.types.User) -> None:
+	def __init__(self, vkUser: vkbottle.User, vkFullUser: vkbottle_types.responses.users.UsersUserFull, telegramUser: aiogram.types.User) -> None:
 		self.vkUser = vkUser
+		self.vkFullUser = vkFullUser
 		self.telegramUser = telegramUser
 
 	async def sendMessage(self, message: str):
