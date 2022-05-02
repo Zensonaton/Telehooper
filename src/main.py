@@ -3,6 +3,7 @@
 # Основной файл бота.
 
 import asyncio
+import json
 import logging
 import logging.handlers
 import os
@@ -58,9 +59,10 @@ async def onBotStart(dp: aiogram.Dispatcher):
 	Функция, запускающаяся ПОСЛЕ запуска Telegram-бота.
 	"""
 
-	logger.info("Бот запущен успешно! Пытаюсь авторизовать всех пользователей...")
-	res = DB.find({})
-	for doc in res:
+	# Производим восстановление всех сессий:
+	logger.info("Бот запущен успешно! Пытаюсь авторизовать всех пользователей подключённых сервисов...")
+
+	for doc in DB.find({}):
 		if doc["Services"]["VK"]["Auth"]:
 			logger.debug(f"Обнаружен авторизованный в ВК пользоватль с TID {doc['_id']}, авторизовываю...")
 
@@ -73,18 +75,37 @@ async def onBotStart(dp: aiogram.Dispatcher):
 				await mAPI.connectVKServiceHandler()
 			except Exception as error:
 				logger.warning(f"Ошибка авторизации пользователя с TID {doc['_id']}: {error}")
-				
+
 				keyboard = InlineKeyboardMarkup().add(
 					InlineKeyboardButton(text="Снова авторизоваться", callback_data=CButtons.ADD_VK_ACCOUNT),
 				)
 				await Bot.send_message(telegramUser.id, "⚠️ После моей перезагрузки я не сумел авторизоваться в твой аккаунт <b>«ВКонтакте»</b>.\nЕсли бот был отключён от ВКонтакте специально, например, путём отключения всех приложений/сессий в настройках безопасности, то волноваться незачем. \n\n⚙️ Ты снова можешь авторизоваться, нажав на кнопку ниже:", reply_markup=keyboard)
-				
+
+	# Авторизуем всех остальных 'миниботов' для функции мультибота:
+	helperbots = os.environ.get("HELPER_BOTS", "[]")
+
+	try:
+		helperbots = json.loads(helperbots)
+	except Exception as error:
+		logger.warning("У меня не удалось загрузить переменную среды \"HELPER_BOTS\" как JSON-объект: %s", error)
+	else:
+		logger.info(f"Было обнаружено {len(helperbots)} 'миниботов' в настройках переменных среды, пытаюсь авторизовать их...")
+		loop = asyncio.get_event_loop()
+
+		for index, token in enumerate(helperbots):
+			try:
+				_bot, _dp = TGBot.initMultibot(token, Bot)
+
+				loop.create_task(_dp.start_polling(), name=f"Multibot-{index+1}")
+				logger.debug(f"Мультибот #{index+1}/{len(helperbots)} был запущен!")
+			except Exception as error:
+				logger.warning(f"Мультибота #{index+1} не удалось подключить: {error}")
 
 # Запускаем бота.
 if __name__ == "__main__":
 	logger.info("Запускаю бота...")
 
-
+	# Загружаем основного бота:
 	loop = asyncio.new_event_loop()
 	asyncio.set_event_loop(loop)
 
