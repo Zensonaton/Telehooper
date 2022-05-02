@@ -18,13 +18,13 @@ import Utils
 logger = logging.getLogger(__name__)
 os.makedirs("Logs", exist_ok=True)
 logging.basicConfig(
-    level=logging.INFO,
-    format="[%(levelname)-8s %(asctime)s at %(funcName)s]: %(message)s",
+	level=logging.INFO,
+	format="[%(levelname)-8s %(asctime)s at %(funcName)s]: %(message)s",
 	datefmt="%d.%d.%Y %H:%M:%S",
-    handlers=[
-        logging.handlers.RotatingFileHandler("Logs/TGBot.log", maxBytes=10485760, backupCount=0),
-        logging.StreamHandler()
-    ]
+	handlers=[
+		logging.handlers.RotatingFileHandler("Logs/TGBot.log", maxBytes=10485760, backupCount=0),
+		logging.StreamHandler()
+	]
 )
 
 
@@ -57,8 +57,13 @@ async def onBotStart(bot: aiogram.Bot):
 if __name__ == "__main__":
 	logger.info("Запускаю бота...")
 
+
+	loop = asyncio.new_event_loop()
+	asyncio.set_event_loop(loop)
+
 	aiogram.utils.executor.start_polling(
 		dispatcher=DP,
 		on_startup=onBotStart,
-		skip_updates=SKIP_UPDATES
+		skip_updates=SKIP_UPDATES,
+		loop=loop,
 	)

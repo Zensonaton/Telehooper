@@ -13,6 +13,7 @@ from aiogram.types import Message as MessageType
 from Consts import InlineButtonCallbacks as CButtons
 
 BOT: Bot = None  # type: ignore
+DP: Dispatcher = None  # type:ignore
 logger = logging.getLogger(__name__)
 
 def _setupCHandler(dp: Dispatcher, bot: Bot):
@@ -20,7 +21,7 @@ def _setupCHandler(dp: Dispatcher, bot: Bot):
 	Инициализирует команду `Setup`.
 	"""
 
-	global BOT
+	global BOT, DP
 
 	BOT = bot
 	dp.register_message_handler(Setup, commands=["setup"])
@@ -73,13 +74,15 @@ async def SetupCallbackHandler(query: CallbackQuery):
 
 		await query.message.edit_text(f"Отлично! Перейди по <a href=\"{auth_url}\">вот этой ссылке</a>, авторизуйся там.\nК сожалению, ввиду технических ограничений ВКонтакте, авторизация производится через приложение «Маруся».\n<b>После авторизации во ВКонтакте, отправь адресную ссылку <i>(URL)</i> сюда.</b>", reply_markup=keyboard)
 	elif query.data == CButtons.VK_LOGIN_VIA_PASSWORD:
-		await query.message.edit_text("Напиши логин и пароль в отдельном сообщении, в следующем формате: <code>/vklogin логин пароль</code>, пример: \n<code>/vklogin vasyapupkin 123456password</code>\n\n⚙️ Введи логин и пароль в одном сообщении:")
+		await query.message.edit_text("Напиши логин и пароль в отдельном сообщении, в следующем формате: <code>/vklogin логин пароль</code>, пример: \n<code>/vklogin vasyapupkin 123456password</code>\nУчти, что этот метод <b>менее безопасен</b>, а так же он <b>не поддерживает двухэтапную аутентификацию</b>, поэтому, в случае ошибки, воспользуйся авторизацией через VK ID.\n\n⚙️ Введи логин и пароль в формате, описанном выше:")
 	else:
 		print("UNKNOWN", query.data)
 
 	await query.answer()
 
 async def VKTokenMessageHandler(msg: MessageType):
+	await DP.throttle("vkloginviavkid", rate=1)
+
 	await msg.delete()
 	await msg.answer("Прекрасно! Дай мне время, мне нужно проверить некоторые данные... ⏳\n\n<i>(твоё предыдущее сообщение было удалено в целях безопасности 👀)</i>")
 
@@ -89,4 +92,4 @@ async def VKTokenMessageHandler(msg: MessageType):
 	# Отправляем сообщения о подключении аккаунта...
 	await vkaccount.postAuthInit()
 
-	await msg.answer(f"Успех, я успешно подключился к твоей странице ВКонтакте. Приветствую тебя, <i>{vkaccount.vkUser.first_name} {vkaccount.vkUser.last_name}!</i> 😉👍")
+	await msg.answer(f"Успех, я успешно подключился к твоей странице ВКонтакте. Приветствую тебя, <i>{vkaccount.vkFullUser.first_name} {vkaccount.vkFullUser.last_name}!</i> 😉👍")

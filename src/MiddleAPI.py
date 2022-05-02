@@ -9,7 +9,7 @@ import vkbottle
 import vkbottle_types.responses.account
 import vkbottle_types.responses.users
 from aiogram.types import User
-
+import ServiceHandlers.VK
 import Utils
 
 logger = logging.getLogger(__name__)
@@ -24,7 +24,8 @@ class VKAccount:
 	authViaPassword: bool
 
 	vkAPI: vkbottle.API
-	vkUser: vkbottle_types.responses.users.UsersUserFull
+	vkFullUser: vkbottle_types.responses.users.UsersUserFull
+	vkUser: vkbottle.User
 	vkAccountInfo: vkbottle_types.responses.account.AccountUserSettings
 
 
@@ -34,6 +35,11 @@ class VKAccount:
 		self.authViaPassword = auth_via_password
 
 		self.vkAPI = vkbottle.API(self.vkToken)
+		self.vkUser = vkbottle.User(self.vkToken)
+
+		ServiceHandlers.VK.VKServiceHandler(self.vkUser, self.telegramUser)
+
+
 
 
 	async def initUserInfo(self):
@@ -41,7 +47,7 @@ class VKAccount:
 		self.vkAccountInfo = await self.vkAPI.account.get_profile_info()
 
 		# Получаем всю открытую информацию о пользователе.
-		self.vkUser = (await self.vkAPI.users.get(user_ids=[self.vkAccountInfo.id]))[0]
+		self.vkFullUser = (await self.vkAPI.users.get(user_ids=[self.vkAccountInfo.id]))[0]
 
 	async def postAuthInit(self):
 		"""Действия, выполняемые после успешной авторизации пользоваля ВКонтакте: Отправляет предупредительные сообщения, и так далее."""
