@@ -5,7 +5,7 @@
 import logging
 
 import Consts
-import MiddleAPI
+import MiddlewareAPI
 import vkbottle
 from aiogram import Bot, Dispatcher
 from aiogram.types import Message as MessageType
@@ -43,7 +43,7 @@ async def VKLogin(msg: MessageType):
 	await msg.answer("Прекрасно! Дай мне время, мне нужно проверить некоторые данные... ⏳\n\n<i>(твоё предыдущее сообщение было удалено в целях безопасности 👀)</i>")
 
 
-	vkaccount: MiddleAPI.VKAccount
+	vkaccount: MiddlewareAPI.VKAccount
 	try:
 		vkToken = vkbottle.UserAuth(
 			Consts.officialVKAppCreds.VK_ME.clientID,
@@ -54,7 +54,7 @@ async def VKLogin(msg: MessageType):
 			args[1]
 		)
 
-		vkaccount = MiddleAPI.VKAccount(vkToken, msg.from_user, True)
+		vkaccount = MiddlewareAPI.VKAccount(vkToken, msg.from_user, True)
 
 		# Отправляем сообщения о подключении аккаунта...
 		await vkaccount.postAuthInit()

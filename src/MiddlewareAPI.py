@@ -4,12 +4,13 @@
 
 import logging
 import os
+import aiogram
 
 import vkbottle
 import vkbottle_types.responses.account
 import vkbottle_types.responses.users
 from aiogram.types import User
-import ServiceHandlers.VK
+# from ServiceHandlers.VK import VKServiceHandler
 import Utils
 
 logger = logging.getLogger(__name__)
@@ -37,7 +38,8 @@ class VKAccount:
 		self.vkAPI = vkbottle.API(self.vkToken)
 		self.vkUser = vkbottle.User(self.vkToken)
 
-		ServiceHandlers.VK.VKServiceHandler(self.vkUser, self.telegramUser)
+		from ServiceHandlers.VK import VKServiceHandler
+		VKServiceHandler(MiddlewareAPI(self.vkUser, self.telegramUser))
 
 
 
@@ -94,4 +96,23 @@ class VKAccount:
 				await self.vkAPI.messages.send(-notifier_group_id, Utils.generateVKRandomID(), message="(это автоматическое сообщение, не обращай на него внимание.)\n\ntelehooperSuccessAuth")
 		except:
 			logger.warning(f"Не удалось отправить опциональное сообщение об успешной авторизации бота в ВК. Пожалуйста, проверьте настройку \"VKBOT_NOTIFIER_ID\" в .env файле. (текущее значение: {os.environ['VKBOT_NOTIFIER_ID']})")
-		
+
+class MiddlewareAPI:
+	"""
+	Middleware API, необходимое для создания общего API между Service Handler'ами.
+	"""
+
+	vkUser: vkbottle.User
+	telegramUser: aiogram.types.User
+
+	def __init__(self, vkUser: vkbottle.User, telegramUser: aiogram.types.User) -> None:
+		self.vkUser = vkUser
+		self.telegramUser = telegramUser
+
+	async def sendMessage(self, message: str):
+		"""
+		Отправляет сообщение пользователю в Telegram.
+		"""
+
+		await self.telegramUser.bot.send_message(self.telegramUser.id, message)
+

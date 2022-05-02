@@ -4,7 +4,7 @@
 
 import logging
 
-import MiddleAPI
+import MiddlewareAPI
 import Utils
 from aiogram import Bot, Dispatcher
 from aiogram.types import (CallbackQuery, InlineKeyboardButton,
@@ -24,6 +24,7 @@ def _setupCHandler(dp: Dispatcher, bot: Bot):
 	global BOT, DP
 
 	BOT = bot
+	DP = dp
 	dp.register_message_handler(Setup, commands=["setup"])
 	dp.register_callback_query_handler(SetupCallbackHandler, lambda query: query.data in [CButtons.ADD_VK_ACCOUNT, CButtons.VK_LOGIN_VIA_PASSWORD, CButtons.VK_LOGIN_VIA_VKID, CButtons.BACK_TO_SERVICE_SELECTOR])
 	dp.register_message_handler(VKTokenMessageHandler, lambda msg: msg.text.startswith("https://oauth.vk.com/blank.html#access_token="))
@@ -87,7 +88,7 @@ async def VKTokenMessageHandler(msg: MessageType):
 	await msg.answer("Прекрасно! Дай мне время, мне нужно проверить некоторые данные... ⏳\n\n<i>(твоё предыдущее сообщение было удалено в целях безопасности 👀)</i>")
 
 	vkToken = Utils.extractAccessTokenFromFullURL(msg.text)
-	vkaccount = MiddleAPI.VKAccount(vkToken, msg.from_user, False)
+	vkaccount = MiddlewareAPI.VKAccount(vkToken, msg.from_user, False)
 
 	# Отправляем сообщения о подключении аккаунта...
 	await vkaccount.postAuthInit()

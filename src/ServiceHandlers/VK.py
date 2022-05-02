@@ -3,11 +3,10 @@
 # Handler для ВКонтакте.
 
 
-import aiogram
-import vkbottle
 import logging
 import asyncio
 from vkbottle.user import Message
+from MiddlewareAPI import MiddlewareAPI
 
 logger = logging.getLogger(__name__)
 
@@ -16,17 +15,14 @@ class VKServiceHandler:
 	ВК Handler для работы над сообщениями.
 	"""
 
-	vkUser: vkbottle.User
-	telegramUser: aiogram.types.User
+	mAPI: MiddlewareAPI
 
+	def __init__(self, middlewareAPI: MiddlewareAPI) -> None:
+		self.mAPI = middlewareAPI
 
-	def __init__(self, vkUser: vkbottle.User, telegramUser: aiogram.types.User) -> None:
-		self.vkUser = vkUser
-		self.telegramUser = telegramUser
+		self.mAPI.vkUser.on.message()(self.onMessage)
 
-		self.vkUser.on.message()(self.onMessage)
-
-		asyncio.run_coroutine_threadsafe(vkUser.run_polling(), vkUser.loop)
+		asyncio.run_coroutine_threadsafe(self.mAPI.vkUser.run_polling(), self.mAPI.vkUser.loop)
 
 
 	async def onMessage(self, msg: Message):
@@ -34,4 +30,4 @@ class VKServiceHandler:
 		Обработчик входящих/исходящих сообщений.
 		"""
 
-		logger.info(f"Сообщение {msg.text}")
+		await self.mAPI.sendMessage(msg.text)
