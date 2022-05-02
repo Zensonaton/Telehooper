@@ -2,9 +2,10 @@
 
 # Код для логики Telegram-бота.
 
-import os
-import aiogram
 import logging
+import os
+
+import aiogram
 
 logger = logging.getLogger(__name__)
 
@@ -33,8 +34,8 @@ def _initHandlers(dp: aiogram.Dispatcher, bot: aiogram.Bot):
 	Инициализирует все handler'ы бота.
 	"""
 
-	from TelegramMessageHandlers import Start, Debug, Setup
-	MESSAGE_HANDLERS_IMPORTED = [Start, Debug, Setup]
+	from TelegramMessageHandlers import Debug, Setup, Start, VKLogin
+	MESSAGE_HANDLERS_IMPORTED = [Start, Debug, Setup, VKLogin]
 	MESSAGE_HANDLERS_IMPORTED_FILENAMES = [i.__name__.split(".")[-1] + ".py" for i in MESSAGE_HANDLERS_IMPORTED]
 
 	# Загружаем команды.

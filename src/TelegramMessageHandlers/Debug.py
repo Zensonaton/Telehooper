@@ -2,9 +2,10 @@
 
 """Handler для команды `Debug`."""
 
-from aiogram.types import Message as MessageType
-from aiogram import Dispatcher, Bot
 import logging
+
+from aiogram import Bot, Dispatcher
+from aiogram.types import Message as MessageType
 
 BOT: Bot = None  # type: ignore
 logger = logging.getLogger(__name__)

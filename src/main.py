@@ -4,17 +4,15 @@
 
 import asyncio
 import logging
+import logging.handlers
 import os
 
 import aiogram
 import dotenv
-import vkbottle
 
 import Consts
 import TelegramBot as TGBot
 import Utils
-import logging.handlers 
-
 
 # Логирование.
 logger = logging.getLogger(__name__)
@@ -54,11 +52,6 @@ async def onBotStart(bot: aiogram.Bot):
 	"""
 
 	logger.info("Бот запущен успешно! Hello, world!")
-
-	# token = await vkbottle.UserAuth(
-	# 		Consts.officialVKAppCreds.VK_ME.clientID, 
-	# 		Consts.officialVKAppCreds.VK_ME.clientSecret
-	# 	).get_token("login", "password")
 
 # Запускаем бота.
 if __name__ == "__main__":

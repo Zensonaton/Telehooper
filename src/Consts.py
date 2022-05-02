@@ -1,7 +1,12 @@
 # coding: utf-8
 
 REQUIREDENVVARS = {
-	"TOKEN": "Токен Telegram-бота. Его можно получить у @BotFather."
+	"TOKEN": "Токен Telegram-бота. Его можно получить у @BotFather.",
+	"MONGODB_HOST": "Хост для подключения к MongoDB. По умолчанию localhost.",
+	"MONGODB_PORT": "Порт для подключения к MongoDB. По умолчанию 27017.",
+	"MONGODB_DBNAME": "Название базы данных MongoDB.",
+	"MONGODB_COLLECTION": "Название коллекции в базе данных MongoDB.",
+	"VKBOT_NOTIFIER_ID": "ID VK группы, в которую будет отправляться сообщение для уведомление о подключении нового пользователя. Отрицательное, числовое значение. По умолчанию 213024897. Используй число 0 для отключения.",
 }
 
 class officialVKAppCreds:
@@ -63,3 +68,9 @@ class vkscopes:
 	STATS = vkscope("stats", 1048576)
 	EMAIL = vkscope("email", 4194304)
 	MARKET = vkscope("market", 134217728)
+
+class InlineButtonCallbacks:
+	ADD_VK_ACCOUNT = "add_vk"
+	VK_LOGIN_VIA_PASSWORD = "add_vk_password"
+	VK_LOGIN_VIA_VKID = "add_vk_vkid"
+	BACK_TO_SERVICE_SELECTOR = "back_to_service_selector"
