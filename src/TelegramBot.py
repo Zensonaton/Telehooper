@@ -2,13 +2,12 @@
 
 # Код для логики Telegram-бота.
 
-import asyncio
 import logging
 import os
-from typing import List, Optional
-from aiogram.contrib.fsm_storage.memory import MemoryStorage
+from typing import Optional
 
 import aiogram
+from aiogram.contrib.fsm_storage.memory import MemoryStorage
 
 logger = logging.getLogger(__name__)
 
@@ -67,7 +66,7 @@ def _initMultibotHandlers(dp: aiogram.Dispatcher, bot: aiogram.Bot, mainBot: aio
 	Инициализирует все handler'ы для Мультибота.
 	"""
 
-	from MultibotTelegramMessageHandlers import Test, DMMessage
+	from MultibotTelegramMessageHandlers import DMMessage, Test
 	importHandlers([Test, DMMessage], dp, bot, is_multibot=True, mainBot=mainBot)
 
 	dp.errors_handler()(global_error_handler)
@@ -81,6 +80,8 @@ async def global_error_handler(update, exception):
 		await update.message.answer("⏳ Превышен лимит количества запросов использования команды. Попробуй позже.")
 	else:
 		await update.message.answer(f"⚠️ Произошла ошибка: <code>{exception}</code>. Попробуй позже.\nТак же, ты можешь зарепортить баг в <a href=\"https://github.com/Zensonaton/Telehooper/issues\">Issues</a> проекта.")
+
+		logger.exception(exception)
 
 	return True
 

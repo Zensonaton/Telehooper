@@ -9,15 +9,15 @@ import logging.handlers
 import os
 
 import aiogram
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 import dotenv
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 import Consts
+import MiddlewareAPI
 import TelegramBot as TGBot
 import Utils
-from DB import getDefaultCollection
 from Consts import InlineButtonCallbacks as CButtons
-import MiddlewareAPI
+from DB import getDefaultCollection
 
 # Логирование.
 logger = logging.getLogger(__name__)

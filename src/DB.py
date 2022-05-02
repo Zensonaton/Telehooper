@@ -25,7 +25,7 @@ def getDefaultDatabase() -> pymongo.MongoClient:
 	"""
 	Пытается автоматически вытащить все данные из .env файла и подключиться к базе данных.
 	"""
-	
+
 	return getDatabase(host=os.environ["MONGODB_HOST"], port=int(os.environ["MONGODB_PORT"]))
 
 def getDefaultCollection():

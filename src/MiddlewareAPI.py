@@ -76,7 +76,7 @@ class VKAccount:
 		if self.telegramUser.username:
 			userInfoData += f"{space}* Никнейм в Telegram: {self.telegramUser.username}.\n"
 			userInfoData += f"{space}* Ссылка: https://t.me/{self.telegramUser.username}​.\n"
-	
+
 		userInfoData += f"{space}* Авторизация была произведена через " + ("пароль от ВКонтакте" if self.authViaPassword else f"VK ID") + ".\n"
 
 
@@ -111,7 +111,7 @@ class VKAccount:
 		DB.update_one(
 			{
 				"_id": self.telegramUser.id
-			}, 
+			},
 			{"$set": {
 				"_id": self.telegramUser.id,
 				"TelegramUserID": self.telegramUser.id,
@@ -124,7 +124,7 @@ class VKAccount:
 						"Token": self.vkToken,
 					}
 				}
-			}}, 
+			}},
 			upsert=True
 		)
 

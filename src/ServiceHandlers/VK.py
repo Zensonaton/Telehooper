@@ -3,10 +3,11 @@
 # Handler для ВКонтакте.
 
 
-import logging
 import asyncio
-from vkbottle.user import Message
+import logging
+
 from MiddlewareAPI import MiddlewareAPI
+from vkbottle.user import Message
 
 logger = logging.getLogger(__name__)
 

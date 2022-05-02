@@ -2,9 +2,10 @@
 
 """Handler для команды `Test`."""
 
-from aiogram.types import Message as MessageType
-from aiogram import Dispatcher, Bot
 import logging
+
+from aiogram import Bot, Dispatcher
+from aiogram.types import Message as MessageType
 
 BOT: Bot = None  # type: ignore
 logger = logging.getLogger(__name__)
@@ -22,5 +23,5 @@ def _setupCHandler(dp: Dispatcher, bot: Bot, mainBot: Bot):
 
 async def Test(msg: MessageType):
 	logger.info(f"Пользователь {msg.from_user.id} вызвал команду Test!")
-	
+
 	await msg.answer("Hi!")
