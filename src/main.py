@@ -7,6 +7,7 @@ import json
 import logging
 import logging.handlers
 import os
+from typing import final
 
 import aiogram
 import dotenv
@@ -84,7 +85,7 @@ async def onBotStart(dp: aiogram.Dispatcher):
 	# Авторизуем всех остальных 'миниботов' для функции мультибота:
 	helperbots = os.environ.get("HELPER_BOTS", "[]")
 
-	# TODO: Заткнуть "start_polling" логгер.
+	logging.getLogger("aiogram.dispatcher.dispatcher").disabled = True
 	try:
 		helperbots = json.loads(helperbots)
 	except Exception as error:
@@ -101,6 +102,8 @@ async def onBotStart(dp: aiogram.Dispatcher):
 				logger.debug(f"Мультибот #{index+1}/{len(helperbots)} был запущен!")
 			except Exception as error:
 				logger.warning(f"Мультибота #{index+1} не удалось подключить: {error}")
+	finally:
+		logger.info("Завершил подключение миниботов.")
 
 # Запускаем бота.
 if __name__ == "__main__":
