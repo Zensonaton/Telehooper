@@ -97,4 +97,7 @@ async def VKTokenMessageHandler(msg: MessageType):
 	# Отправляем сообщения о подключении аккаунта...
 	await vkaccount.postAuthInit()
 
+	# Подключаем Service Handler бота:
+	await vkaccount.connectVKServiceHandler()
+
 	await msg.answer(f"Успех, я успешно подключился к твоей странице ВКонтакте. Приветствую тебя, <i>{vkaccount.vkFullUser.first_name} {vkaccount.vkFullUser.last_name}!</i> 😉👍")

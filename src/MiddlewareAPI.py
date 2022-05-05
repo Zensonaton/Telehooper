@@ -59,7 +59,10 @@ class VKAccount:
 		"""
 
 		from ServiceHandlers.VK import VKServiceHandler
-		VKServiceHandler(MiddlewareAPI(self.vkUser, self.vkFullUser, self.telegramUser))
+		service = VKServiceHandler(MiddlewareAPI(self.vkUser, self.vkFullUser, self.telegramUser))
+
+		service.runPolling()
+
 
 	async def postAuthInit(self):
 		"""Действия, выполняемые после успешной авторизации пользоваля ВКонтакте: Отправляет предупредительные сообщения, и так далее."""
@@ -165,3 +168,12 @@ class MiddlewareAPI:
 
 		await self.telegramUser.bot.send_message(self.telegramUser.id, message)
 
+	async def processServiceDisconnect(self, initiated_by_user: bool = True):
+		"""
+		Выполняет определённые действия при отключении сервиса/аккаунта от бота.
+		"""
+
+		# TODO: А почему только ВКонтакте? Я где-то должен хранить тип конкретного MAPI.
+		# TODO: Удалять запись в ДБ.
+
+		await self.telegramUser.bot.send_message(self.telegramUser.id, "ℹ️ Аккаунт <b>«ВКонтакте»</b> был отключён от Telehooper." if initiated_by_user else "⚠️ Аккаунт <b>«ВКонтакте»</b> был принудительно отключён от бота Telehooper; это действие было совершено <b>внешне</b>, напримёр, <b>отозвав все сессии в настройках безопасности аккаунта</b>.")

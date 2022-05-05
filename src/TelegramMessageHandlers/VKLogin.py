@@ -44,6 +44,7 @@ async def VKLogin(msg: MessageType):
 
 
 	vkaccount: MiddlewareAPI.VKAccount
+
 	try:
 		vkToken = vkbottle.UserAuth(
 			Consts.officialVKAppCreds.VK_ME.clientID,
@@ -58,6 +59,9 @@ async def VKLogin(msg: MessageType):
 
 		# Отправляем сообщения о подключении аккаунта...
 		await vkaccount.postAuthInit()
+
+		# Подключаем Service Handler бота:
+		await vkaccount.connectVKServiceHandler()
 	except:
 		keyboard = InlineKeyboardMarkup().add(
 			InlineKeyboardButton(text="Авторизоваться через VK ID", callback_data=CButtons.VK_LOGIN_VIA_VKID)

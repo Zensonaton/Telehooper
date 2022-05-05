@@ -84,6 +84,7 @@ async def onBotStart(dp: aiogram.Dispatcher):
 	# Авторизуем всех остальных 'миниботов' для функции мультибота:
 	helperbots = os.environ.get("HELPER_BOTS", "[]")
 
+	# TODO: Заткнуть "start_polling" логгер.
 	try:
 		helperbots = json.loads(helperbots)
 	except Exception as error:

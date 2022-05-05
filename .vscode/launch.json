@@ -10,8 +10,7 @@
 			"type": "python",
 			"request": "launch",
 			"program": "${workspaceFolder}/src/main.py",
-			"console": "integratedTerminal",
-			"justMyCode": true
+			"console": "integratedTerminal"
 		},
 
 		{
@@ -19,8 +18,7 @@
 			"type": "python",
 			"request": "launch",
 			"program": "${file}",
-			"console": "integratedTerminal",
-			"justMyCode": true
+			"console": "integratedTerminal"
 		}
 	]
 }
