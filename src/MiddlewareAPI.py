@@ -11,6 +11,7 @@ import vkbottle
 import vkbottle_types.responses.account
 import vkbottle_types.responses.users
 from aiogram.types import User
+from DB import getDefaultCollection
 
 import Utils
 from DB import getDefaultCollection
@@ -147,11 +148,17 @@ class VKAccount:
 		else:
 			return True
 
+class AccountDisconnectType:
+	INITIATED_BY_USER = 1
+	EXTERNAL = 2
+	SILENT = 3
+
 class MiddlewareAPI:
 	"""
 	Middleware API, необходимое для создания общего API между Service Handler'ами.
 	"""
 
+	# TODO: Заменить все vk_ объекты на класс VKAccount.
 	vkUser: vkbottle.User
 	vkFullUser: vkbottle_types.responses.users.UsersUserFull
 	telegramUser: aiogram.types.User
@@ -168,12 +175,36 @@ class MiddlewareAPI:
 
 		await self.telegramUser.bot.send_message(self.telegramUser.id, message)
 
-	async def processServiceDisconnect(self, initiated_by_user: bool = True):
+	async def processServiceDisconnect(self, disconnect_type: int = AccountDisconnectType.INITIATED_BY_USER) -> None:
 		"""
 		Выполняет определённые действия при отключении сервиса/аккаунта от бота.
 		"""
 
 		# TODO: А почему только ВКонтакте? Я где-то должен хранить тип конкретного MAPI.
-		# TODO: Удалять запись в ДБ.
 
-		await self.telegramUser.bot.send_message(self.telegramUser.id, "ℹ️ Аккаунт <b>«ВКонтакте»</b> был отключён от Telehooper." if initiated_by_user else "⚠️ Аккаунт <b>«ВКонтакте»</b> был принудительно отключён от бота Telehooper; это действие было совершено <b>внешне</b>, напримёр, <b>отозвав все сессии в настройках безопасности аккаунта</b>.")
+		if disconnect_type != AccountDisconnectType.SILENT:
+			# Это не было "тихое" отключение аккаунта, поэтому
+			# отправляем сообщения пользователю Telegram.
+
+			is_external = disconnect_type == AccountDisconnectType.EXTERNAL
+
+			await self.telegramUser.bot.send_message(self.telegramUser.id, "⚠️ Аккаунт <b>«ВКонтакте»</b> был принудительно отключён от бота Telehooper; это действие было совершено <b>внешне</b>, напримёр, <b>отозвав все сессии в настройках безопасности аккаунта</b>." if (is_external) else "ℹ️ Аккаунт <b>«ВКонтакте»</b> был отключён от Telehooper.")
+
+		# Получаем ДБ:
+		DB = getDefaultCollection()
+
+		# И удаляем запись оттуда:
+		# DB.update_one(
+		# 	{
+		# 		"_id": self.telegramUser.id
+		# 	},
+
+		# 	{
+		# 		"Services": {
+		# 			"VK": {
+		# 				"Auth": False,
+		# 				"Token": None,
+		# 			}
+		# 		}
+		# 	}
+		# )

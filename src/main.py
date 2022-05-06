@@ -68,18 +68,24 @@ async def onBotStart(dp: aiogram.Dispatcher):
 			logger.debug(f"Обнаружен авторизованный в ВК пользоватль с TID {doc['_id']}, авторизовываю...")
 
 			telegramUser = (await Bot.get_chat_member(doc["_id"], doc["_id"])).user
+			vkAccount: MiddlewareAPI.VKAccount
+			mAPI: MiddlewareAPI.MiddlewareAPI
 			try:
 				# TODO: ensure_future()
-				mAPI = MiddlewareAPI.VKAccount(doc["Services"]["VK"]["Token"], telegramUser)
+				vkAccount = MiddlewareAPI.VKAccount(doc["Services"]["VK"]["Token"], telegramUser)
 
-				await mAPI.initUserInfo()
-				await mAPI.connectVKServiceHandler()
+				await vkAccount.initUserInfo()
+				await vkAccount.connectVKServiceHandler()
 			except Exception as error:
 				logger.warning(f"Ошибка авторизации пользователя с TID {doc['_id']}: {error}")
 
+				# mAPI.disconnectVKServiceHandler()
+
+				# TODO: Заменить этот код:
 				keyboard = InlineKeyboardMarkup().add(
 					InlineKeyboardButton(text="Снова авторизоваться", callback_data=CButtons.ADD_VK_ACCOUNT),
 				)
+
 				await Bot.send_message(telegramUser.id, "⚠️ После моей перезагрузки я не сумел авторизоваться в твой аккаунт <b>«ВКонтакте»</b>.\nЕсли бот был отключён от ВКонтакте специально, например, путём отключения всех приложений/сессий в настройках безопасности, то волноваться незачем. \n\n⚙️ Ты снова можешь авторизоваться, нажав на кнопку ниже:", reply_markup=keyboard)
 
 	# Авторизуем всех остальных 'миниботов' для функции мультибота:
