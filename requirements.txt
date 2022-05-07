@@ -1,4 +1,4 @@
-aiogram==2.18
+aiogram==2.20
 Pillow==9.1.0
 pymongo==3.12.3
 python-dotenv==0.20.0
