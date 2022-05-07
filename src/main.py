@@ -72,11 +72,10 @@ async def onBotStart(dp: aiogram.Dispatcher):
 			mAPI: MiddlewareAPI.MiddlewareAPI = None # type: ignore
 			try:
 				# TODO: ensure_future()
-				# TODO: Via password
 
 				# Пытаемся авторизоваться. vkAccount более не используется, самое главное - создание Longpoll'а.
 				mAPI = MiddlewareAPI.MiddlewareAPI(telegramUser)
-				vkAccount = await mAPI.connectVKAccount(doc["Services"]["VK"]["Token"], True, True)
+				vkAccount = await mAPI.connectVKAccount(doc["Services"]["VK"]["Token"], True, doc["Services"]["VK"]["IsAuthViaPassword"])
 			except Exception as error:
 				logger.warning(f"Ошибка авторизации пользователя с TID {doc['_id']}: {error}")
 
