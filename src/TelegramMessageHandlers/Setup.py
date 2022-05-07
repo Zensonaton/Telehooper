@@ -4,13 +4,12 @@
 
 import logging
 
-import MiddlewareAPI
-import Utils
 from aiogram import Bot, Dispatcher
 from aiogram.types import (CallbackQuery, InlineKeyboardButton,
                            InlineKeyboardMarkup)
 from aiogram.types import Message as MessageType
 from Consts import InlineButtonCallbacks as CButtons
+from src.TelegramMessageHandlers.VKLogin import VKTokenMessageHandler
 
 BOT: Bot = None  # type: ignore
 DP: Dispatcher = None  # type:ignore
@@ -84,18 +83,3 @@ async def SetupCallbackHandler(query: CallbackQuery):
 		logger.warning(query.data)
 
 	await query.answer()
-
-# TODO: Перенести эту функцию в VKLogin.py.
-async def VKTokenMessageHandler(msg: MessageType):
-	await DP.throttle("vkloginviavkid", rate=1) # TODO: Сделать const для названий Throttle.
-
-	await msg.delete()
-	await msg.answer("Прекрасно! Дай мне время, мне нужно проверить некоторые данные... ⏳\n\n<i>(твоё предыдущее сообщение было удалено в целях безопасности 👀)</i>")
-
-	vkToken = Utils.extractAccessTokenFromFullURL(msg.text)
-	vkaccount = await MiddlewareAPI.MiddlewareAPI(msg.from_user).connectVKAccount(vkToken, True, False)
-
-	# Отправляем различные сообщения о успешном подключении аккаунта:
-	await vkaccount.postAuthInit()
-
-	await msg.answer(f"Успех, я успешно подключился к твоей странице ВКонтакте. Приветствую тебя, <i>{vkaccount.vkFullUser.first_name} {vkaccount.vkFullUser.last_name}!</i> 😉👍")
