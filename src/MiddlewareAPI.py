@@ -133,6 +133,32 @@ class VKServiceHandler:
 		# Создаём Polling-задачу:
 		self.pollingTask = asyncio.create_task(self.middlewareAPI.vkAccount.vkUser.run_polling(), name=f"VK Polling, id{self.middlewareAPI.vkAccount.vkFullUser.id}")
 
+	async def serviceCommandHandler(self, msg: Message):
+		"""
+		Обработчик команд, отправленных внутри сервиса, т.е., например, в чате "Избранное" в ВК.
+		"""
+
+		async def _commandRecieved(msg: Message):
+			await self.middlewareAPI.vkAccount.vkAPI.messages.edit(self.middlewareAPI.vkAccount.vkFullUser.id, "✅ " + msg.text, message_id=msg.id)
+
+		if msg.text.startswith("logoff"):
+			# Выходим из аккаунта:
+			await _commandRecieved(msg)
+			
+			await self.middlewareAPI.processServiceDisconnect(MAPIServiceType.VK, AccountDisconnectType.EXTERNAL, False)
+
+			# Отправляем сообщения:
+			await self.middlewareAPI.vkAccount.vkAPI.messages.send(self.middlewareAPI.vkAccount.vkFullUser.id, random_id=Utils.generateVKRandomID(), message="ℹ️ Ваш аккаунт ВКонтакте был успешно отключён от бота «Telehooper».", reply_to=msg.id)
+		elif msg.text.startswith("test"):
+			await _commandRecieved(msg)
+
+			await self.middlewareAPI.vkAccount.vkAPI.messages.send(self.middlewareAPI.vkAccount.vkFullUser.id, random_id=Utils.generateVKRandomID(), message="✅ Telegram-бот «Telehooper» работает!", reply_to=msg.id)
+		elif msg.text.startswith("ping"):
+			await _commandRecieved(msg)
+
+			await self.middlewareAPI.sendMessage("[<b>ВКонтакте</b>] » pong! 👋")
+
+
 
 	async def onMessage(self, msg: Message):
 		"""
@@ -147,12 +173,8 @@ class VKServiceHandler:
 			# ping - отправка тестового сообщения в ТГ;
 			# (идея?) nohoop - выключение поддержки бота в чате, в котором было отправлено сообщение с командой
 
-			if msg.text == "logoff":
-				# Выходим из аккаунта:
-				await self.middlewareAPI.processServiceDisconnect(MAPIServiceType.VK, AccountDisconnectType.EXTERNAL, False)
-				# Отправляем сообщения:
-				await self.middlewareAPI.vkAccount.vkAPI.messages.send(self.middlewareAPI.vkAccount.vkFullUser.id, random_id=Utils.generateVKRandomID(), message="ℹ️ Ваш аккаунт ВКонтакте был успешно отключён от бота «Telehooper».", reply_to=msg.id)
-				await self.middlewareAPI.vkAccount.vkAPI.messages.edit(self.middlewareAPI.vkAccount.vkFullUser.id, "✅ logoff", message_id=msg.id)
+			await self.serviceCommandHandler(msg)
+
 
 			return
 
