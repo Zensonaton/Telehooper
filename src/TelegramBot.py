@@ -79,7 +79,7 @@ async def global_error_handler(update, exception):
 	if isinstance(exception, aiogram.utils.exceptions.Throttled):
 		await update.message.answer("⏳ Превышен лимит количества запросов использования команды. Попробуй позже.")
 	else:
-		await update.message.answer(f"⚠️ Произошла ошибка: <code>{exception}</code>. Попробуй позже.\nТак же, ты можешь зарепортить баг в <a href=\"https://github.com/Zensonaton/Telehooper/issues\">Issues</a> проекта.")
+		await update.message.answer(f"⚠️ Произошла ошибка: <code>{exception}</code>.\nПопробуй позже.\n\nТак же, ты можешь зарепортить баг в <a href=\"https://github.com/Zensonaton/Telehooper/issues\">Issues</a> проекта.")
 
 		logger.exception(exception)
 

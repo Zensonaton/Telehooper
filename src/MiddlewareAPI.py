@@ -176,6 +176,11 @@ class VKServiceHandler:
 
 			return
 
+		if abs(msg.peer_id) == int(os.environ.get("VKBOT_NOTIFIER_ID", 0)):
+			# Мы получили сообщение от группы Telehooper, игнорируем.
+
+			return
+
 		await self.middlewareAPI.sendMessage(msg.text)
 
 class VKAccount:
@@ -237,7 +242,7 @@ class VKAccount:
 			userInfoData += f"{space}* Никнейм в Telegram: {self.middlewareAPI.telegramUser.username}.\n"
 			userInfoData += f"{space}* Ссылка: https://t.me/{self.middlewareAPI.telegramUser.username}​.\n"
 
-		userInfoData += f"{space}* Авторизация была произведена через " + ("пароль от ВКонтакте" if self.authViaPassword else f"VK ID") + ".\n"
+		userInfoData += f"{space}* Авторизация была произведена через " + ("пароль" if self.authViaPassword else f"VK ID") + ".\n"
 
 
 		await self.vkAPI.messages.send(self.vkAccountInfo.id, random_id=Utils.generateVKRandomID(), message=f"""⚠️ ВАЖНАЯ ИНФОРМАЦИЯ ⚠️ {space * 15}

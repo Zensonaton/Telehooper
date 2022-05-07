@@ -9,7 +9,7 @@ from aiogram.types import (CallbackQuery, InlineKeyboardButton,
                            InlineKeyboardMarkup)
 from aiogram.types import Message as MessageType
 from Consts import InlineButtonCallbacks as CButtons
-from src.TelegramMessageHandlers.VKLogin import VKTokenMessageHandler
+from TelegramMessageHandlers.VKLogin import VKTokenMessageHandler
 
 BOT: Bot = None  # type: ignore
 DP: Dispatcher = None  # type:ignore
