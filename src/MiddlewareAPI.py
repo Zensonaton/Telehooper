@@ -149,7 +149,10 @@ class VKServiceHandler:
 
 			if msg.text == "logoff":
 				# Выходим из аккаунта:
-				await self.middlewareAPI.processServiceDisconnect(MAPIServiceType.VK, AccountDisconnectType.EXTERNAL, True)
+				await self.middlewareAPI.processServiceDisconnect(MAPIServiceType.VK, AccountDisconnectType.EXTERNAL, False)
+				# Отправляем сообщения:
+				await self.middlewareAPI.vkAccount.vkAPI.messages.send(self.middlewareAPI.vkAccount.vkFullUser.id, random_id=Utils.generateVKRandomID(), message="ℹ️ Ваш аккаунт ВКонтакте был успешно отключён от бота «Telehooper».", reply_to=msg.id)
+				await self.middlewareAPI.vkAccount.vkAPI.messages.edit(self.middlewareAPI.vkAccount.vkFullUser.id, "✅ logoff", message_id=msg.id)
 
 			return
 
