@@ -7,7 +7,6 @@ import json
 import logging
 import logging.handlers
 import os
-from typing import final
 
 import aiogram
 import dotenv
@@ -17,7 +16,7 @@ import Consts
 import MiddlewareAPI
 import TelegramBot as TGBot
 import Utils
-from Consts import InlineButtonCallbacks as CButtons
+from Consts import AccountDisconnectType, InlineButtonCallbacks as CButtons, MAPIServiceType
 from DB import getDefaultCollection
 
 # Логирование.
@@ -63,23 +62,26 @@ async def onBotStart(dp: aiogram.Dispatcher):
 	# Производим восстановление всех сессий:
 	logger.info("Бот запущен успешно! Пытаюсь авторизовать всех пользователей подключённых сервисов...")
 
-	for doc in DB.find({}):
+	# Извлекаем из ДБ список всех активных сессий ВК:
+	for doc in DB.find({"Services.VK.Auth": True}):
 		if doc["Services"]["VK"]["Auth"]:
 			logger.debug(f"Обнаружен авторизованный в ВК пользоватль с TID {doc['_id']}, авторизовываю...")
 
 			telegramUser = (await Bot.get_chat_member(doc["_id"], doc["_id"])).user
 			vkAccount: MiddlewareAPI.VKAccount
-			mAPI: MiddlewareAPI.MiddlewareAPI
+			mAPI: MiddlewareAPI.MiddlewareAPI = None # type: ignore
 			try:
 				# TODO: ensure_future()
-				vkAccount = MiddlewareAPI.VKAccount(doc["Services"]["VK"]["Token"], telegramUser)
+				# TODO: Via password
 
-				await vkAccount.initUserInfo()
-				await vkAccount.connectVKServiceHandler()
+				# Пытаемся авторизоваться. vkAccount более не используется, самое главное - создание Longpoll'а.
+				mAPI = MiddlewareAPI.MiddlewareAPI(telegramUser)
+				vkAccount = await mAPI.connectVKAccount(doc["Services"]["VK"]["Token"], True, True)
 			except Exception as error:
 				logger.warning(f"Ошибка авторизации пользователя с TID {doc['_id']}: {error}")
 
-				# mAPI.disconnectVKServiceHandler()
+				if mAPI is not None:
+					await mAPI.processServiceDisconnect(MAPIServiceType.VK, AccountDisconnectType.EXTERNAL)
 
 				# TODO: Заменить этот код:
 				keyboard = InlineKeyboardMarkup().add(

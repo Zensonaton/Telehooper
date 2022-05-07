@@ -8,8 +8,8 @@ import Consts
 import MiddlewareAPI
 import vkbottle
 from aiogram import Bot, Dispatcher
-from aiogram.types import Message as MessageType
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.types import Message as MessageType
 from Consts import InlineButtonCallbacks as CButtons
 
 BOT: Bot = None  # type: ignore
@@ -43,25 +43,25 @@ async def VKLogin(msg: MessageType):
 	await msg.answer("Прекрасно! Дай мне время, мне нужно проверить некоторые данные... ⏳\n\n<i>(твоё предыдущее сообщение было удалено в целях безопасности 👀)</i>")
 
 
-	vkaccount: MiddlewareAPI.VKAccount
+	vkAccount: MiddlewareAPI.VKAccount
 
 	try:
-		vkToken = vkbottle.UserAuth(
+		# Авторизуемся в ВК через логин+пароль:
+		vkToken = await vkbottle.UserAuth(
 			Consts.officialVKAppCreds.VK_ME.clientID,
 			Consts.officialVKAppCreds.VK_ME.clientSecret
-		)
-		vkToken = await vkToken.get_token(
+		).get_token(
 			args[0],
 			args[1]
 		)
 
-		vkaccount = MiddlewareAPI.VKAccount(vkToken, msg.from_user, True)
+		# Создаём MAPI-объект:
+		vkAccount = await MiddlewareAPI.MiddlewareAPI(
+			msg.from_user
+		).connectVKAccount(vkToken, True, True)
 
-		# Отправляем сообщения о подключении аккаунта...
-		await vkaccount.postAuthInit()
-
-		# Подключаем Service Handler бота:
-		await vkaccount.connectVKServiceHandler()
+		# Отправляем различные сообщения о успешном подключении аккаунта:
+		await vkAccount.postAuthInit()
 	except:
 		keyboard = InlineKeyboardMarkup().add(
 			InlineKeyboardButton(text="Авторизоваться через VK ID", callback_data=CButtons.VK_LOGIN_VIA_VKID)
@@ -69,4 +69,4 @@ async def VKLogin(msg: MessageType):
 
 		await msg.answer("Упс, произошла ошибка при авторизации ВКонтакте. 😔\n\nВозможные причины:\n * пароль и/ли логин неверен; 🔐\n * бот столкнулся с проверкой Captcha; 🤖🔫\n * на твоём аккаунте подключена двухэтапная аутентификация, которая не поддерживается ботом. 🔑\n\nПопробуй снова; в случае дальнейших ошибок, воспользуйся авторизацией через VK ID, с которой намного меньше проблем:", reply_markup=keyboard)
 	else:
-		await msg.answer(f"Успех, я успешно подключился к твоей странице ВКонтакте. Приветствую тебя, <i>{vkaccount.vkFullUser.first_name} {vkaccount.vkFullUser.last_name}!</i> 😉👍")
+		await msg.answer(f"Успех, я успешно подключился к твоей странице ВКонтакте. Приветствую тебя, <i>{vkAccount.vkFullUser.first_name} {vkAccount.vkFullUser.last_name}!</i> 😉👍")

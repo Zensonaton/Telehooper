@@ -85,19 +85,17 @@ async def SetupCallbackHandler(query: CallbackQuery):
 
 	await query.answer()
 
+# TODO: Перенести эту функцию в VKLogin.py.
 async def VKTokenMessageHandler(msg: MessageType):
-	await DP.throttle("vkloginviavkid", rate=1)
+	await DP.throttle("vkloginviavkid", rate=1) # TODO: Сделать const для названий Throttle.
 
 	await msg.delete()
 	await msg.answer("Прекрасно! Дай мне время, мне нужно проверить некоторые данные... ⏳\n\n<i>(твоё предыдущее сообщение было удалено в целях безопасности 👀)</i>")
 
 	vkToken = Utils.extractAccessTokenFromFullURL(msg.text)
-	vkaccount = MiddlewareAPI.VKAccount(vkToken, msg.from_user, False)
+	vkaccount = await MiddlewareAPI.MiddlewareAPI(msg.from_user).connectVKAccount(vkToken, True, False)
 
-	# Отправляем сообщения о подключении аккаунта...
+	# Отправляем различные сообщения о успешном подключении аккаунта:
 	await vkaccount.postAuthInit()
-
-	# Подключаем Service Handler бота:
-	await vkaccount.connectVKServiceHandler()
 
 	await msg.answer(f"Успех, я успешно подключился к твоей странице ВКонтакте. Приветствую тебя, <i>{vkaccount.vkFullUser.first_name} {vkaccount.vkFullUser.last_name}!</i> 😉👍")

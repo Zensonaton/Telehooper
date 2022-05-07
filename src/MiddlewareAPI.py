@@ -2,22 +2,163 @@
 
 # В этом файле находится middle-псевдо-API, благодаря которому различные 'коннекторы' могут соединяться с основым Telegram ботом.
 
+
+from __future__ import annotations
+
+import asyncio
 import datetime
 import logging
 import os
+from typing import Optional
 
 import aiogram
 import vkbottle
+import vkbottle_types
 import vkbottle_types.responses.account
 import vkbottle_types.responses.users
-from aiogram.types import User
-from DB import getDefaultCollection
+from vkbottle.user import Message
 
 import Utils
+from Consts import AccountDisconnectType, MAPIServiceType
 from DB import getDefaultCollection
 
 logger = logging.getLogger(__name__)
-DB = getDefaultCollection()
+
+class MiddlewareAPI:
+	"""
+	Middleware API, необходимое для создания общего API между Service Handler'ами.
+	"""
+
+	telegramUser: aiogram.types.User
+
+	vkAccount: VKAccount
+	isVKConnected: bool
+
+	def __init__(self, telegramUser: aiogram.types.User, vkAccount: Optional[VKAccount] = None) -> None:
+		self.vkAccount = vkAccount # type: ignore
+		self.isVKConnected = (vkAccount is not None)
+
+		self.telegramUser = telegramUser
+
+	async def connectVKAccount(self, vk_token: str, do_init_stuff: bool = True, auth_via_password: bool = False) -> VKAccount:
+		"""
+		Подключает аккаунт ВКонтакте к этому Middleware API.
+		`do_init_stuff` указывает, будут ли выполняться все дополнительные действия по подключению аккаунту:
+		 * fetch'инг информации о пользователе,
+		 * подключение VKServiceHandler'а (Longpoll)
+		"""
+
+		self.vkAccount = VKAccount(vk_token, self, auth_via_password)
+		if do_init_stuff:
+			await self.vkAccount.initUserInfo()
+			await self.vkAccount.connectVKServiceHandler()
+
+		return self.vkAccount
+
+	async def sendMessage(self, message: str):
+		"""
+		Отправляет сообщение пользователю в Telegram.
+		"""
+
+		await self.telegramUser.bot.send_message(self.telegramUser.id, message)
+
+	async def processServiceDisconnect(self, service_type: int = MAPIServiceType.VK, disconnect_type: int = AccountDisconnectType.INITIATED_BY_USER, send_service_messages: bool = False) -> None:
+		"""
+		Выполняет определённые действия при отключении сервиса/аккаунта от бота.
+		"""
+
+		# Отключаем Task:
+		self.vkAccount.vkUser.polling.stop = True # type: ignore
+
+		if disconnect_type != AccountDisconnectType.SILENT:
+			# Это не было "тихое" отключение аккаунта, поэтому
+			# отправляем сообщения пользователю Telegram.
+
+			is_external = (disconnect_type == AccountDisconnectType.EXTERNAL)
+
+			await self.telegramUser.bot.send_message(
+				self.telegramUser.id,
+				(
+					# TODO: Поменять этот текст:
+					"⚠️ Аккаунт <b>«ВКонтакте»</b> был принудительно отключён от бота Telehooper; это действие было совершено <b>внешне</b>, напримёр, <b>отозвав все сессии в настройках безопасности аккаунта</b>."
+					if (is_external) else
+					"ℹ️ Аккаунт <b>«ВКонтакте»</b> был успешно отключён от Telehooper."
+				)
+			)
+
+		if send_service_messages:
+			# Мы должны отправить сообщения в самом сервисе о отключении:
+			await self.vkAccount.vkAPI.messages.send(self.vkAccount.vkFullUser.id, random_id=Utils.generateVKRandomID(), message="ℹ️ Ваш аккаунт ВКонтакте был успешно отключён от бота «Telehooper».")
+			# TODO: .answer() вместо .send()
+
+		# Получаем ДБ:
+		DB = getDefaultCollection()
+
+		# И удаляем запись оттуда:
+		DB.update_one(
+			{
+				"_id": self.telegramUser.id
+			},
+			{"$set": {
+				"Services.VK.Auth": False,
+				"Services.VK.Token": None
+			}},
+			upsert=True
+		)
+
+class VKServiceHandler:
+	"""
+	ВК Handler для работы над сообщениями.
+	"""
+
+	pollingTask: asyncio.Task
+
+	def __init__(self, middlewareAPI: MiddlewareAPI) -> None:
+		self.middlewareAPI = middlewareAPI
+
+		self.middlewareAPI.vkAccount.vkUser.on.message()(self.onMessage)
+
+	def runPolling(self):
+		"""
+		Запуск поллинга.
+		"""
+
+		@self.middlewareAPI.vkAccount.vkUser.error_handler.register_error_handler(vkbottle.VKAPIError[5])
+		async def errorHandler(e: vkbottle.VKAPIError):
+			# Если этот код вызывается, то значит, что пользователь отозвал разрешения ВК, и сессия была отозвана.
+
+			# Отправляем различные сообщения о отключённом боте:
+			await self.middlewareAPI.processServiceDisconnect(MAPIServiceType.VK, AccountDisconnectType.EXTERNAL)
+
+		# Создаём Polling-задачу:
+		self.pollingTask = asyncio.create_task(self.middlewareAPI.vkAccount.vkUser.run_polling(), name=f"VK Polling, id{self.middlewareAPI.vkAccount.vkFullUser.id}")
+
+
+	async def onMessage(self, msg: Message):
+		"""
+		Обработчик входящих/исходящих сообщений.
+		"""
+
+		if msg.peer_id == self.middlewareAPI.vkAccount.vkFullUser.id:
+			# Мы получили сообщение в "Избранном", ничего не делаем.
+			# TODO: Добавить в этот блок поддержку команд в "Избранном", среди которых:
+			# logoff - выход из аккаунта (external);
+			# test - проверка соединения;
+			# ping - отправка тестового сообщения в ТГ;
+			# (идея?) nohoop - выключение поддержки бота в чате, в котором было отправлено сообщение с командой
+
+			if msg.text == "logoff":
+				# Выходим из аккаунта:
+				await self.middlewareAPI.processServiceDisconnect(MAPIServiceType.VK, AccountDisconnectType.EXTERNAL, True)
+
+			return
+
+		if msg.out:
+			# Мы получили сообщение, отправленное самим пользователем, игнорируем.
+
+			return
+
+		await self.middlewareAPI.sendMessage(msg.text)
 
 class VKAccount:
 	"""
@@ -25,7 +166,6 @@ class VKAccount:
 	"""
 
 	vkToken: str
-	telegramUser: User
 	authViaPassword: bool
 
 	vkAPI: vkbottle.API
@@ -33,10 +173,9 @@ class VKAccount:
 	vkUser: vkbottle.User
 	vkAccountInfo: vkbottle_types.responses.account.AccountUserSettings
 
-
-	def __init__(self, vkToken: str, telegramUser: User, auth_via_password: bool = False):
+	def __init__(self, vkToken: str, middlewareAPI: MiddlewareAPI, auth_via_password: bool = False):
 		self.vkToken = vkToken
-		self.telegramUser = telegramUser
+		self.middlewareAPI = middlewareAPI
 		self.authViaPassword = auth_via_password
 
 		self.vkAPI = vkbottle.API(self.vkToken)
@@ -54,16 +193,15 @@ class VKAccount:
 		# Получаем всю открытую информацию о пользователе.
 		self.vkFullUser = (await self.vkAPI.users.get(user_ids=[self.vkAccountInfo.id]))[0]
 
-	async def connectVKServiceHandler(self):
+	async def connectVKServiceHandler(self) -> VKServiceHandler:
 		"""
 		Создаёт VK Service Handler.
 		"""
 
-		from ServiceHandlers.VK import VKServiceHandler
-		service = VKServiceHandler(MiddlewareAPI(self.vkUser, self.vkFullUser, self.telegramUser))
+		svc = VKServiceHandler(self.middlewareAPI)
+		svc.runPolling()
 
-		service.runPolling()
-
+		return svc
 
 	async def postAuthInit(self):
 		"""Действия, выполняемые после успешной авторизации пользоваля ВКонтакте: Отправляет предупредительные сообщения, и так далее."""
@@ -71,15 +209,15 @@ class VKAccount:
 		await self.initUserInfo()
 
 		space = "&#12288;" # Символ пробела, который не удаляется при отправке сообщения ВКонтакте.
-		userInfoData = f"{space}* Имя: {self.telegramUser.first_name}"
+		userInfoData = f"{space}* Имя: {self.middlewareAPI.telegramUser.first_name}"
 
-		if self.telegramUser.last_name:
+		if self.middlewareAPI.telegramUser.last_name:
 			userInfoData += " {self.telegramUser.last_name}"
 		userInfoData += ".\n"
 
-		if self.telegramUser.username:
-			userInfoData += f"{space}* Никнейм в Telegram: {self.telegramUser.username}.\n"
-			userInfoData += f"{space}* Ссылка: https://t.me/{self.telegramUser.username}​.\n"
+		if self.middlewareAPI.telegramUser.username:
+			userInfoData += f"{space}* Никнейм в Telegram: {self.middlewareAPI.telegramUser.username}.\n"
+			userInfoData += f"{space}* Ссылка: https://t.me/{self.middlewareAPI.telegramUser.username}​.\n"
 
 		userInfoData += f"{space}* Авторизация была произведена через " + ("пароль от ВКонтакте" if self.authViaPassword else f"VK ID") + ".\n"
 
@@ -111,14 +249,16 @@ class VKAccount:
 		except:
 			logger.warning(f"Не удалось отправить опциональное сообщение об успешной авторизации бота в ВК. Пожалуйста, проверьте настройку \"VKBOT_NOTIFIER_ID\" в .env файле. (текущее значение: {os.environ.get('VKBOT_NOTIFIER_ID')})")
 
+		DB = getDefaultCollection()
+
 		# Сохраняем информацию о авторизации:
 		DB.update_one(
 			{
-				"_id": self.telegramUser.id
+				"_id": self.middlewareAPI.telegramUser.id
 			},
 			{"$set": {
-				"_id": self.telegramUser.id,
-				"TelegramUserID": self.telegramUser.id,
+				"_id": self.middlewareAPI.telegramUser.id,
+				"TelegramUserID": self.middlewareAPI.telegramUser.id,
 				"VKUserID": self.vkAccountInfo.id,
 				"Services": {
 					"VK": {
@@ -147,64 +287,3 @@ class VKAccount:
 			return False
 		else:
 			return True
-
-class AccountDisconnectType:
-	INITIATED_BY_USER = 1
-	EXTERNAL = 2
-	SILENT = 3
-
-class MiddlewareAPI:
-	"""
-	Middleware API, необходимое для создания общего API между Service Handler'ами.
-	"""
-
-	# TODO: Заменить все vk_ объекты на класс VKAccount.
-	vkUser: vkbottle.User
-	vkFullUser: vkbottle_types.responses.users.UsersUserFull
-	telegramUser: aiogram.types.User
-
-	def __init__(self, vkUser: vkbottle.User, vkFullUser: vkbottle_types.responses.users.UsersUserFull, telegramUser: aiogram.types.User) -> None:
-		self.vkUser = vkUser
-		self.vkFullUser = vkFullUser
-		self.telegramUser = telegramUser
-
-	async def sendMessage(self, message: str):
-		"""
-		Отправляет сообщение пользователю в Telegram.
-		"""
-
-		await self.telegramUser.bot.send_message(self.telegramUser.id, message)
-
-	async def processServiceDisconnect(self, disconnect_type: int = AccountDisconnectType.INITIATED_BY_USER) -> None:
-		"""
-		Выполняет определённые действия при отключении сервиса/аккаунта от бота.
-		"""
-
-		# TODO: А почему только ВКонтакте? Я где-то должен хранить тип конкретного MAPI.
-
-		if disconnect_type != AccountDisconnectType.SILENT:
-			# Это не было "тихое" отключение аккаунта, поэтому
-			# отправляем сообщения пользователю Telegram.
-
-			is_external = disconnect_type == AccountDisconnectType.EXTERNAL
-
-			await self.telegramUser.bot.send_message(self.telegramUser.id, "⚠️ Аккаунт <b>«ВКонтакте»</b> был принудительно отключён от бота Telehooper; это действие было совершено <b>внешне</b>, напримёр, <b>отозвав все сессии в настройках безопасности аккаунта</b>." if (is_external) else "ℹ️ Аккаунт <b>«ВКонтакте»</b> был отключён от Telehooper.")
-
-		# Получаем ДБ:
-		DB = getDefaultCollection()
-
-		# И удаляем запись оттуда:
-		# DB.update_one(
-		# 	{
-		# 		"_id": self.telegramUser.id
-		# 	},
-
-		# 	{
-		# 		"Services": {
-		# 			"VK": {
-		# 				"Auth": False,
-		# 				"Token": None,
-		# 			}
-		# 		}
-		# 	}
-		# )
