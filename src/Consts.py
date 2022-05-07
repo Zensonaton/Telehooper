@@ -82,3 +82,7 @@ class AccountDisconnectType:
 
 class MAPIServiceType:
 	VK = 1
+
+class CommandThrottleNames:
+	VK_LOGIN = "vklogin"
+	VK_LOGIN_VKID = "vkloginviavkid"
