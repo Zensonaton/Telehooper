@@ -89,7 +89,6 @@ class MiddlewareAPI:
 		if send_service_messages:
 			# Мы должны отправить сообщения в самом сервисе о отключении:
 			await self.vkAccount.vkAPI.messages.send(self.vkAccount.vkFullUser.id, random_id=Utils.generateVKRandomID(), message="ℹ️ Ваш аккаунт ВКонтакте был успешно отключён от бота «Telehooper».")
-			# TODO: .answer() вместо .send()
 
 		# Получаем ДБ:
 		DB = getDefaultCollection()
@@ -166,15 +165,9 @@ class VKServiceHandler:
 		"""
 
 		if msg.peer_id == self.middlewareAPI.vkAccount.vkFullUser.id:
-			# Мы получили сообщение в "Избранном", ничего не делаем.
-			# TODO: Добавить в этот блок поддержку команд в "Избранном", среди которых:
-			# logoff - выход из аккаунта (external);
-			# test - проверка соединения;
-			# ping - отправка тестового сообщения в ТГ;
-			# (идея?) nohoop - выключение поддержки бота в чате, в котором было отправлено сообщение с командой
-
+			# Мы получили сообщение в "Избранном", обрабатываем сообщение как команду,
+			# но боту в ТГ ничего не даём.
 			await self.serviceCommandHandler(msg)
-
 
 			return
 
