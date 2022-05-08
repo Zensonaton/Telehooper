@@ -18,7 +18,7 @@ def _setupCHandler(dp: Dispatcher, bot: Bot):
 	global BOT
 
 	BOT = bot
-	dp.register_message_handler(Start, commands=["start"])
+	dp.register_message_handler(Start, commands=["start", "help"])
 
 
 async def Start(msg: MessageType):

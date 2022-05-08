@@ -36,8 +36,8 @@ def _initHandlers(dp: aiogram.Dispatcher, bot: aiogram.Bot):
 	Инициализирует все handler'ы бота.
 	"""
 
-	from TelegramMessageHandlers import Debug, Setup, Start, VKLogin, Services
-	importHandlers([Debug, Setup, Start, VKLogin, Services], dp, bot, is_multibot=False)
+	from TelegramMessageHandlers import Debug, Setup, Start, VKLogin, Services, GroupEvents
+	importHandlers([Debug, Setup, Start, VKLogin, Services, GroupEvents], dp, bot, is_multibot=False)
 
 
 	dp.errors_handler()(global_error_handler)
