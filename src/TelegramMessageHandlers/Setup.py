@@ -12,7 +12,7 @@ from Consts import InlineButtonCallbacks as CButtons
 from TelegramMessageHandlers.VKLogin import VKTokenMessageHandler
 
 BOT: Bot = None  # type: ignore
-DP: Dispatcher = None  # type:ignore
+DP: Dispatcher = None  # type: ignore
 logger = logging.getLogger(__name__)
 
 def _setupCHandler(dp: Dispatcher, bot: Bot):
@@ -63,7 +63,6 @@ async def SetupCallbackHandler(query: CallbackQuery):
 	elif query.data == CButtons.BACK_TO_SERVICE_SELECTOR:
 		await SetupMessage(query.message, True)
 	elif query.data == CButtons.VK_LOGIN_VIA_VKID:
-		# TODO: Реализовать настройку, что бы бот мог хостить Flask приложение, и если бот настроен на это, то вместо редиректа на blank использовать Flask-приложение.
 		auth_url = f"https://oauth.vk.com/authorize?client_id=6463690&redirect_uri=https://oauth.vk.com/blank.html&display=page&response_type=token&revoke=1"
 
 		keyboard = InlineKeyboardMarkup().add(
