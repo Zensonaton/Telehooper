@@ -9,7 +9,7 @@ from aiogram.types import (CallbackQuery, InlineKeyboardButton,
                            InlineKeyboardMarkup)
 from aiogram.types import Message as MessageType
 from Consts import InlineButtonCallbacks as CButtons
-from TelegramMessageHandlers.VKLogin import VKTokenMessageHandler
+from TelegramMessageHandlers.VKLogin import VKTokenMessageHandler, VKTokenURLMessageHandler
 
 BOT: Bot = None  # type: ignore
 DP: Dispatcher = None  # type: ignore
@@ -27,6 +27,7 @@ def _setupCHandler(dp: Dispatcher, bot: Bot):
 	dp.register_message_handler(Setup, commands=["setup"])
 	dp.register_callback_query_handler(SetupCallbackHandler, lambda query: query.data in [CButtons.ADD_VK_ACCOUNT, CButtons.VK_LOGIN_VIA_PASSWORD, CButtons.VK_LOGIN_VIA_VKID, CButtons.BACK_TO_SERVICE_SELECTOR])
 	dp.register_message_handler(VKTokenMessageHandler, lambda msg: msg.text.startswith("https://oauth.vk.com/blank.html#access_token="))
+	dp.register_message_handler(VKTokenURLMessageHandler, lambda msg: msg.text == "https://oauth.vk.com/authorize?client_id=6463690&redirect_uri=https://oauth.vk.com/blank.html&display=page&response_type=token&revoke=1")
 
 
 async def Setup(msg: MessageType):
