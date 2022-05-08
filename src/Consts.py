@@ -74,6 +74,7 @@ class InlineButtonCallbacks:
 	VK_LOGIN_VIA_PASSWORD = "add_vk_password"
 	VK_LOGIN_VIA_VKID = "add_vk_vkid"
 	BACK_TO_SERVICE_SELECTOR = "back_to_service_selector"
+	DICONNECT_SERVICE = "disconnect"
 
 class AccountDisconnectType:
 	INITIATED_BY_USER = 1

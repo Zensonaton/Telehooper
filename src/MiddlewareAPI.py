@@ -53,7 +53,24 @@ class MiddlewareAPI:
 			await self.vkAccount.initUserInfo()
 			await self.vkAccount.connectVKServiceHandler()
 
+		self.isVKConnected = True
+
 		return self.vkAccount
+
+	async def restoreFromDB(self, telegramUser: aiogram.types.User):
+		"""
+		Пытается восстановить данные из ДБ.
+		"""
+
+		DB = getDefaultCollection()
+		res = DB.find_one({"_id": telegramUser.id})
+
+		if res:
+			self.isVKConnected = res["Services"]["VK"]["Auth"]
+			await self.connectVKAccount(res["Services"]["VK"]["Token"], False, res["Services"]["VK"]["IsAuthViaPassword"])
+			await self.vkAccount.initUserInfo()
+		else:
+			self.isVKConnected = False
 
 	async def sendMessage(self, message: str):
 		"""
