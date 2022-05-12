@@ -6,7 +6,7 @@
 	"version": "0.2.0",
 	"configurations": [
 		{
-			"name": "Запустить Telegram-бота",
+			"name": "Python: Запустить Telegram-бота",
 			"type": "python",
 			"request": "launch",
 			"program": "${workspaceFolder}/src/main.py",
@@ -14,7 +14,16 @@
 		},
 
 		{
-			"name": "Python: Current File",
+			"name": "Python: Запустить скрипт для быстрого создания Telegram-групп",
+			"type": "python",
+			"request": "launch",
+			"program": "${workspaceFolder}/src/GroupsCreator/main.py",
+			"console": "integratedTerminal",
+			"cwd": "${workspaceFolder}/src/GroupsCreator"
+		},
+
+		{
+			"name": "Python: Запустить текущий файл",
 			"type": "python",
 			"request": "launch",
 			"program": "${file}",
