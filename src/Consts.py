@@ -76,6 +76,9 @@ class InlineButtonCallbacks:
 	BACK_TO_SERVICE_SELECTOR = "back_to_service_selector"
 	DICONNECT_SERVICE = "disconnect"
 	CANCEL_GROUP_TRANSFORM = "cancel_to_servicegroup_transform"
+	CONVERT_GROUP_TO_DIALOGUE = "convert_to_dialogue"
+	CANCEL_DELETE_CUR_MESSAGE = "cancel"
+	CANCEL_EDIT_CUR_MESSAGE = "cancel_edit"
 
 class AccountDisconnectType:
 	INITIATED_BY_USER = 1

@@ -30,5 +30,5 @@ async def GroupJoinHandler(msg: MessageType):
 
 		return
 
-	# await msg.answer("Меня добавили в супер-группу! Ура!")
+	await msg.answer("Меня добавили в супер-группу! Ура!")
 

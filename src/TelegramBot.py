@@ -5,9 +5,12 @@
 import logging
 import os
 from typing import Optional
+import Exceptions
 
 import aiogram
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
+
+from TelegramMessageHandlers import OtherCallbackQueryHandlers
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +40,7 @@ def _initHandlers(dp: aiogram.Dispatcher, bot: aiogram.Bot):
 	"""
 
 	from TelegramMessageHandlers import Debug, Setup, Start, VKLogin, Services, GroupEvents, ConvertToServiceDialogue, ConvertToPublicServiceDialogue
-	importHandlers([Debug, Setup, Start, VKLogin, Services, GroupEvents, ConvertToServiceDialogue, ConvertToPublicServiceDialogue], dp, bot, is_multibot=False)
+	importHandlers([Debug, Setup, Start, VKLogin, Services, GroupEvents, ConvertToServiceDialogue, ConvertToPublicServiceDialogue, OtherCallbackQueryHandlers], dp, bot, is_multibot=False)
 
 
 	dp.errors_handler()(global_error_handler)
@@ -78,6 +81,12 @@ async def global_error_handler(update, exception):
 
 	if isinstance(exception, aiogram.utils.exceptions.Throttled):
 		await update.message.answer("⏳ Превышен лимит количества запросов использования команды. Попробуй позже.")
+	elif isinstance(exception, Exceptions.CommandAllowedOnlyInGroup):
+		await update.message.answer("⚠️ Данную команду можно использовать только в Telegram-группах.")
+	elif isinstance(exception, Exceptions.CommandAllowedOnlyInPrivateChats):
+		await update.message.answer("⚠️ Данную команду можно использовать только в личном диалоге с ботом.")
+	elif isinstance(exception, Exceptions.CommandAllowedOnlyInBotDialogue):
+		await update.message.answer("⚠️ Данную команду можно использовать только в диалоге подключённого сервиса.\n\n⚙️Попробуй присоеденить диалог сервиса к группе Telegram, используя команду /setup.")
 	else:
 		await update.message.answer(f"⚠️ Произошла ошибка: <code>{exception}</code>.\nПопробуй позже.\n\nТак же, ты можешь зарепортить баг в <a href=\"https://github.com/Zensonaton/Telehooper/issues\">Issues</a> проекта.")
 
