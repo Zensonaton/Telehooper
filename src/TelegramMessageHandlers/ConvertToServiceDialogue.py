@@ -3,7 +3,7 @@
 """Handler для команды `ConvertToServiceDialogue`."""
 
 from typing import Tuple
-from aiogram.types import Message as MessageType, Chat, User, InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.types import Message as MessageType, Chat, User, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
 from Consts import InlineButtonCallbacks as CButton
 from aiogram import Dispatcher, Bot
 from Exceptions import CommandAllowedOnlyInGroup
@@ -21,6 +21,7 @@ def _setupCHandler(dp: Dispatcher, bot: Bot):
 
 	BOT = bot
 	dp.register_message_handler(ConvertToServiceDialogue, commands=["converttodialogue", "converttoservicedialogue"])
+	dp.register_callback_query_handler(dialogueConvertCallback, lambda query: query.data == CButton.CONVERT_GROUP_TO_DIALOGUE)
 
 
 async def ConvertToServiceDialogue(msg: MessageType):
@@ -33,10 +34,18 @@ async def ConvertToServiceDialogue(msg: MessageType):
 	ALL_CONDITIONS_ARE_MET = all(CONDITIONS_MET)
 
 
-	keyboard = InlineKeyboardMarkup().add(
-		InlineKeyboardButton("Конвертировать", callback_data=CButton.CONVERT_GROUP_TO_DIALOGUE),
+	keyboard = InlineKeyboardMarkup()
+	
+	if ALL_CONDITIONS_ARE_MET:
+		keyboard.add(
+			InlineKeyboardButton("Конвертировать", callback_data=CButton.CONVERT_GROUP_TO_DIALOGUE)
+		)
+
+	keyboard.insert(
 		InlineKeyboardButton("Отмена", callback_data=CButton.CANCEL_EDIT_CUR_MESSAGE)
 	)
+
+
 
 	await msg.reply(f"""<b>⚠️ Предупреждение! Потенциально разрушительная команда! ⚠️</b>
 
@@ -77,3 +86,21 @@ async def checkServiceDialogueConversionConditions(chat: Chat, user: User) -> Tu
 		BOT_IS_ADMIN, 
 		NOT_CONNECTED_AS_DIALOGUE
 	)
+
+async def dialogueConvertCallback(query: CallbackQuery):
+	CONDITIONS_MET = await checkServiceDialogueConversionConditions(query.message.chat, query.message.from_user)
+	ALL_CONDITIONS_ARE_MET = all(CONDITIONS_MET)
+
+	if not ALL_CONDITIONS_ARE_MET:
+		return await query.answer("Не все условия для преобразования были соблюдены.")
+
+	await convertGroupToDialogue(query.message.chat)
+
+	return await query.answer()
+
+async def convertGroupToDialogue(chat: Chat):
+	"""
+	Переводит группу в диалог.
+	"""
+
+	await BOT.send_message(chat.id, "Тут должно быть конвертирование группы в диалог.")
