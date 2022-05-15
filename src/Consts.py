@@ -92,3 +92,4 @@ class MAPIServiceType:
 class CommandThrottleNames:
 	VK_LOGIN = "vklogin"
 	VK_LOGIN_VKID = "vkloginviavkid"
+	DIALOGUE_CONVERT = "grouptodialogueconvert"

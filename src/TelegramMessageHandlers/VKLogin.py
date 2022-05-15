@@ -10,8 +10,7 @@ import vkbottle
 from aiogram import Bot, Dispatcher
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.types import Message as MessageType
-from Consts import InlineButtonCallbacks as CButtons
-from Consts import CommandThrottleNames as CThrottle
+from Consts import InlineButtonCallbacks as CButtons, CommandThrottleNames as CThrottle
 import Utils
 
 BOT: Bot = None  # type: ignore
@@ -31,7 +30,7 @@ def _setupCHandler(dp: Dispatcher, bot: Bot):
 
 
 async def VKLogin(msg: MessageType):
-	await DP.throttle(CThrottle.VK_LOGIN, rate=1)
+	await DP.throttle(CThrottle.VK_LOGIN, rate=1, chat_id=msg.chat.id)
 
 	args = (msg.get_args() or "").split(" ")
 
@@ -74,7 +73,7 @@ async def VKLogin(msg: MessageType):
 		await successConnectionMessage(msg, vkAccount)
 
 async def VKTokenMessageHandler(msg: MessageType):
-	await DP.throttle(CThrottle.VK_LOGIN_VKID, rate=1)
+	await DP.throttle(CThrottle.VK_LOGIN_VKID, rate=1, chat_id=msg.chat.id)
 
 	await msg.delete()
 	await msg.answer("Прекрасно! Дай мне время, мне нужно проверить некоторые данные... ⏳\n\n<i>(твоё предыдущее сообщение было удалено в целях безопасности 👀)</i>")

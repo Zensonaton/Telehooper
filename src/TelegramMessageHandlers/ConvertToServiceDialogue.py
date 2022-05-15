@@ -2,14 +2,18 @@
 
 """Handler для команды `ConvertToServiceDialogue`."""
 
+import asyncio
 from typing import Tuple
 from aiogram.types import Message as MessageType, Chat, User, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
-from Consts import InlineButtonCallbacks as CButton
+from Consts import InlineButtonCallbacks as CButton, CommandThrottleNames as CThrottle
 from aiogram import Dispatcher, Bot
 from Exceptions import CommandAllowedOnlyInGroup
 import logging
 
+from TelegramMessageHandlers.Dialogue import ThisDialogue
+
 BOT: Bot = None  # type: ignore
+DP: Dispatcher = None  # type: ignore
 logger = logging.getLogger(__name__)
 
 def _setupCHandler(dp: Dispatcher, bot: Bot):
@@ -17,15 +21,16 @@ def _setupCHandler(dp: Dispatcher, bot: Bot):
 	Инициализирует команду `ConvertToServiceDialogue`.
 	"""
 
-	global BOT
+	global BOT, DP
 
 	BOT = bot
+	DP = dp
 	dp.register_message_handler(ConvertToServiceDialogue, commands=["converttodialogue", "converttoservicedialogue"])
 	dp.register_callback_query_handler(DialogueConvertCallback, lambda query: query.data == CButton.CONVERT_GROUP_TO_DIALOGUE)
 	dp.register_callback_query_handler(DialogueMenuCallback, lambda query: query.data == CButton.BACK_TO_GROUP_CONVERTER)
 
 async def ConvertToServiceDialogue(msg: MessageType):
-	# TODO: dp.throttle
+	await DP.throttle(CThrottle.DIALOGUE_CONVERT, rate=3, chat_id=msg.chat.id)
 
 	if not msg.chat.type.endswith("group"):
 		raise CommandAllowedOnlyInGroup
@@ -38,19 +43,23 @@ async def ConvertToDialogueMessage(msg: MessageType, edit_message_instead: bool 
 
 	_text = f"""<b>⚠️ Предупреждение! Потенциально разрушительная команда! ⚠️</b>
 
-Ты использовал команду, необходимую для конвертирования <b>Telegram-группы</b> в <b>диалог</b>. 
-Это значит, что новые сообщения <b>подключённого сервиса</b> будут отправляться <b>в эту группу</b>, и отвечать на них нужно будет именно <b>в этой группе</b>.
-Если более простым языком, то под конкретного пользователя можно сделать отдельный <b>диалог</b> в Telegram! 
+Ты использовал команду, необходимую для конвертирования Telegram-группы в <b>диалог</b>. 
+Это значит, что под конкретного пользователя/беседу подключённого сервиса можно сделать отдельный диалог в <b>Telegram</b>! 
 
-ℹ️ Однако, существуют некоторые лимиты:
+<b>ℹ️ Существуют некоторые лимиты:</b>
  <b>•</b> <b>1</b> диалог подключённого сервиса — <b>1 группа</b>,
  <b>•</b> Лимит Telegram по количеству групп — <b>500 штук</b> (<a href=\"https://limits.tginfo.me/ru-RU\">клик</a>),
  <b>•</b> В день можно создавать <b>50 групп</b> (<a href=\"https://limits.tginfo.me/ru-RU\">клик</a>).
 
-{"Все следующие условия для преобразования группы <b>были соблюдены</b>" if ALL_CONDITIONS_ARE_MET else "Продолжить можно, если выполнить все следующие <b>условия</b> для <b>преобразования группы</b>"}:
+<b>ℹ️ После конвертирования у группы изменится:</b>
+ <b>•</b> Название; на имя диалога,
+ <b>•</b> Фотография; на фото диалога,
+ <b>•</b> Описание.
+
+{"Все следующие условия для преобразования группы были соблюдены" if ALL_CONDITIONS_ARE_MET else "Продолжить можно, если выполнить все следующие <b>условия</b> для преобразования группы"}:
  {"✅" if CONDITIONS_MET[0] else "☑️"} Ты должен быть администратором в группе,
- {"✅" if CONDITIONS_MET[1] else "☑️"} У бота должны все права в беседе, включая права администратора,
- {"✅" if CONDITIONS_MET[2] else "☑️"} Данная группа не должна быть уже подключённым диалогом.
+ {"✅" if CONDITIONS_MET[1] else "☑️"} У бота должны права администратора,
+ {"✅" if CONDITIONS_MET[2] else "☑️"} Данная группа не должна уже быть диалогом.
 
 {"Если ты согласен, то нажми на кнопку ниже:" if ALL_CONDITIONS_ARE_MET else "<b>Продолжить можно после выполнения всех условий, описанных выше❗️</b>"}
 """
@@ -59,11 +68,11 @@ async def ConvertToDialogueMessage(msg: MessageType, edit_message_instead: bool 
 	
 	if ALL_CONDITIONS_ARE_MET:
 		keyboard.add(
-			InlineKeyboardButton("Конвертировать", callback_data=CButton.CONVERT_GROUP_TO_DIALOGUE)
+			InlineKeyboardButton("⚙️ Конвертировать", callback_data=CButton.CONVERT_GROUP_TO_DIALOGUE)
 		)
 
 	keyboard.insert(
-		InlineKeyboardButton("Отмена", callback_data=CButton.CANCEL_EDIT_CUR_MESSAGE)
+		InlineKeyboardButton("🔙 Отмена", callback_data=CButton.CANCEL_EDIT_CUR_MESSAGE)
 	)
 
 
@@ -101,13 +110,13 @@ async def DialogueConvertCallback(query: CallbackQuery):
 	if not ALL_CONDITIONS_ARE_MET:
 		return await query.answer("Не все условия для преобразования были соблюдены, отправь команду снова.")
 
-	keyboard = InlineKeyboardMarkup().add(
-		InlineKeyboardButton("Назад", callback_data=CButton.BACK_TO_GROUP_CONVERTER)
-	)
-
 	await ConvertGroupToDialogue(query.message.chat)
-	await query.message.edit_text("<b>Отлично!</b> Данная группа была успешно конвертирована в диалог! ☺️\n\nТеперь тебе необходимо выбрать, к какому диалогу подключённого сервиса эта группа должна быть подсоединена: Именно с выбранного диалога сообщения будут пересылаться сюда, и тут же на них ты будешь отвечать.", reply_markup=keyboard)
-	# TODO: Отправить команду с настройкой текущего чата.
+	
+	await asyncio.sleep(0)
+
+	await query.message.edit_text(query.message.html_text)
+	await query.message.answer("<b>Отлично!</b> Данная группа была успешно конвертирована в диалог! ☺️\n\nТеперь тебе необходимо выбрать, к какому диалогу подключённого сервиса эта группа должна быть подсоединена: Именно с выбранного диалога сообщения будут пересылаться сюда, и тут же на них ты будешь отвечать, для этого ты можешь воспользоваться командою /dialogue. Удоства ради, я использую её за тебя:")
+	await ThisDialogue(query.message)
 
 	return await query.answer()
 
@@ -122,8 +131,9 @@ async def ConvertGroupToDialogue(chat: Chat):
 	# TODO: Предупредить пользователя о изменениях при переводе группы.
 	await chat.set_title("ㅤ")
 
-	if chat.photo:
+	try:
 		await chat.delete_photo()
+	except: pass
 
 	try:
 		await chat.set_description("[Telehooper] Пустой диалог сервиса.")

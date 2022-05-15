@@ -54,8 +54,8 @@ async def SetupCallbackHandler(query: CallbackQuery):
 		keyboard = InlineKeyboardMarkup(
 			row_width=2
 		).add(
-			InlineKeyboardButton(text="VK ID", callback_data=CButtons.VK_LOGIN_VIA_VKID),
-			InlineKeyboardButton(text="Пароль", callback_data=CButtons.VK_LOGIN_VIA_PASSWORD),
+			InlineKeyboardButton(text="🆔 VK ID", callback_data=CButtons.VK_LOGIN_VIA_VKID),
+			InlineKeyboardButton(text="🔐 Пароль", callback_data=CButtons.VK_LOGIN_VIA_PASSWORD),
 		).add(
 			InlineKeyboardButton(text="🔙 Назад", callback_data=CButtons.BACK_TO_SERVICE_SELECTOR),
 		)
@@ -67,7 +67,7 @@ async def SetupCallbackHandler(query: CallbackQuery):
 		auth_url = f"https://oauth.vk.com/authorize?client_id=6463690&redirect_uri=https://oauth.vk.com/blank.html&display=page&response_type=token&revoke=1"
 
 		keyboard = InlineKeyboardMarkup().add(
-			InlineKeyboardButton(text="Авторизоваться", url=auth_url),
+			InlineKeyboardButton(text="🔑 Авторизоваться", url=auth_url),
 		).add(
 			InlineKeyboardButton(text="🔙 Назад", callback_data=CButtons.ADD_VK_ACCOUNT),
 		)
