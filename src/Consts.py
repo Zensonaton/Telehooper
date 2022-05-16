@@ -74,12 +74,14 @@ class InlineButtonCallbacks:
 	VK_LOGIN_VIA_PASSWORD = "add_vk_password"
 	VK_LOGIN_VIA_VKID = "add_vk_vkid"
 	BACK_TO_SERVICE_SELECTOR = "back_to_service_selector"
-	DICONNECT_SERVICE = "disconnect"
+	DISCONNECT_SERVICE = "disconnect"
 	CANCEL_GROUP_TRANSFORM = "cancel_to_servicegroup_transform"
 	CONVERT_GROUP_TO_DIALOGUE = "convert_to_dialogue"
 	CANCEL_DELETE_CUR_MESSAGE = "cancel"
 	CANCEL_EDIT_CUR_MESSAGE = "cancel_edit"
 	BACK_TO_GROUP_CONVERTER = "back_group_converter"
+	DIALOGUE_SELECTOR_MENU_VK = "dialogue_select-vk"
+	DIALOGUE_SELECT_VK = "dialogue-vk:"
 
 class AccountDisconnectType:
 	INITIATED_BY_USER = 1
@@ -93,3 +95,4 @@ class CommandThrottleNames:
 	VK_LOGIN = "vklogin"
 	VK_LOGIN_VKID = "vkloginviavkid"
 	DIALOGUE_CONVERT = "grouptodialogueconvert"
+	SERVICES_LIST = "services"

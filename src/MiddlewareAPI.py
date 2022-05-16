@@ -9,7 +9,7 @@ import asyncio
 import datetime
 import logging
 import os
-from typing import Optional
+from typing import Any, List, Optional
 
 import aiogram
 import vkbottle
@@ -17,6 +17,9 @@ import vkbottle_types
 import vkbottle_types.responses.account
 import vkbottle_types.responses.users
 from vkbottle.user import Message
+from vkbottle_types.responses.users import UsersUserFull
+from vkbottle_types.responses.groups import GroupsGroupFull
+from vkbottle_types.responses.messages import MessagesConversationWithMessage
 
 import Utils
 from Consts import AccountDisconnectType, MAPIServiceType
@@ -40,6 +43,7 @@ class MiddlewareAPI:
 
 		self.telegramUser = telegramUser
 
+
 	async def connectVKAccount(self, vk_token: str, do_init_stuff: bool = True, auth_via_password: bool = False) -> VKAccount:
 		"""
 		Подключает аккаунт ВКонтакте к этому Middleware API.
@@ -57,18 +61,20 @@ class MiddlewareAPI:
 
 		return self.vkAccount
 
-	async def restoreFromDB(self, telegramUser: aiogram.types.User):
+	async def restoreFromDB(self):
 		"""
 		Пытается восстановить данные из ДБ.
 		"""
 
 		DB = getDefaultCollection()
-		res = DB.find_one({"_id": telegramUser.id})
+		res = DB.find_one({"_id": self.telegramUser.id})
 
 		if res:
 			self.isVKConnected = res["Services"]["VK"]["Auth"]
-			await self.connectVKAccount(res["Services"]["VK"]["Token"], False, res["Services"]["VK"]["IsAuthViaPassword"])
-			await self.vkAccount.initUserInfo()
+
+			if self.isVKConnected:
+				await self.connectVKAccount(res["Services"]["VK"]["Token"], False, res["Services"]["VK"]["IsAuthViaPassword"])
+				await self.vkAccount.initUserInfo()
 		else:
 			self.isVKConnected = False
 
@@ -134,6 +140,7 @@ class VKServiceHandler:
 
 		self.middlewareAPI.vkAccount.vkUser.on.message()(self.onMessage)
 
+
 	def runPolling(self):
 		"""
 		Запуск поллинга.
@@ -174,8 +181,6 @@ class VKServiceHandler:
 
 			await self.middlewareAPI.sendMessage("[<b>ВКонтакте</b>] » pong! 👋")
 
-
-
 	async def onMessage(self, msg: Message):
 		"""
 		Обработчик входящих/исходящих сообщений.
@@ -212,6 +217,7 @@ class VKAccount:
 	vkFullUser: vkbottle_types.responses.users.UsersUserFull
 	vkUser: vkbottle.User
 	vkAccountInfo: vkbottle_types.responses.account.AccountUserSettings
+	vkDialogues: List[VKDialogue]
 
 	def __init__(self, vkToken: str, middlewareAPI: MiddlewareAPI, auth_via_password: bool = False):
 		self.vkToken = vkToken
@@ -327,3 +333,109 @@ class VKAccount:
 			return False
 		else:
 			return True
+
+	async def getDialoguesList(self) -> List[VKDialogue]:
+		"""
+		Получает список всех диалогов пользователя, а так же кэширует их.
+		"""
+
+		convos = await self.vkAPI.messages.get_conversations(offset=0, count=200, extended=True)
+		convos_extended_info = {}
+
+		for group in convos.groups or {}:
+			convos_extended_info.update({
+				-group.id: group
+			})
+
+		for user in convos.profiles or {}:
+			convos_extended_info.update({
+				user.id: user
+			})
+
+		self.vkDialogues = []
+		for convo in convos.items or {}:
+			extended_info = convos_extended_info.get(convo.conversation.peer.id)
+
+			self.vkDialogues.append(VKDialogue(convo, extended_info, self.vkFullUser.id)) # type: ignore
+			
+
+		return self.vkDialogues
+
+
+
+class VKDialogue:
+	"""
+	Класс, отображающий диалог ВК; это может быть диалог с пользователем, группой (ботом), или с беседой.
+	"""
+
+	_dialogue: Any
+	_extended: Any
+	_type: str
+
+	isUser: bool
+	isGroup: bool
+	isConversation: bool
+	isSelf: bool
+
+	firstName: str
+	lastName: str
+	fullName: str
+	username: str
+	photoUrl: str
+	id: int
+	domain: str
+	isPinned: bool
+	isMale: bool
+
+
+	def __init__(self, dialogue: MessagesConversationWithMessage, extended_info: UsersUserFull | GroupsGroupFull | None, self_user_id: Optional[int]) -> None:
+		self._dialogue = dialogue
+		self._extended = extended_info
+		self._type = dialogue.conversation.peer.type.value
+
+		self.isUser = self._type == "user"
+		self.isGroup = self._type == "group"
+		self.isConversation = self._type == "chat"
+		self.isSelf = self.isUser and self._dialogue.conversation.peer.id == self_user_id
+
+		assert self.isUser or self.isGroup or self.isConversation, f"Неизвестный тип диалога: {self._type}"
+
+		self.isPinned = self._dialogue.conversation.sort_id.major_id > 0
+
+
+		if self.isUser:
+			if self.isSelf:
+				self.firstName = "Избранное"
+				self.lastName = ""
+				self.fullName = "Избранное"
+			else:
+				self.firstName = self._extended.first_name
+				self.lastName = self._extended.last_name
+				self.fullName = f"{self.firstName} {self.lastName}"
+
+			self.username = self._extended.domain
+			self.photoUrl = self._extended.photo_100
+			self.id = self._extended.id
+			self.domain = self._extended.screen_name
+			self.isMale = self._extended.sex == 2
+		elif self.isGroup:
+			self.firstName = self._extended.name
+			self.lastName = ""
+			self.fullName = self.firstName
+			self.username = self._extended.screen_name
+			self.photoUrl = self._extended.photo_100
+			self.id = self._extended.id
+			self.domain = self._extended.screen_name
+			self.isMale = True
+		else:
+			self.firstName = self._dialogue.conversation.chat_settings.title
+			self.lastName = ""
+			self.fullName = self.firstName
+			self.username = ""
+			self.id = self._dialogue.conversation.peer.id
+			self.domain = ""
+			self.isMale = True
+
+			_photo = self._dialogue.conversation.chat_settings.photo
+			if _photo:
+				self.photoUrl = _photo.photo_100 # TODO: Нормальное получение доступной фотки в самом высоком качестве.
