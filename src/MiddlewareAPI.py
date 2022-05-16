@@ -17,9 +17,9 @@ import vkbottle_types
 import vkbottle_types.responses.account
 import vkbottle_types.responses.users
 from vkbottle.user import Message
-from vkbottle_types.responses.users import UsersUserFull
 from vkbottle_types.responses.groups import GroupsGroupFull
 from vkbottle_types.responses.messages import MessagesConversationWithMessage
+from vkbottle_types.responses.users import UsersUserFull
 
 import Utils
 from Consts import AccountDisconnectType, MAPIServiceType
@@ -167,7 +167,7 @@ class VKServiceHandler:
 		if msg.text.startswith("logoff"):
 			# Выходим из аккаунта:
 			await _commandRecieved(msg)
-			
+
 			await self.middlewareAPI.processServiceDisconnect(MAPIServiceType.VK, AccountDisconnectType.EXTERNAL, False)
 
 			# Отправляем сообщения:
@@ -357,7 +357,7 @@ class VKAccount:
 			extended_info = convos_extended_info.get(convo.conversation.peer.id)
 
 			self.vkDialogues.append(VKDialogue(convo, extended_info, self.vkFullUser.id)) # type: ignore
-			
+
 
 		return self.vkDialogues
 

@@ -1,30 +1,43 @@
 # coding: utf-8
 
-"""Handler для команды `Services`."""
+"""Обработчик для команды `Services`."""
 
-from aiogram.types import Message as MessageType
-from aiogram import Dispatcher, Bot
 import logging
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
-from Consts import AccountDisconnectType, InlineButtonCallbacks as CButtons, MAPIServiceType, CommandThrottleNames as CThrottle
+from typing import TYPE_CHECKING
 
 import MiddlewareAPI
+from aiogram import Bot, Dispatcher
+from aiogram.types import (CallbackQuery, InlineKeyboardButton,
+                           InlineKeyboardMarkup)
+from aiogram.types import Message as MessageType
+from Consts import AccountDisconnectType
+from Consts import CommandThrottleNames as CThrottle
+from Consts import InlineButtonCallbacks as CButtons
+from Consts import MAPIServiceType
 
-BOT: Bot = None  # type: ignore
-DP: Dispatcher = None  # type: ignore
+if TYPE_CHECKING:
+	from TelegramBot import Telehooper
+
+Bot: 	Telehooper 	= None # type: ignore
+TGBot: 	Bot 		= None # type: ignore
+DP: 	Dispatcher 	= None # type: ignore
+
 logger = logging.getLogger(__name__)
 
-def _setupCHandler(dp: Dispatcher, bot: Bot):
+
+def _setupCHandler(bot: Telehooper):
 	"""
 	Инициализирует команду `Services`.
 	"""
 
-	global BOT, DP
+	global Bot, TGBot, DP
 
-	BOT = bot
-	DP = dp
-	dp.register_message_handler(Services, commands=["services"])
-	dp.register_callback_query_handler(ServicesCallbackHandler, lambda query: query.data in [CButtons.DISCONNECT_SERVICE])
+	Bot = bot
+	TGBot = Bot.TGBot
+	DP = Bot.DP
+
+	DP.register_message_handler(Services, commands=["services"])
+	DP.register_callback_query_handler(ServicesCallbackHandler, lambda query: query.data in [CButtons.DISCONNECT_SERVICE])
 
 
 async def Services(msg: MessageType):

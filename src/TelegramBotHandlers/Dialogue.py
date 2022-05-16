@@ -1,28 +1,42 @@
 # coding: utf-8
 
-"""Handler для команды `ThisDialogue`."""
+"""Обработчик для команды `ThisDialogue`."""
 
-from aiogram.types import Message as MessageType, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
-from aiogram import Dispatcher, Bot
+import logging
+from typing import TYPE_CHECKING
+
+from aiogram import Bot, Dispatcher
+from aiogram.types import (CallbackQuery, InlineKeyboardButton,
+                           InlineKeyboardMarkup)
+from aiogram.types import Message as MessageType
 from Consts import InlineButtonCallbacks as CButton
 from Exceptions import CommandAllowedOnlyInBotDialogue
 from MiddlewareAPI import MiddlewareAPI
-import logging
 
-BOT: Bot = None  # type: ignore
+if TYPE_CHECKING:
+	from TelegramBot import Telehooper
+
+Bot: 	Telehooper 	= None # type: ignore
+TGBot: 	Bot 		= None # type: ignore
+DP: 	Dispatcher 	= None # type: ignore
+
 logger = logging.getLogger(__name__)
 
-def _setupCHandler(dp: Dispatcher, bot: Bot):
+
+def _setupCHandler(bot: Telehooper):
 	"""
 	Инициализирует команду `ThisDialogue`.
 	"""
 
-	global BOT
+	global Bot, TGBot, DP
 
-	BOT = bot
-	dp.register_message_handler(ThisDialogue, commands=["thisdialogue", "dialogue"])
-	dp.register_callback_query_handler(ThisDialogueCallbackHandler, lambda query: query.data in [CButton.DIALOGUE_SELECTOR_MENU_VK])
-	dp.register_callback_query_handler(VKDialogueSelector, lambda query: query.data.startswith(CButton.DIALOGUE_SELECT_VK))
+	Bot = bot
+	TGBot = Bot.TGBot
+	DP = Bot.DP
+
+	DP.register_message_handler(ThisDialogue, commands=["thisdialogue", "dialogue"])
+	DP.register_callback_query_handler(ThisDialogueCallbackHandler, lambda query: query.data in [CButton.DIALOGUE_SELECTOR_MENU_VK])
+	DP.register_callback_query_handler(VKDialogueSelector, lambda query: query.data.startswith(CButton.DIALOGUE_SELECT_VK))
 
 
 async def ThisDialogue(msg: MessageType):
@@ -60,7 +74,7 @@ async def ThisDialogueCallbackHandler(query: CallbackQuery):
 		user_convos = await mAPI.vkAccount.getDialoguesList()
 
 		prefixEmojiDict = {
-			"group": "🫂", 
+			"group": "🫂",
 			"user_True": "🙋‍♂️", # Эмодзи мужчины
 			"user_False": "🙋‍♀️", # Эмодзи женщины
 			"chat": "💬",

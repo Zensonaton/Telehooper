@@ -2,6 +2,8 @@
 
 # Основной файл бота.
 
+from __future__ import annotations
+
 import asyncio
 import json
 import logging
@@ -16,7 +18,9 @@ import Consts
 import MiddlewareAPI
 import TelegramBot as TGBot
 import Utils
-from Consts import AccountDisconnectType, InlineButtonCallbacks as CButtons, MAPIServiceType
+from Consts import AccountDisconnectType
+from Consts import InlineButtonCallbacks as CButtons
+from Consts import MAPIServiceType
 from DB import getDefaultCollection
 
 # Логирование.
@@ -49,7 +53,8 @@ TELEGRAM_BOT_TOKEN = os.environ["TOKEN"]
 SKIP_UPDATES = Utils.parseStrAsBoolean(os.environ.get("SKIP_TELEGRAM_UPDATES", True))
 
 # Создаём Telegram-бота:
-Bot, DP = TGBot.initTelegramBot(TELEGRAM_BOT_TOKEN)
+HOOPER = TGBot.Telehooper(TELEGRAM_BOT_TOKEN)
+HOOPER.initTelegramBot()
 
 # Подключаемся к ДБ:
 DB = getDefaultCollection()
@@ -59,15 +64,17 @@ async def onBotStart(dp: aiogram.Dispatcher):
 	Функция, запускающаяся ПОСЛЕ запуска Telegram-бота.
 	"""
 
+	# TODO: Эта функция кажется некрасивой, стоит переписать её!
+
 	# Производим восстановление всех сессий:
 	logger.info("Бот запущен успешно! Пытаюсь авторизовать всех пользователей подключённых сервисов...")
 
 	# Извлекаем из ДБ список всех активных сессий ВК:
 	for doc in DB.find({"Services.VK.Auth": True}):
 		if doc["Services"]["VK"]["Auth"]:
-			logger.debug(f"Обнаружен авторизованный в ВК пользоватль с TID {doc['_id']}, авторизовываю...")
+			logger.debug(f"Обнаружен авторизованный в ВК пользователь с TID {doc['_id']}, авторизовываю...")
 
-			telegramUser = (await Bot.get_chat_member(doc["_id"], doc["_id"])).user
+			telegramUser = (await HOOPER.TGBot.get_chat_member(doc["_id"], doc["_id"])).user
 			vkAccount: MiddlewareAPI.VKAccount
 			mAPI: MiddlewareAPI.MiddlewareAPI = None # type: ignore
 			try:
@@ -87,7 +94,7 @@ async def onBotStart(dp: aiogram.Dispatcher):
 					InlineKeyboardButton(text="Снова авторизоваться", callback_data=CButtons.ADD_VK_ACCOUNT),
 				)
 
-				await Bot.send_message(telegramUser.id, "⚠️ После моей перезагрузки я не сумел авторизоваться в твой аккаунт <b>«ВКонтакте»</b>.\nЕсли бот был отключён от ВКонтакте специально, например, путём отключения всех приложений/сессий в настройках безопасности, то волноваться незачем.\n\n⚙️ Ты снова можешь авторизоваться, нажав на кнопку ниже:", reply_markup=keyboard)
+				await HOOPER.TGBot.send_message(telegramUser.id, "⚠️ После моей перезагрузки я не сумел авторизоваться в твой аккаунт <b>«ВКонтакте»</b>.\nЕсли бот был отключён от ВКонтакте специально, например, путём отключения всех приложений/сессий в настройках безопасности, то волноваться незачем.\n\n⚙️ Ты снова можешь авторизоваться, нажав на кнопку ниже:", reply_markup=keyboard)
 
 	# Авторизуем всех остальных 'миниботов' для функции мультибота:
 	helperbots = os.environ.get("HELPER_BOTS", "[]")
@@ -103,9 +110,10 @@ async def onBotStart(dp: aiogram.Dispatcher):
 
 		for index, token in enumerate(helperbots):
 			try:
-				_bot, _dp = TGBot.initMultibot(token, Bot)
+				MINIBOT = TGBot.Minibot(HOOPER, token)
+				MINIBOT.initTelegramBot()
 
-				loop.create_task(_dp.start_polling(), name=f"Multibot-{index+1}")
+				loop.create_task(MINIBOT.DP.start_polling(), name=f"Multibot-{index+1}")
 				logger.debug(f"Мультибот #{index+1}/{len(helperbots)} был запущен!")
 			except Exception as error:
 				logger.warning(f"Мультибота #{index+1} не удалось подключить: {error}")
@@ -121,7 +129,7 @@ if __name__ == "__main__":
 	asyncio.set_event_loop(loop)
 
 	aiogram.utils.executor.start_polling(
-		dispatcher=DP,
+		dispatcher=HOOPER.DP,
 		on_startup=onBotStart,
 		skip_updates=SKIP_UPDATES,
 		loop=loop,

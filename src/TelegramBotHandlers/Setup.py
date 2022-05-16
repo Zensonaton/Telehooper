@@ -1,33 +1,44 @@
 # coding: utf-8
 
-"""Handler для команды `Setup`."""
+"""Обработчик для команды `Setup`."""
 
 import logging
+from typing import TYPE_CHECKING
 
 from aiogram import Bot, Dispatcher
 from aiogram.types import (CallbackQuery, InlineKeyboardButton,
                            InlineKeyboardMarkup)
 from aiogram.types import Message as MessageType
 from Consts import InlineButtonCallbacks as CButtons
-from TelegramMessageHandlers.VKLogin import VKTokenMessageHandler, VKTokenURLMessageHandler
 
-BOT: Bot = None  # type: ignore
-DP: Dispatcher = None  # type: ignore
+from TelegramBotHandlers.VKLogin import (VKTokenMessageHandler,
+                                         VKTokenURLMessageHandler)
+
+if TYPE_CHECKING:
+	from TelegramBot import Telehooper
+
+Bot: 	Telehooper 	= None # type: ignore
+TGBot: 	Bot 		= None # type: ignore
+DP: 	Dispatcher 	= None # type: ignore
+
 logger = logging.getLogger(__name__)
 
-def _setupCHandler(dp: Dispatcher, bot: Bot):
+
+def _setupCHandler(bot: Telehooper):
 	"""
 	Инициализирует команду `Setup`.
 	"""
 
-	global BOT, DP
+	global Bot, TGBot, DP
 
-	BOT = bot
-	DP = dp
-	dp.register_message_handler(Setup, commands=["setup"])
-	dp.register_callback_query_handler(SetupCallbackHandler, lambda query: query.data in [CButtons.ADD_VK_ACCOUNT, CButtons.VK_LOGIN_VIA_PASSWORD, CButtons.VK_LOGIN_VIA_VKID, CButtons.BACK_TO_SERVICE_SELECTOR])
-	dp.register_message_handler(VKTokenMessageHandler, lambda msg: msg.text.startswith("https://oauth.vk.com/blank.html#access_token="))
-	dp.register_message_handler(VKTokenURLMessageHandler, lambda msg: msg.text.strip().startswith("https://oauth.vk.com/oauth/authorize?client_id=6463690"))
+	Bot = bot
+	TGBot = Bot.TGBot
+	DP = Bot.DP
+
+	DP.register_message_handler(Setup, commands=["setup"])
+	DP.register_callback_query_handler(SetupCallbackHandler, lambda query: query.data in [CButtons.ADD_VK_ACCOUNT, CButtons.VK_LOGIN_VIA_PASSWORD, CButtons.VK_LOGIN_VIA_VKID, CButtons.BACK_TO_SERVICE_SELECTOR])
+	DP.register_message_handler(VKTokenMessageHandler, lambda msg: msg.text.startswith("https://oauth.vk.com/blank.html#access_token="))
+	DP.register_message_handler(VKTokenURLMessageHandler, lambda msg: msg.text.strip().startswith("https://oauth.vk.com/oauth/authorize?client_id=6463690"))
 
 
 async def Setup(msg: MessageType):

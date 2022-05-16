@@ -1,6 +1,6 @@
 # coding: utf-8
 
-"""Handler для команды `Test`."""
+"""Обработчик для команды `Test`."""
 
 import logging
 

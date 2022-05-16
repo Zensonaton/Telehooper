@@ -1,33 +1,46 @@
 # coding: utf-8
 
-"""Handler для команды `ConvertToServiceDialogue`."""
+"""Обработчик для команды `ConvertToServiceDialogue`."""
 
 import asyncio
-from typing import Tuple
-from aiogram.types import Message as MessageType, Chat, User, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
-from Consts import InlineButtonCallbacks as CButton, CommandThrottleNames as CThrottle
-from aiogram import Dispatcher, Bot
-from Exceptions import CommandAllowedOnlyInGroup
 import logging
+from typing import TYPE_CHECKING, Tuple
 
-from TelegramMessageHandlers.Dialogue import ThisDialogue
+from aiogram import Bot, Dispatcher
+from aiogram.types import (CallbackQuery, Chat, InlineKeyboardButton,
+                           InlineKeyboardMarkup)
+from aiogram.types import Message as MessageType
+from aiogram.types import User
+from Consts import CommandThrottleNames as CThrottle
+from Consts import InlineButtonCallbacks as CButton
+from Exceptions import CommandAllowedOnlyInGroup
 
-BOT: Bot = None  # type: ignore
-DP: Dispatcher = None  # type: ignore
+from TelegramBotHandlers.Dialogue import ThisDialogue
+
+if TYPE_CHECKING:
+	from TelegramBot import Telehooper
+
+Bot: 	Telehooper 	= None # type: ignore
+TGBot: 	Bot 		= None # type: ignore
+DP: 	Dispatcher 	= None # type: ignore
+
 logger = logging.getLogger(__name__)
 
-def _setupCHandler(dp: Dispatcher, bot: Bot):
+
+def _setupCHandler(bot: Telehooper):
 	"""
 	Инициализирует команду `ConvertToServiceDialogue`.
 	"""
 
-	global BOT, DP
+	global Bot, TGBot, DP
 
-	BOT = bot
-	DP = dp
-	dp.register_message_handler(ConvertToServiceDialogue, commands=["converttodialogue", "converttoservicedialogue"])
-	dp.register_callback_query_handler(DialogueConvertCallback, lambda query: query.data == CButton.CONVERT_GROUP_TO_DIALOGUE)
-	dp.register_callback_query_handler(DialogueMenuCallback, lambda query: query.data == CButton.BACK_TO_GROUP_CONVERTER)
+	Bot = bot
+	TGBot = Bot.TGBot
+	DP = Bot.DP
+
+	DP.register_message_handler(ConvertToServiceDialogue, commands=["converttodialogue", "converttoservicedialogue"])
+	DP.register_callback_query_handler(DialogueConvertCallback, lambda query: query.data == CButton.CONVERT_GROUP_TO_DIALOGUE)
+	DP.register_callback_query_handler(DialogueMenuCallback, lambda query: query.data == CButton.BACK_TO_GROUP_CONVERTER)
 
 async def ConvertToServiceDialogue(msg: MessageType):
 	await DP.throttle(CThrottle.DIALOGUE_CONVERT, rate=3, chat_id=msg.chat.id)
@@ -43,8 +56,8 @@ async def ConvertToDialogueMessage(msg: MessageType, edit_message_instead: bool 
 
 	_text = f"""<b>⚠️ Предупреждение! Потенциально разрушительная команда! ⚠️</b>
 
-Ты использовал команду, необходимую для конвертирования Telegram-группы в <b>диалог</b>. 
-Это значит, что под конкретного пользователя/беседу подключённого сервиса можно сделать отдельный диалог в <b>Telegram</b>! 
+Ты использовал команду, необходимую для конвертирования Telegram-группы в <b>диалог</b>.
+Это значит, что под конкретного пользователя/беседу подключённого сервиса можно сделать отдельный диалог в <b>Telegram</b>!
 
 <b>ℹ️ Существуют некоторые лимиты:</b>
  <b>•</b> <b>1</b> диалог подключённого сервиса — <b>1 группа</b>,
@@ -65,7 +78,7 @@ async def ConvertToDialogueMessage(msg: MessageType, edit_message_instead: bool 
 """
 
 	keyboard = InlineKeyboardMarkup()
-	
+
 	if ALL_CONDITIONS_ARE_MET:
 		keyboard.add(
 			InlineKeyboardButton("⚙️ Конвертировать", callback_data=CButton.CONVERT_GROUP_TO_DIALOGUE)
@@ -92,14 +105,14 @@ async def CheckServiceDialogueConversionConditions(chat: Chat, user: User) -> Tu
 	NOT_CONNECTED_AS_DIALOGUE: bool = True # TODO
 
 	# Получаем список админов в чате:
-	chat_admins = (await BOT.get_chat_administrators(chat.id))
+	chat_admins = (await TGBot.get_chat_administrators(chat.id))
 
 	USER_SENDER_IS_ADMIN = bool([i for i in chat_admins if i.user.id == user.id])
-	BOT_IS_ADMIN = bool([i for i in chat_admins if i.user.id == BOT.id])
+	BOT_IS_ADMIN = bool([i for i in chat_admins if i.user.id == TGBot.id])
 
 	return (
-		USER_SENDER_IS_ADMIN, 
-		BOT_IS_ADMIN, 
+		USER_SENDER_IS_ADMIN,
+		BOT_IS_ADMIN,
 		NOT_CONNECTED_AS_DIALOGUE
 	)
 
@@ -111,7 +124,7 @@ async def DialogueConvertCallback(query: CallbackQuery):
 		return await query.answer("Не все условия для преобразования были соблюдены, отправь команду снова.")
 
 	await ConvertGroupToDialogue(query.message.chat)
-	
+
 	await asyncio.sleep(0)
 
 	await query.message.edit_text(query.message.html_text)

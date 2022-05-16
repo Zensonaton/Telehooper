@@ -1,24 +1,35 @@
 # coding: utf-8
 
-"""Handler для команды `Start`."""
+"""Обработчик для команды `Start`."""
 
 import logging
+from typing import TYPE_CHECKING
 
 from aiogram import Bot, Dispatcher
 from aiogram.types import Message as MessageType
 
-BOT: Bot = None  # type: ignore
+if TYPE_CHECKING:
+	from TelegramBot import Telehooper
+
+Bot: 	Telehooper 	= None # type: ignore
+TGBot: 	Bot 		= None # type: ignore
+DP: 	Dispatcher 	= None # type: ignore
+
 logger = logging.getLogger(__name__)
 
-def _setupCHandler(dp: Dispatcher, bot: Bot):
+
+def _setupCHandler(bot: Telehooper):
 	"""
 	Инициализирует команду `Start`.
 	"""
 
-	global BOT
+	global Bot, TGBot, DP
 
-	BOT = bot
-	dp.register_message_handler(Start, commands=["start", "help"])
+	Bot = bot
+	TGBot = Bot.TGBot
+	DP = Bot.DP
+
+	DP.register_message_handler(Start, commands=["start", "help"])
 
 
 async def Start(msg: MessageType):

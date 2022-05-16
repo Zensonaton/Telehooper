@@ -1,24 +1,37 @@
 # coding: utf-8
 
-"""Handler для команды `ConvertToPublicServiceDialogue`."""
+"""Обработчик для команды `ConvertToPublicServiceDialogue`."""
 
-from aiogram.types import Message as MessageType, InlineKeyboardButton, InlineKeyboardMarkup
-from Consts import InlineButtonCallbacks as CButtons
-from aiogram import Dispatcher, Bot
 import logging
+from typing import TYPE_CHECKING
 
-BOT: Bot = None  # type: ignore
+from aiogram import Bot, Dispatcher
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.types import Message as MessageType
+from Consts import InlineButtonCallbacks as CButtons
+
+if TYPE_CHECKING:
+	from TelegramBot import Telehooper
+
+Bot: 	Telehooper 	= None # type: ignore
+TGBot: 	Bot 		= None # type: ignore
+DP: 	Dispatcher 	= None # type: ignore
+
 logger = logging.getLogger(__name__)
 
-def _setupCHandler(dp: Dispatcher, bot: Bot):
+
+def _setupCHandler(bot: Telehooper):
 	"""
 	Инициализирует команду `ConvertToPublicServiceDialogue`.
 	"""
 
-	global BOT
+	global Bot, TGBot, DP
 
-	BOT = bot
-	dp.register_message_handler(ConvertToPublicServiceDialogue, commands=["converttopublicservicedialogue"])
+	Bot = bot
+	TGBot = Bot.TGBot
+	DP = Bot.DP
+
+	DP.register_message_handler(ConvertToPublicServiceDialogue, commands=["converttopublicservicedialogue"])
 
 
 async def ConvertToPublicServiceDialogue(msg: MessageType):

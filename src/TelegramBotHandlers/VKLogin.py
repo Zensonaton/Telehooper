@@ -1,32 +1,42 @@
 # coding: utf-8
 
-"""Handler для команды `VKLogin`."""
+"""Обработчик для команды `VKLogin`."""
 
 import logging
+from typing import TYPE_CHECKING
 
 import Consts
 import MiddlewareAPI
+import Utils
 import vkbottle
 from aiogram import Bot, Dispatcher
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.types import Message as MessageType
-from Consts import InlineButtonCallbacks as CButtons, CommandThrottleNames as CThrottle
-import Utils
+from Consts import CommandThrottleNames as CThrottle
+from Consts import InlineButtonCallbacks as CButtons
 
-BOT: Bot = None  # type: ignore
-DP: Dispatcher = None # type: ignore
+if TYPE_CHECKING:
+	from TelegramBot import Telehooper
+
+Bot: 	Telehooper 	= None # type: ignore
+TGBot: 	Bot 		= None # type: ignore
+DP: 	Dispatcher 	= None # type: ignore
+
 logger = logging.getLogger(__name__)
 
-def _setupCHandler(dp: Dispatcher, bot: Bot):
+
+def _setupCHandler(bot: Telehooper):
 	"""
 	Инициализирует команду `VKLogin`.
 	"""
 
-	global BOT, DP
+	global Bot, TGBot, DP
 
-	BOT = bot
-	DP = dp
-	dp.register_message_handler(VKLogin, commands=["vklogin"])
+	Bot = bot
+	TGBot = Bot.TGBot
+	DP = Bot.DP
+
+	DP.register_message_handler(VKLogin, commands=["vklogin"])
 
 
 async def VKLogin(msg: MessageType):
