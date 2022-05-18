@@ -30,7 +30,7 @@
 			"\tglobal BOT",
 			"",
 			"\tBOT = bot",
-			"\tdp.register_message_handler(${1:$TM_FILENAME_BASE}, commands=[\"${1:TM_FILENAME}\"])",
+			"\tDP.register_message_handler(${1:$TM_FILENAME_BASE}, commands=[\"${1:TM_FILENAME}\"])",
 			"",
 			"",
 			"async def ${1:$TM_FILENAME_BASE}(msg: MessageType):",

@@ -3,15 +3,12 @@
 """Обработчик для команды `ConvertToPublicServiceDialogue`."""
 
 import logging
-from typing import TYPE_CHECKING
 
 from aiogram import Bot, Dispatcher
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.types import Message as MessageType
 from Consts import InlineButtonCallbacks as CButtons
-
-if TYPE_CHECKING:
-	from TelegramBot import Telehooper
+from TelegramBot import Telehooper
 
 Bot: 	Telehooper 	= None # type: ignore
 TGBot: 	Bot 		= None # type: ignore

@@ -3,19 +3,16 @@
 """Обработчик для команды `Setup`."""
 
 import logging
-from typing import TYPE_CHECKING
 
 from aiogram import Bot, Dispatcher
 from aiogram.types import (CallbackQuery, InlineKeyboardButton,
                            InlineKeyboardMarkup)
 from aiogram.types import Message as MessageType
 from Consts import InlineButtonCallbacks as CButtons
+from TelegramBot import Telehooper
 
 from TelegramBotHandlers.VKLogin import (VKTokenMessageHandler,
                                          VKTokenURLMessageHandler)
-
-if TYPE_CHECKING:
-	from TelegramBot import Telehooper
 
 Bot: 	Telehooper 	= None # type: ignore
 TGBot: 	Bot 		= None # type: ignore

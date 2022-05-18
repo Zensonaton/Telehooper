@@ -1,6 +1,6 @@
 # coding: utf-8
 
-"""Обработчик для команды `Test`."""
+"""Обработчик для команды `Debug`."""
 
 import logging
 
@@ -14,9 +14,10 @@ DP: 	Dispatcher 	= None # type: ignore
 
 logger = logging.getLogger(__name__)
 
+
 def _setupCHandler(bot: Telehooper):
 	"""
-	Инициализирует команду `Test`.
+	Инициализирует команду `Debug`.
 	"""
 
 	global Bot, TGBot, DP
@@ -24,11 +25,13 @@ def _setupCHandler(bot: Telehooper):
 	Bot = bot
 	TGBot = Bot.TGBot
 	DP = Bot.DP
+	
+	DP.register_message_handler(Debug, commands=["debug"])
 
-	DP.register_message_handler(Test, commands=["test"])
 
+async def Debug(msg: MessageType):
+	# Команда используется для debugging'а.
 
-async def Test(msg: MessageType):
-	logger.info(f"Пользователь {msg.from_user.id} вызвал команду Test!")
+	user = await Bot.getBotUser(msg.from_user.id)
 
-	await msg.answer("Hi!")
+	await msg.answer("Привет, мир!")

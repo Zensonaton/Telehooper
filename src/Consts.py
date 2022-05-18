@@ -87,6 +87,7 @@ class AccountDisconnectType:
 	INITIATED_BY_USER = 1
 	EXTERNAL = 2
 	SILENT = 3
+	ERRORED = 4
 
 class MAPIServiceType:
 	VK = 1

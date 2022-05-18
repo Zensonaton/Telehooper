@@ -3,7 +3,6 @@
 """Обработчик для команды `Services`."""
 
 import logging
-from typing import TYPE_CHECKING
 
 import MiddlewareAPI
 from aiogram import Bot, Dispatcher
@@ -14,9 +13,7 @@ from Consts import AccountDisconnectType
 from Consts import CommandThrottleNames as CThrottle
 from Consts import InlineButtonCallbacks as CButtons
 from Consts import MAPIServiceType
-
-if TYPE_CHECKING:
-	from TelegramBot import Telehooper
+from TelegramBot import Telehooper
 
 Bot: 	Telehooper 	= None # type: ignore
 TGBot: 	Bot 		= None # type: ignore
@@ -43,10 +40,12 @@ def _setupCHandler(bot: Telehooper):
 async def Services(msg: MessageType):
 	await DP.throttle(CThrottle.SERVICES_LIST, rate=2, user_id=msg.from_user.id)
 
-	mAPI = MiddlewareAPI.MiddlewareAPI(msg.from_user)
-	await mAPI.restoreFromDB()
+	# Получаем объект пользователя:
+	user = await Bot.getBotUser(msg.from_user.id)
 
-	if not mAPI.isVKConnected:
+	assert not user.vkAccount is None, "VKAccount is None"
+
+	if not user.isVKConnected:
 		await msg.answer("😔 Извини, но у тебя ещё нет ни одного подключённого сервиса.\n\n⚙️ Воспользуйся командой /setup для подключения!")
 		return
 
@@ -56,11 +55,13 @@ async def Services(msg: MessageType):
 	await msg.answer("В данный момент, у тебя есть подключённый сервис, <b>ВКонтакте</b>. Что ты хочешь с ним сделать?\n\n⚙️ Выбери действие над сервисом «ВКонтакте»:", reply_markup=keyboard)
 
 async def ServicesCallbackHandler(query: CallbackQuery):
-	mAPI = MiddlewareAPI.MiddlewareAPI(query.from_user)
-	await mAPI.restoreFromDB()
+	# Получаем объект пользователя:
+	user = await Bot.getBotUser(query.from_user.id)
 
 	if query.data == CButtons.DISCONNECT_SERVICE:
-		await mAPI.processServiceDisconnect(MAPIServiceType.VK, AccountDisconnectType.INITIATED_BY_USER, True)
+		assert not user.vkMAPI is None, "VKMAPI is None"
+
+		await user.vkMAPI.disconnectService(AccountDisconnectType.INITIATED_BY_USER, True)
 
 
 	await query.answer()

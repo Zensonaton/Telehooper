@@ -71,30 +71,30 @@ async def onBotStart(dp: aiogram.Dispatcher):
 
 	# Извлекаем из ДБ список всех активных сессий ВК:
 	for doc in DB.find({"Services.VK.Auth": True}):
+		# TODO: Использовать asyncio.ensure_future(), что бы авторизация была быстрой.
+
 		if doc["Services"]["VK"]["Auth"]:
 			logger.debug(f"Обнаружен авторизованный в ВК пользователь с TID {doc['_id']}, авторизовываю...")
 
-			telegramUser = (await HOOPER.TGBot.get_chat_member(doc["_id"], doc["_id"])).user
-			vkAccount: MiddlewareAPI.VKAccount
-			mAPI: MiddlewareAPI.MiddlewareAPI = None # type: ignore
-			try:
-				# TODO: ensure_future()
+			user: MiddlewareAPI.TelehooperUser = None # type: ignore
 
-				# Пытаемся авторизоваться. vkAccount более не используется, самое главное - создание Longpoll'а.
-				mAPI = MiddlewareAPI.MiddlewareAPI(telegramUser)
-				vkAccount = await mAPI.connectVKAccount(doc["Services"]["VK"]["Token"], True, doc["Services"]["VK"]["IsAuthViaPassword"])
+			try:
+				# Авторизуемся, и после авторизации обязательно запускаем Polling для получения новых сообщений.
+
+				user = await HOOPER.getBotUser(int(doc["_id"]))
 			except Exception as error:
 				logger.warning(f"Ошибка авторизации пользователя с TID {doc['_id']}: {error}")
 
-				if mAPI is not None:
-					await mAPI.processServiceDisconnect(MAPIServiceType.VK, AccountDisconnectType.EXTERNAL)
+				if user and user.vkMAPI: # type: ignore
+					await user.vkMAPI.disconnectService(AccountDisconnectType.ERRORED)
+
 
 				# TODO: Заменить этот код:
 				keyboard = InlineKeyboardMarkup().add(
 					InlineKeyboardButton(text="Снова авторизоваться", callback_data=CButtons.ADD_VK_ACCOUNT),
 				)
 
-				await HOOPER.TGBot.send_message(telegramUser.id, "⚠️ После моей перезагрузки я не сумел авторизоваться в твой аккаунт <b>«ВКонтакте»</b>.\nЕсли бот был отключён от ВКонтакте специально, например, путём отключения всех приложений/сессий в настройках безопасности, то волноваться незачем.\n\n⚙️ Ты снова можешь авторизоваться, нажав на кнопку ниже:", reply_markup=keyboard)
+				await HOOPER.TGBot.send_message(int(doc['_id']), "⚠️ После моей перезагрузки я не сумел авторизоваться в твой аккаунт <b>«ВКонтакте»</b>.\nЕсли бот был отключён от ВКонтакте специально, например, путём отключения всех приложений/сессий в настройках безопасности, то волноваться незачем.\n\n⚙️ Ты снова можешь авторизоваться, нажав на кнопку ниже:", reply_markup=keyboard)
 
 	# Авторизуем всех остальных 'миниботов' для функции мультибота:
 	helperbots = os.environ.get("HELPER_BOTS", "[]")

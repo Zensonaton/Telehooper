@@ -4,7 +4,7 @@
 
 import asyncio
 import logging
-from typing import TYPE_CHECKING, Tuple
+from typing import Tuple
 
 from aiogram import Bot, Dispatcher
 from aiogram.types import (CallbackQuery, Chat, InlineKeyboardButton,
@@ -14,11 +14,9 @@ from aiogram.types import User
 from Consts import CommandThrottleNames as CThrottle
 from Consts import InlineButtonCallbacks as CButton
 from Exceptions import CommandAllowedOnlyInGroup
+from TelegramBot import Telehooper
 
 from TelegramBotHandlers.Dialogue import ThisDialogue
-
-if TYPE_CHECKING:
-	from TelegramBot import Telehooper
 
 Bot: 	Telehooper 	= None # type: ignore
 TGBot: 	Bot 		= None # type: ignore

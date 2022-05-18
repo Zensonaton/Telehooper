@@ -3,7 +3,6 @@
 """Обработчик для команды `VKLogin`."""
 
 import logging
-from typing import TYPE_CHECKING
 
 import Consts
 import MiddlewareAPI
@@ -12,11 +11,9 @@ import vkbottle
 from aiogram import Bot, Dispatcher
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.types import Message as MessageType
-from Consts import CommandThrottleNames as CThrottle
+from Consts import AccountDisconnectType, CommandThrottleNames as CThrottle
 from Consts import InlineButtonCallbacks as CButtons
-
-if TYPE_CHECKING:
-	from TelegramBot import Telehooper
+from TelegramBot import Telehooper
 
 Bot: 	Telehooper 	= None # type: ignore
 TGBot: 	Bot 		= None # type: ignore
@@ -49,6 +46,12 @@ async def VKLogin(msg: MessageType):
 
 		return
 
+	user = await Bot.getBotUser(msg.from_user.id)
+	if user.isVKConnected:
+		await msg.answer("<i>ВК уже подключён.</i>") # FIXME: Временно
+
+		await user.vkMAPI.disconnectService(AccountDisconnectType.SILENT, True) # type: ignore
+
 
 	await msg.delete()
 	await msg.answer("Прекрасно! Дай мне время, мне нужно проверить некоторые данные... ⏳\n\n<i>(твоё предыдущее сообщение было удалено в целях безопасности 👀)</i>")
@@ -66,13 +69,9 @@ async def VKLogin(msg: MessageType):
 			args[1]
 		)
 
-		# Создаём MAPI-объект:
-		vkAccount = await MiddlewareAPI.MiddlewareAPI(
-			msg.from_user
-		).connectVKAccount(vkToken, True, True)
+		# Подключаем страницу ВК:
+		vkAccount = await user.connectVKAccount(vkToken, True)
 
-		# Отправляем различные сообщения о успешном подключении аккаунта:
-		await vkAccount.postAuthInit()
 	except:
 		keyboard = InlineKeyboardMarkup().add(
 			InlineKeyboardButton(text="Авторизоваться через VK ID", callback_data=CButtons.VK_LOGIN_VIA_VKID)
@@ -88,8 +87,15 @@ async def VKTokenMessageHandler(msg: MessageType):
 	await msg.delete()
 	await msg.answer("Прекрасно! Дай мне время, мне нужно проверить некоторые данные... ⏳\n\n<i>(твоё предыдущее сообщение было удалено в целях безопасности 👀)</i>")
 
+	user = await Bot.getBotUser(msg.from_user.id)
+	if user.isVKConnected:
+		await msg.answer("<i>ВК уже подключён.</i>") # FIXME: Временно
+
+		await user.vkMAPI.disconnectService(AccountDisconnectType.SILENT, True) # type: ignore
+
+
 	vkToken = Utils.extractAccessTokenFromFullURL(msg.text)
-	vkAccount = await MiddlewareAPI.MiddlewareAPI(msg.from_user).connectVKAccount(vkToken, True, False)
+	vkAccount = await user.connectVKAccount(vkToken, False)
 
 	# Отправляем различные сообщения о успешном подключении аккаунта:
 	await vkAccount.postAuthInit()

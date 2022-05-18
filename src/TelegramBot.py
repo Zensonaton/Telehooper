@@ -6,13 +6,14 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Any, List, Optional
+from typing import List, Optional
 
 import aiogram
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 
 import Exceptions
 from TelegramBotHandlers import OtherCallbackQueryHandlers
+from MiddlewareAPI import TelehooperUser
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +31,7 @@ class Telehooper:
 
 	miniBots: List[Minibot]
 
-	userServicesConnected: List[Any]
+	telehooperbotUsers: List[TelehooperUser]
 
 	def __init__(self, telegram_bot_token: str, telegram_bot_parse_mode: str = aiogram.types.ParseMode.HTML, storage: Optional[MemoryStorage] = None):
 		self.token = telegram_bot_token
@@ -38,7 +39,7 @@ class Telehooper:
 
 		self.miniBots = []
 
-		self.userServicesConnected = [] # TODO
+		self.telehooperbotUsers = [] # TODO
 
 		if storage is None:
 			self.storage = MemoryStorage()
@@ -78,10 +79,10 @@ class Telehooper:
 		from TelegramBotHandlers import (ConvertToPublicServiceDialogue,
 		                                 ConvertToServiceDialogue, Dialogue,
 		                                 GroupEvents, Services, Setup, Start,
-		                                 VKLogin)
+		                                 VKLogin, Debug)
 
 		# А теперь добавляем их в бота:
-		importHandlers([Setup, Start, VKLogin, Services, GroupEvents, ConvertToServiceDialogue, ConvertToPublicServiceDialogue, OtherCallbackQueryHandlers, Dialogue], self.DP, self.TGBot, is_multibot=False)
+		importHandlers([Setup, Start, VKLogin, Services, GroupEvents, ConvertToServiceDialogue, ConvertToPublicServiceDialogue, OtherCallbackQueryHandlers, Dialogue, Debug], self, is_multibot=False)
 		# TODO: Что-то сделать с этим срамом. Это ужасно.
 
 
@@ -94,6 +95,31 @@ class Telehooper:
 		"""
 
 		self.miniBots.append(minibot)
+
+	async def getBotUser(self, user_id: int) -> TelehooperUser:
+		"""
+		Возвращает пользователя бота. Если его нет в кэше, то он будет создан.
+		"""
+
+		# Проверяем, не является ли пользователь ботом:
+		if user_id == self.TGBot.id:
+			raise Exception("getBotUser() попытался получить бота Telehooper.")
+
+
+		# Пытаемся найти пользователя:
+		for user in self.telehooperbotUsers:
+			if user.TGUser.id == user_id:
+				return user
+
+		# Пользователь не был найдем, создаём нового и его возвращаем:
+		user = TelehooperUser(
+			(await self.TGBot.get_chat_member(user_id, user_id)).user
+		)
+		await user.restoreFromDB()
+
+		self.telehooperbotUsers.append(user)
+
+		return user
 
 class Minibot:
 	"""
@@ -153,7 +179,7 @@ class Minibot:
 		"""
 
 		from TelegramMultibotHandlers import DMMessage, Test
-		importHandlers([Test, DMMessage], self.DP, self.TGBot, is_multibot=True, mainBot=self.MainBot.TGBot)
+		importHandlers([Test, DMMessage], self, is_multibot=True, mainBot=self.MainBot)
 
 		self.DP.errors_handler()(global_error_handler)
 
@@ -169,7 +195,7 @@ async def global_error_handler(update, exception):
 	elif isinstance(exception, Exceptions.CommandAllowedOnlyInPrivateChats):
 		await update.message.answer("⚠️ Данную команду можно использовать только в личном диалоге с ботом.")
 	elif isinstance(exception, Exceptions.CommandAllowedOnlyInBotDialogue):
-		await update.message.answer("⚠️ Данную команду можно использовать только в диалоге подключённого сервиса.\n\n⚙️Попробуй присоеденить диалог сервиса к группе Telegram, используя команду /setup.")
+		await update.message.answer("⚠️ Данную команду можно использовать только в диалоге подключённого сервиса.\n\n⚙️ Попробуй присоеденить диалог сервиса к группе Telegram, используя команду /setup.")
 	else:
 		logger.exception(exception)
 
@@ -177,7 +203,7 @@ async def global_error_handler(update, exception):
 
 	return True
 
-def importHandlers(handlers, dp: aiogram.Dispatcher, bot: aiogram.Bot, mainBot: Optional[aiogram.Bot] = None, is_multibot: bool = False):
+def importHandlers(handlers, bot: Telehooper | Minibot, mainBot: Optional[Telehooper] = None, is_multibot: bool = False):
 	"""
 	Загружает (импортирует?) все Handler'ы в бота.
 	"""
@@ -196,10 +222,7 @@ def importHandlers(handlers, dp: aiogram.Dispatcher, bot: aiogram.Bot, mainBot: 
 		logger.warning(f"Был обнаружен файл \"{(', '.join(files_not_imported))}\" в папке с handler'ами, и он не был загружен в программу, поскольку импорт не был выполнен в коде файла TelegramBot.py!")
 
 	for index, messageHandler in enumerate(MESSAGE_HANDLERS_IMPORTED):
-		if is_multibot:
-			messageHandler._setupCHandler(dp, bot, mainBot)
-		else:
-			messageHandler._setupCHandler(dp, bot)
+		messageHandler._setupCHandler(bot)
 
 		logger.debug(f"Инициализирован обработчик команды \"{MESSAGE_HANDLERS_IMPORTED_FILENAMES[index]}\".")
 

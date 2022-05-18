@@ -3,7 +3,6 @@
 """Обработчик для команды `ThisDialogue`."""
 
 import logging
-from typing import TYPE_CHECKING
 
 from aiogram import Bot, Dispatcher
 from aiogram.types import (CallbackQuery, InlineKeyboardButton,
@@ -11,10 +10,7 @@ from aiogram.types import (CallbackQuery, InlineKeyboardButton,
 from aiogram.types import Message as MessageType
 from Consts import InlineButtonCallbacks as CButton
 from Exceptions import CommandAllowedOnlyInBotDialogue
-from MiddlewareAPI import MiddlewareAPI
-
-if TYPE_CHECKING:
-	from TelegramBot import Telehooper
+from TelegramBot import Telehooper
 
 Bot: 	Telehooper 	= None # type: ignore
 TGBot: 	Bot 		= None # type: ignore
@@ -66,12 +62,13 @@ async def ThisDialogueCallbackHandler(query: CallbackQuery):
 
 		await query.message.edit_text(f"{_text}\n\n⏳ Позволь мне загрузить все чаты из твоего аккаунта ВК...")
 
-		# Восстанавливаем сессию ВК:
-		mAPI = MiddlewareAPI(query.from_user)
-		await mAPI.restoreFromDB()
+		# Получаем объект пользователя:
+		user = await Bot.getBotUser(query.from_user.id)
+
+		assert not user.vkAccount is None, "VKAccount is None"
 
 		# Получаем список всех диалогов:
-		user_convos = await mAPI.vkAccount.getDialoguesList()
+		user_convos = await user.vkAccount.getDialoguesList()
 
 		prefixEmojiDict = {
 			"group": "🫂",
