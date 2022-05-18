@@ -14,6 +14,8 @@ from aiogram.contrib.fsm_storage.memory import MemoryStorage
 import Exceptions
 from TelegramBotHandlers import OtherCallbackQueryHandlers
 from MiddlewareAPI import TelehooperUser
+from Consts import MAPIServiceType
+from DB import getDefaultCollection
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +34,8 @@ class Telehooper:
 	miniBots: List[Minibot]
 
 	telehooperbotUsers: List[TelehooperUser]
+	dialogueGroupsList: List[DialogueGroup]
+
 
 	def __init__(self, telegram_bot_token: str, telegram_bot_parse_mode: str = aiogram.types.ParseMode.HTML, storage: Optional[MemoryStorage] = None):
 		self.token = telegram_bot_token
@@ -39,7 +43,8 @@ class Telehooper:
 
 		self.miniBots = []
 
-		self.telehooperbotUsers = [] # TODO
+		self.telehooperbotUsers = []
+		self.dialogueGroupsList = []
 
 		if storage is None:
 			self.storage = MemoryStorage()
@@ -79,10 +84,10 @@ class Telehooper:
 		from TelegramBotHandlers import (ConvertToPublicServiceDialogue,
 		                                 ConvertToServiceDialogue, Dialogue,
 		                                 GroupEvents, Services, Setup, Start,
-		                                 VKLogin, Debug)
+		                                 VKLogin, Debug, This, Connect)
 
 		# А теперь добавляем их в бота:
-		importHandlers([Setup, Start, VKLogin, Services, GroupEvents, ConvertToServiceDialogue, ConvertToPublicServiceDialogue, OtherCallbackQueryHandlers, Dialogue, Debug], self, is_multibot=False)
+		importHandlers([Setup, Start, VKLogin, Services, GroupEvents, ConvertToServiceDialogue, ConvertToPublicServiceDialogue, OtherCallbackQueryHandlers, Dialogue, Debug, This, Connect], self, is_multibot=False)
 		# TODO: Что-то сделать с этим срамом. Это ужасно.
 
 
@@ -120,6 +125,56 @@ class Telehooper:
 		self.telehooperbotUsers.append(user)
 
 		return user
+
+	def addDialogueGroup(self, group: DialogueGroup):
+		"""
+		Добавляет диалог-группу в бота.
+		"""
+
+		# TODO: Перенести в MAPI?
+
+		self.dialogueGroupsList.append(group)
+
+		# Получаем ДБ:
+		DB = getDefaultCollection()
+
+		DB.update_one({
+			"_id": "_global"
+		}, {
+			"$push": {
+				"ServiceDialogues.VK": {
+					"ID": group.serviceDialogueID,
+					"TelegramGroupID": group.group.id
+				}
+			}
+		},
+		upsert=True
+		)
+
+	def getDialogueGroupByTelegramGroup(self, telegram_group: aiogram.types.Chat | int) -> DialogueGroup | None:
+		"""
+		Возвращает диалог-группу по ID группы Telegram.
+		"""
+
+		if isinstance(telegram_group, aiogram.types.Chat):
+			telegram_group = telegram_group.id
+
+		for group in self.dialogueGroupsList:
+			if group.group.id == telegram_group:
+				return group
+
+		return None
+
+	def getDialogueGroupByServiceDialogueID(self, service_dialogue_id: aiogram.types.Chat | int) -> DialogueGroup | None:
+		"""
+		Возвращает диалог-группу по её ID в сервисе.
+		"""
+
+		for group in self.dialogueGroupsList:
+			if group.group.id == service_dialogue_id:
+				return group
+
+		return None
 
 class Minibot:
 	"""
@@ -182,6 +237,21 @@ class Minibot:
 		importHandlers([Test, DMMessage], self, is_multibot=True, mainBot=self.MainBot)
 
 		self.DP.errors_handler()(global_error_handler)
+
+class DialogueGroup:
+	"""
+	Класс, отображающий объект группы-диалога в Telegram.
+	"""
+
+	group: aiogram.types.Chat
+	serviceType: int
+	serviceDialogueID: int
+
+
+	def __init__(self, group: aiogram.types.Chat, service_dialogue_id: int) -> None:
+		self.group = group
+		self.serviceType = MAPIServiceType.VK
+		self.serviceDialogueID = service_dialogue_id
 
 async def global_error_handler(update, exception):
 	"""

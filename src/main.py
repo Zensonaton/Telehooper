@@ -66,6 +66,23 @@ async def onBotStart(dp: aiogram.Dispatcher):
 
 	# TODO: Эта функция кажется некрасивой, стоит переписать её!
 
+	# Добавляем поля в ДБ:
+	DB = getDefaultCollection()
+
+	if DB.find_one({"_id": "_global"}) is None:
+		DB.update_one({
+			"_id": "_global"
+		}, {
+			"$set": {
+				"_id": "_global",
+				"ServiceDialogues": {
+					"VK": []
+				}
+			}
+		},
+		upsert=True
+		)
+
 	# Производим восстановление всех сессий:
 	logger.info("Бот запущен успешно! Пытаюсь авторизовать всех пользователей подключённых сервисов...")
 
@@ -86,7 +103,7 @@ async def onBotStart(dp: aiogram.Dispatcher):
 				logger.warning(f"Ошибка авторизации пользователя с TID {doc['_id']}: {error}")
 
 				if user and user.vkMAPI: # type: ignore
-					await user.vkMAPI.disconnectService(AccountDisconnectType.ERRORED)
+					await user.vkMAPI.disconnectService(AccountDisconnectType.ERRORED, False)
 
 
 				# TODO: Заменить этот код:

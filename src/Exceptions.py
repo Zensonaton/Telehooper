@@ -20,3 +20,10 @@ class CommandAllowedOnlyInBotDialogue(ValueError):
 	"""
 
 	pass
+
+class CommandRequiresConnectedService(ValueError):
+	"""
+	Вызывается, если команда была вызвана, когда не был подключён ни один из сервисов.
+	"""
+
+	pass

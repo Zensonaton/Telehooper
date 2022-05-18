@@ -10,7 +10,7 @@ from aiogram.types import (CallbackQuery, InlineKeyboardButton,
 from aiogram.types import Message as MessageType
 from Consts import InlineButtonCallbacks as CButton
 from Exceptions import CommandAllowedOnlyInBotDialogue
-from TelegramBot import Telehooper
+from TelegramBot import DialogueGroup, Telehooper
 
 Bot: 	Telehooper 	= None # type: ignore
 TGBot: 	Bot 		= None # type: ignore
@@ -101,6 +101,13 @@ async def ThisDialogueCallbackHandler(query: CallbackQuery):
 	return await query.answer()
 
 async def VKDialogueSelector(query: CallbackQuery):
-	VK_ID = query.data.split(CButton.DIALOGUE_SELECT_VK)[-1]
+	VK_ID = int(query.data.split(CButton.DIALOGUE_SELECT_VK)[-1])
 
-	return await query.answer(VK_ID)
+	if Bot.getDialogueGroupByTelegramGroup(query.message.chat):
+		return await query.answer("ЧАТ УЖЕ СОЗДАН")
+
+	Bot.addDialogueGroup(
+		DialogueGroup(query.message.chat, VK_ID)
+	)
+
+	return await query.answer(str(VK_ID))

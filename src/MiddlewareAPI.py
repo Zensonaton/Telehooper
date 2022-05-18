@@ -100,8 +100,8 @@ class VKAccount:
 {space}• Отправлять сообщения.
 {space}• Смотреть список диалогов.
 {space}• Просматривать список твоих друзей, отправлять им сообщения.
-Если подключал бота не ты, то срочно {"в настройках подключённых приложений (https://vk.com/settings?act=apps) отключи приложение «VK Messenger», либо же " if self.authViaPassword else "настройках «безопасности» (https://vk.com/settings?act=security) нажми на кнопку «Отключить все сеансы», либо же "}в этот же диалог пропиши команду «logoff», (без кавычек) и если же тут появится сообщение о успешном отключении, то значит, что бот был отключён. После отключения срочно меняй пароль от ВКонтакте, поскольку произошедшее значит, что кто-то сумел войти в твой аккаунт ВКонтакте, либо же ты забыл выйти с чужого компьютера!
-Информация о пользователе, который подключил бота, будет отправлена в чат бота:
+⚠ Если подключал бота не ты, то срочно {"в настройках подключённых приложений (https://vk.com/settings?act=apps) отключи приложение «VK Messenger», либо же " if self.authViaPassword else "настройках «безопасности» (https://vk.com/settings?act=security) нажми на кнопку «Отключить все сеансы», либо же "}в этот же диалог пропиши команду «logoff», (без кавычек) и если же тут появится сообщение о успешном отключении, то значит, что бот был отключён. После отключения срочно меняй пароль от ВКонтакте, поскольку произошедшее значит, что кто-то сумел войти в твой аккаунт ВКонтакте, либо же ты забыл выйти с чужого компьютера!
+Информация о пользователе, который подключил бота к твоей странице:
 {userInfoData}
 Если же это был ты, то волноваться незачем, и ты можешь просто проигнорировать всю предыдущую часть сообщения.
 
@@ -119,6 +119,7 @@ class VKAccount:
 		except:
 			logger.warning(f"Не удалось отправить опциональное сообщение об успешной авторизации бота в ВК. Пожалуйста, проверьте настройку \"VKBOT_NOTIFIER_ID\" в .env файле. (текущее значение: {os.environ.get('VKBOT_NOTIFIER_ID')})")
 
+		# Получаем базу данных:
 		DB = getDefaultCollection()
 
 		# Сохраняем информацию о авторизации:
@@ -129,13 +130,14 @@ class VKAccount:
 			{"$set": {
 				"_id": self.user.TGUser.id,
 				"TelegramUserID": self.user.TGUser.id,
-				"VKUserID": self.vkAccountInfo.id,
 				"Services": {
 					"VK": {
 						"Auth": True,
 						"IsAuthViaPassword": self.authViaPassword,
 						"AuthDate": datetime.datetime.now(),
 						"Token": self.vkToken,
+						"ID": self.vkAccountInfo.id,
+						"DialogueGroupIDs": []
 					}
 				}
 			}},
@@ -419,7 +421,7 @@ class VKMiddlewareAPI(MiddlewareAPI):
 			# Если этот код вызывается, то значит, что пользователь отозвал разрешения ВК, и сессия была отозвана.
 
 			# Отправляем различные сообщения о отключённом боте:
-			await self.disconnectService( AccountDisconnectType.EXTERNAL, True)
+			await self.disconnectService(AccountDisconnectType.EXTERNAL)
 
 		self.user.vkAccount.vkUser.on.message()(self.onMessage)
 
@@ -501,7 +503,7 @@ class VKMiddlewareAPI(MiddlewareAPI):
 		Выполняет определённые действия при отключении сервиса/аккаунта от бота.
 		"""
 
-		await super().disconnectService()
+		await super().disconnectService(disconnect_type, send_service_messages)
 
 		# Останавливаем Polling:
 		self.stopPolling()

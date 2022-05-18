@@ -97,3 +97,4 @@ class CommandThrottleNames:
 	VK_LOGIN_VKID = "vkloginviavkid"
 	DIALOGUE_CONVERT = "grouptodialogueconvert"
 	SERVICES_LIST = "services"
+	THIS_DIALOGUE = "this"
