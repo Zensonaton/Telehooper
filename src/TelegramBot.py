@@ -151,10 +151,41 @@ class Telehooper:
 		upsert=True
 		)
 
-	def getDialogueGroupByTelegramGroup(self, telegram_group: aiogram.types.Chat | int) -> DialogueGroup | None:
+	async def retrieveDialogueListFromDB(self):
+		"""
+		Достаёт список групп-диалогов из ДБ, и сохраняет в "кэш".
+		"""
+
+		# Получаем ДБ:
+		DB = getDefaultCollection()
+
+		res = DB.find_one({
+			"_id": "_global"
+		})
+		if res:
+			old_dialogueList = self.dialogueGroupsList.copy()
+			self.dialogueGroupsList = []
+
+			for dialogue in res["ServiceDialogues"]["VK"]:
+				# Ищем группу в кэше:
+				for oldDialogue in old_dialogueList:
+					if oldDialogue.serviceDialogueID == dialogue["ID"]:
+						self.dialogueGroupsList.append(oldDialogue)
+						continue
+
+				# Если группы нет в кэше, то создаём новую:
+				newDialogue = DialogueGroup(
+					await self.TGBot.get_chat(dialogue["TelegramGroupID"]),
+					dialogue["ID"]
+				)
+				self.addDialogueGroup(newDialogue)
+
+	async def getDialogueGroupByTelegramGroup(self, telegram_group: aiogram.types.Chat | int) -> DialogueGroup | None:
 		"""
 		Возвращает диалог-группу по ID группы Telegram.
 		"""
+
+		await self.retrieveDialogueListFromDB()
 
 		if isinstance(telegram_group, aiogram.types.Chat):
 			telegram_group = telegram_group.id
@@ -165,10 +196,12 @@ class Telehooper:
 
 		return None
 
-	def getDialogueGroupByServiceDialogueID(self, service_dialogue_id: aiogram.types.Chat | int) -> DialogueGroup | None:
+	async def getDialogueGroupByServiceDialogueID(self, service_dialogue_id: aiogram.types.Chat | int) -> DialogueGroup | None:
 		"""
 		Возвращает диалог-группу по её ID в сервисе.
 		"""
+
+		await self.retrieveDialogueListFromDB()
 
 		for group in self.dialogueGroupsList:
 			if group.group.id == service_dialogue_id:

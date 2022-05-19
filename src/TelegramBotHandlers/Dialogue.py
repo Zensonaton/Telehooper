@@ -103,7 +103,7 @@ async def ThisDialogueCallbackHandler(query: CallbackQuery):
 async def VKDialogueSelector(query: CallbackQuery):
 	VK_ID = int(query.data.split(CButton.DIALOGUE_SELECT_VK)[-1])
 
-	if Bot.getDialogueGroupByTelegramGroup(query.message.chat):
+	if await Bot.getDialogueGroupByTelegramGroup(query.message.chat):
 		return await query.answer("ЧАТ УЖЕ СОЗДАН")
 
 	Bot.addDialogueGroup(

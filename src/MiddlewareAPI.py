@@ -42,7 +42,6 @@ class VKAccount:
 	vkAPI: vkbottle.API
 	vkFullUser: vkbottle_types.responses.users.UsersUserFull
 	vkUser: vkbottle.User
-	vkAccountInfo: vkbottle_types.responses.account.AccountUserSettings
 	vkDialogues: List[VKDialogue]
 
 	def __init__(self, vkToken: str, user: TelehooperUser, auth_via_password: bool = False):
@@ -62,11 +61,8 @@ class VKAccount:
 		Обращается к API ВКонтакте, чтобы получить информацию о пользователе.
 		"""
 
-		# Получаем информацию о аккаунте пользователя, который прошёл авторизацию. Из информации используется ID пользователя.
-		self.vkAccountInfo = await self.vkAPI.account.get_profile_info()
-
 		# Получаем всю открытую информацию о пользователе.
-		self.vkFullUser = (await self.vkAPI.users.get(user_ids=[self.vkAccountInfo.id]))[0]
+		self.vkFullUser = (await self.vkAPI.users.get())[0]
 
 	async def connectVKServiceHandler(self):
 		"""
@@ -92,7 +88,7 @@ class VKAccount:
 		userInfoData += f"{space}* Авторизация была произведена через " + ("пароль" if self.authViaPassword else f"VK ID") + ".\n"
 
 
-		await self.vkAPI.messages.send(self.vkAccountInfo.id, random_id=Utils.generateVKRandomID(), message=f"""⚠️ ВАЖНАЯ ИНФОРМАЦИЯ ⚠️ {space * 15}
+		await self.vkAPI.messages.send(self.vkFullUser.id, random_id=Utils.generateVKRandomID(), message=f"""⚠️ ВАЖНАЯ ИНФОРМАЦИЯ ⚠️ {space * 15}
 
 Привет! 🙋
 Если ты видишь это сообщение, то в таком случае значит, что Telegram-бот под названием «Telehooper» был успешно подключён к твоей странице ВКонтакте. Пользователь, который подключился к вашей странице ВКонтакте сумеет делать следующее:
@@ -136,7 +132,7 @@ class VKAccount:
 						"IsAuthViaPassword": self.authViaPassword,
 						"AuthDate": datetime.datetime.now(),
 						"Token": self.vkToken,
-						"ID": self.vkAccountInfo.id,
+						"ID": self.vkFullUser.id,
 						"DialogueGroupIDs": []
 					}
 				}
@@ -151,7 +147,7 @@ class VKAccount:
 		"""
 
 		try:
-			self.vkAccountInfo = await self.vkAPI.account.get_profile_info()
+			self.vkFullUser = (await self.vkAPI.users.get())[0]
 		except Exception as error:
 			if not no_error:
 				raise(error)
@@ -316,7 +312,6 @@ class TelehooperUser:
 
 		if connect_longpoll:
 			self.vkMAPI.runPolling()
-
 
 		return self.vkAccount
 
