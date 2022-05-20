@@ -164,13 +164,13 @@ class Telehooper:
 		})
 		if res:
 			old_dialogueList = self.dialogueGroupsList.copy()
-			self.dialogueGroupsList = []
 
+			newList = []
 			for dialogue in res["ServiceDialogues"]["VK"]:
 				# Ищем группу в кэше:
 				for oldDialogue in old_dialogueList:
 					if oldDialogue.serviceDialogueID == dialogue["ID"]:
-						self.dialogueGroupsList.append(oldDialogue)
+						newList.append(oldDialogue)
 						continue
 
 				# Если группы нет в кэше, то создаём новую:
@@ -178,7 +178,14 @@ class Telehooper:
 					await self.TGBot.get_chat(dialogue["TelegramGroupID"]),
 					dialogue["ID"]
 				)
-				self.addDialogueGroup(newDialogue)
+				newList.append(newDialogue)
+
+			# Каждый диалог, находящийся в переменной, добавляем:
+			self.dialogueGroupsList = []
+			for dialogue in self.dialogueGroupsList:
+				self.dialogueGroupsList.append(dialogue)
+
+		return self.dialogueGroupsList
 
 	async def getDialogueGroupByTelegramGroup(self, telegram_group: aiogram.types.Chat | int) -> DialogueGroup | None:
 		"""
