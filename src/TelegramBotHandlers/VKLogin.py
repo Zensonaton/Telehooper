@@ -22,7 +22,7 @@ DP: 	Dispatcher 	= None # type: ignore
 logger = logging.getLogger(__name__)
 
 
-def _setupCHandler(bot: Telehooper):
+def _setupCHandler(bot: Telehooper) -> None:
 	"""
 	Инициализирует команду `VKLogin`.
 	"""
@@ -36,7 +36,7 @@ def _setupCHandler(bot: Telehooper):
 	DP.register_message_handler(VKLogin, commands=["vklogin"])
 
 
-async def VKLogin(msg: MessageType):
+async def VKLogin(msg: MessageType) -> None:
 	await DP.throttle(CThrottle.VK_LOGIN, rate=1, chat_id=msg.chat.id)
 
 	args = (msg.get_args() or "").split(" ")
@@ -81,7 +81,7 @@ async def VKLogin(msg: MessageType):
 	else:
 		await successConnectionMessage(msg, vkAccount)
 
-async def VKTokenMessageHandler(msg: MessageType):
+async def VKTokenMessageHandler(msg: MessageType) -> MessageType:
 	await DP.throttle(CThrottle.VK_LOGIN_VKID, rate=1, chat_id=msg.chat.id)
 
 	await msg.delete()
@@ -100,10 +100,10 @@ async def VKTokenMessageHandler(msg: MessageType):
 	# Отправляем различные сообщения о успешном подключении аккаунта:
 	await vkAccount.postAuthInit()
 
-	await successConnectionMessage(msg, vkAccount)
+	return await successConnectionMessage(msg, vkAccount)
 
-async def successConnectionMessage(msg: MessageType, vkAccount: MiddlewareAPI.VKAccount):
-	await msg.answer(f"Успех, я успешно подключился к твоей странице ВКонтакте. Приветствую тебя, <i>{vkAccount.vkFullUser.first_name} {vkAccount.vkFullUser.last_name}!</i> 😉👍\n\n⚙️ После подключения страницы <b>«ВКонтакте»</b> стоит проверить команду /services для просмотра дальнейших возможностей.")
+async def successConnectionMessage(msg: MessageType, vkAccount: MiddlewareAPI.VKAccount) -> MessageType:
+	return await msg.answer(f"Успех, я успешно подключился к твоей странице ВКонтакте. Приветствую тебя, <i>{vkAccount.vkFullUser.first_name} {vkAccount.vkFullUser.last_name}!</i> 😉👍\n\n⚙️ После подключения страницы <b>«ВКонтакте»</b> стоит проверить команду /services для просмотра дальнейших возможностей.")
 
-async def VKTokenURLMessageHandler(msg: MessageType):
-	await msg.answer("Ой! Ты отправил немного не то, что мне нужно для авторизации ВКонтакте: На сайте, ссылку на который ты скинул, нужно произойти <b>авторизацию</b>, и <b>после</b>, ссылку отправить мне.")
+async def VKTokenURLMessageHandler(msg: MessageType) -> MessageType:
+	return await msg.answer("Ой! Ты отправил немного не то, что мне нужно для авторизации ВКонтакте: На сайте, ссылку на который ты скинул, нужно произойти <b>авторизацию</b>, и <b>после</b>, ссылку отправить мне.")

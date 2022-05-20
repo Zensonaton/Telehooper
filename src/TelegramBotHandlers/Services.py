@@ -22,7 +22,7 @@ DP: 	Dispatcher 	= None # type: ignore
 logger = logging.getLogger(__name__)
 
 
-def _setupCHandler(bot: Telehooper):
+def _setupCHandler(bot: Telehooper) -> None:
 	"""
 	Инициализирует команду `Services`.
 	"""

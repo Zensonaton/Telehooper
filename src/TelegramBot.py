@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import aiogram
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
@@ -37,7 +37,7 @@ class Telehooper:
 	dialogueGroupsList: List[DialogueGroup]
 
 
-	def __init__(self, telegram_bot_token: str, telegram_bot_parse_mode: str = aiogram.types.ParseMode.HTML, storage: Optional[MemoryStorage] = None):
+	def __init__(self, telegram_bot_token: str, telegram_bot_parse_mode: str = aiogram.types.ParseMode.HTML, storage: Optional[MemoryStorage] = None) -> None:
 		self.token = telegram_bot_token
 		self.parse_mode = telegram_bot_parse_mode
 
@@ -52,7 +52,7 @@ class Telehooper:
 			self.storage = storage
 
 
-	def initTelegramBot(self):
+	def initTelegramBot(self) -> Tuple[aiogram.Bot, aiogram.Dispatcher]:
 		"""
 		Инициализирует Telegram-бота.
 		"""
@@ -75,7 +75,7 @@ class Telehooper:
 
 		return Bot, DP
 
-	def initTelegramBotHandlers(self):
+	def initTelegramBotHandlers(self) -> None:
 		"""
 		Инициализирует все handler'ы бота.
 		"""
@@ -126,7 +126,7 @@ class Telehooper:
 
 		return user
 
-	def addDialogueGroup(self, group: DialogueGroup):
+	def addDialogueGroup(self, group: DialogueGroup) -> List[DialogueGroup]:
 		"""
 		Добавляет диалог-группу в бота.
 		"""
@@ -151,7 +151,9 @@ class Telehooper:
 		upsert=True
 		)
 
-	async def retrieveDialogueListFromDB(self):
+		return self.dialogueGroupsList
+
+	async def retrieveDialogueListFromDB(self) -> List[DialogueGroup]:
 		"""
 		Достаёт список групп-диалогов из ДБ, и сохраняет в "кэш".
 		"""
@@ -189,7 +191,7 @@ class Telehooper:
 
 	async def getDialogueGroupByTelegramGroup(self, telegram_group: aiogram.types.Chat | int) -> DialogueGroup | None:
 		"""
-		Возвращает диалог-группу по ID группы Telegram.
+		Возвращает диалог-группу по ID группы Telegram, либо же `None`, если ничего не было найдено.
 		"""
 
 		await self.retrieveDialogueListFromDB()
@@ -205,7 +207,7 @@ class Telehooper:
 
 	async def getDialogueGroupByServiceDialogueID(self, service_dialogue_id: aiogram.types.Chat | int) -> DialogueGroup | None:
 		"""
-		Возвращает диалог-группу по её ID в сервисе.
+		Возвращает диалог-группу по её ID в сервисе, либо же `None`, если ничего не было найдено.
 		"""
 
 		await self.retrieveDialogueListFromDB()
@@ -215,6 +217,9 @@ class Telehooper:
 				return group
 
 		return None
+
+	def __str__(self) -> str:
+		return f"<TelehooperBot id{self.TGBot.id}>"
 
 class Minibot:
 	"""
@@ -240,7 +245,7 @@ class Minibot:
 			self.storage = storage
 
 
-	def initTelegramBot(self, add_to_main_bot: bool = True):
+	def initTelegramBot(self, add_to_main_bot: bool = True) -> Tuple[aiogram.Bot, aiogram.Dispatcher]:
 		"""
 		Инициализирует Telegram бота.
 		"""
@@ -267,8 +272,7 @@ class Minibot:
 
 		return Bot, DP
 
-
-	def initTelegramBotHandlers(self):
+	def initTelegramBotHandlers(self) -> None:
 		"""
 		Инициализирует все handler'ы для Мультибота.
 		"""
@@ -293,7 +297,10 @@ class DialogueGroup:
 		self.serviceType = MAPIServiceType.VK
 		self.serviceDialogueID = service_dialogue_id
 
-async def global_error_handler(update, exception):
+	def __str__(self) -> str:
+		return f"<DialogueGroup serviceID:{self.serviceType} ID:{self.serviceDialogueID}>"
+
+async def global_error_handler(update, exception) -> bool:
 	"""
 	Глобальный обработчик ВСЕХ ошибок у бота.
 	"""
@@ -313,7 +320,7 @@ async def global_error_handler(update, exception):
 
 	return True
 
-def importHandlers(handlers, bot: Telehooper | Minibot, mainBot: Optional[Telehooper] = None, is_multibot: bool = False):
+def importHandlers(handlers, bot: Telehooper | Minibot, mainBot: Optional[Telehooper] = None, is_multibot: bool = False) -> None:
 	"""
 	Загружает (импортирует?) все Handler'ы в бота.
 	"""

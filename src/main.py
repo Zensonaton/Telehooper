@@ -59,7 +59,7 @@ HOOPER.initTelegramBot()
 # Подключаемся к ДБ:
 DB = getDefaultCollection()
 
-async def onBotStart(dp: aiogram.Dispatcher):
+async def onBotStart(dp: aiogram.Dispatcher) -> None:
 	"""
 	Функция, запускающаяся ПОСЛЕ запуска Telegram-бота.
 	"""

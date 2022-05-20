@@ -14,7 +14,7 @@ DP: 	Dispatcher 	= None # type: ignore
 
 logger = logging.getLogger(__name__)
 
-def _setupCHandler(bot: Telehooper):
+def _setupCHandler(bot: Telehooper) -> None:
 	"""
 	Инициализирует команду `Test`.
 	"""
@@ -28,7 +28,7 @@ def _setupCHandler(bot: Telehooper):
 	DP.register_message_handler(Test, commands=["test"])
 
 
-async def Test(msg: MessageType):
+async def Test(msg: MessageType) -> None:
 	logger.info(f"Пользователь {msg.from_user.id} вызвал команду Test!")
 
 	await msg.answer("Hi!")

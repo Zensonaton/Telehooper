@@ -14,7 +14,7 @@ if not os.environ["RECIEVER"].lower().endswith("bot"):
 	raise Exception("RECIEVER не является ботом.")
 
 
-async def job(client: telethon.TelegramClient):
+async def job(client: telethon.TelegramClient) -> None:
 	chatid = (await client(CreateChannelRequest("ㅤ", "", megagroup=True))).chats[0].id # type: ignore
 	await client(InviteToChannelRequest(chatid, [os.environ["RECIEVER"]])) # type: ignore
 	await client.edit_admin(

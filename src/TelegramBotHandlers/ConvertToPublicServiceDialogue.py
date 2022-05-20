@@ -17,7 +17,7 @@ DP: 	Dispatcher 	= None # type: ignore
 logger = logging.getLogger(__name__)
 
 
-def _setupCHandler(bot: Telehooper):
+def _setupCHandler(bot: Telehooper) -> None:
 	"""
 	Инициализирует команду `ConvertToPublicServiceDialogue`.
 	"""
@@ -31,7 +31,7 @@ def _setupCHandler(bot: Telehooper):
 	DP.register_message_handler(ConvertToPublicServiceDialogue, commands=["converttopublicservicedialogue"])
 
 
-async def ConvertToPublicServiceDialogue(msg: MessageType):
+async def ConvertToPublicServiceDialogue(msg: MessageType) -> None:
 	keyboard = InlineKeyboardMarkup().add(
 		InlineKeyboardButton("Отменить", callback_data=CButtons.CANCEL_GROUP_TRANSFORM)
 	)

@@ -16,7 +16,7 @@ DP: 	Dispatcher 	= None # type: ignore
 logger = logging.getLogger(__name__)
 
 
-def _setupCHandler(bot: Telehooper):
+def _setupCHandler(bot: Telehooper) -> None:
 	"""
 	Инициализирует команду `Connect`.
 	"""
@@ -30,5 +30,5 @@ def _setupCHandler(bot: Telehooper):
 	DP.register_message_handler(Connect, commands=["connect"])
 
 
-async def Connect(msg: MessageType):
+async def Connect(msg: MessageType) -> None:
 	await msg.answer("Привет, мир!")

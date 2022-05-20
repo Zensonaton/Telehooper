@@ -7,6 +7,7 @@ import logging
 from typing import Tuple
 
 from aiogram import Bot, Dispatcher
+import aiogram
 from aiogram.types import (CallbackQuery, Chat, InlineKeyboardButton,
                            InlineKeyboardMarkup)
 from aiogram.types import Message as MessageType
@@ -25,7 +26,7 @@ DP: 	Dispatcher 	= None # type: ignore
 logger = logging.getLogger(__name__)
 
 
-def _setupCHandler(bot: Telehooper):
+def _setupCHandler(bot: Telehooper) -> None:
 	"""
 	Инициализирует команду `ConvertToServiceDialogue`.
 	"""
@@ -40,7 +41,7 @@ def _setupCHandler(bot: Telehooper):
 	DP.register_callback_query_handler(DialogueConvertCallback, lambda query: query.data == CButton.CONVERT_GROUP_TO_DIALOGUE)
 	DP.register_callback_query_handler(DialogueMenuCallback, lambda query: query.data == CButton.BACK_TO_GROUP_CONVERTER)
 
-async def ConvertToServiceDialogue(msg: MessageType):
+async def ConvertToServiceDialogue(msg: MessageType) -> None:
 	await DP.throttle(CThrottle.DIALOGUE_CONVERT, rate=3, chat_id=msg.chat.id)
 
 	if not msg.chat.type.endswith("group"):
@@ -48,7 +49,7 @@ async def ConvertToServiceDialogue(msg: MessageType):
 
 	await ConvertToDialogueMessage(msg)
 
-async def ConvertToDialogueMessage(msg: MessageType, edit_message_instead: bool = False):
+async def ConvertToDialogueMessage(msg: MessageType, edit_message_instead: bool = False) -> None:
 	CONDITIONS_MET = await CheckServiceDialogueConversionConditions(msg.chat, msg.from_user)
 	ALL_CONDITIONS_ARE_MET = all(CONDITIONS_MET)
 
@@ -131,10 +132,10 @@ async def DialogueConvertCallback(query: CallbackQuery):
 
 	return await query.answer()
 
-async def DialogueMenuCallback(query: CallbackQuery):
+async def DialogueMenuCallback(query: CallbackQuery) -> None:
 	await ConvertToDialogueMessage(query.message, True)
 
-async def ConvertGroupToDialogue(chat: Chat):
+async def ConvertGroupToDialogue(chat: Chat) -> None:
 	"""
 	Переводит группу в диалог.
 	"""

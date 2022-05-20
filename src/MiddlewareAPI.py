@@ -22,7 +22,7 @@ from vkbottle_types.responses.messages import MessagesConversationWithMessage
 from vkbottle_types.responses.users import UsersUserFull
 
 import Utils
-from Consts import AccountDisconnectType, MAPIServiceType
+from Consts import AccountDisconnectType
 from DB import getDefaultCollection
 
 logger = logging.getLogger(__name__)
@@ -44,7 +44,7 @@ class VKAccount:
 	vkUser: vkbottle.User
 	vkDialogues: List[VKDialogue]
 
-	def __init__(self, vkToken: str, user: TelehooperUser, auth_via_password: bool = False):
+	def __init__(self, vkToken: str, user: TelehooperUser, auth_via_password: bool = False) -> None:
 		self.vkToken = vkToken
 
 		self.user = user
@@ -56,7 +56,7 @@ class VKAccount:
 		self.vkFullUser = None # type: ignore
 		self.vkUser = vkbottle.User(self.vkToken)
 
-	async def initUserInfo(self):
+	async def initUserInfo(self) -> vkbottle_types.responses.users.UsersUserFull:
 		"""
 		Обращается к API ВКонтакте, чтобы получить информацию о пользователе.
 		"""
@@ -64,14 +64,9 @@ class VKAccount:
 		# Получаем всю открытую информацию о пользователе.
 		self.vkFullUser = (await self.vkAPI.users.get())[0]
 
-	async def connectVKServiceHandler(self):
-		"""
-		Создаёт VK Service Handler для получения сообщений.
-		"""
+		return self.vkFullUser
 
-		raise NotImplementedError
-
-	async def postAuthInit(self):
+	async def postAuthInit(self) -> None:
 		"""Действия, выполняемые после успешной авторизации пользоваля ВКонтакте: Отправляет предупредительные сообщения, и так далее."""
 
 		space = "&#12288;" # Символ пробела, который не удаляется при отправке сообщения ВКонтакте.
@@ -183,6 +178,9 @@ class VKAccount:
 
 		return self.vkDialogues
 
+	def __str__(self) -> str:
+		return f"<VKAccount id{self.vkFullUser.id}>"
+
 	
 
 
@@ -264,6 +262,9 @@ class VKDialogue:
 			if _photo:
 				self.photoUrl = _photo.photo_100 # TODO: Нормальное получение доступной фотки в самом высоком качестве.
 
+	def __str__(self) -> str:
+		return f"<VKDialogue id{self.id}>"
+
 class TelehooperUser:
 	"""
 	Класс, отображающий пользователя бота Telehooper: тут будут все подключённые сервисы.
@@ -282,7 +283,7 @@ class TelehooperUser:
 		self.vkAccount = None
 		self.isVKConnected = False
 
-	async def restoreFromDB(self):
+	async def restoreFromDB(self) -> None:
 		"""
 		Восстанавливает данные, а так же подключенные сервисы из ДБ.
 		"""
@@ -327,35 +328,35 @@ class MiddlewareAPI:
 		self.user = user
 
 
-	async def onNewRecievedMessage(self, messageText: str):
+	async def onNewRecievedMessage(self, messageText: str) -> None:
 		"""
 		Отправляет сообщение пользователю Telegram.
 		"""
 
 		pass
 
-	async def onNewSentMessage(self, messageText: str):
+	async def onNewSentMessage(self, messageText: str) -> None:
 		"""
 		Отправляет сообщение в сервис.
 		"""
 
 		pass
 
-	async def sendMessage(self, message: str):
+	async def sendMessage(self, message: str) -> None:
 		"""
 		Отправляет сообщение пользователю в Telegram.
 		"""
 
 		await self.user.TGUser.bot.send_message(self.user.TGUser.id, message)
 
-	async def sendServiceMessage(self, message: str):
+	async def sendServiceMessage(self, message: str) -> None:
 		"""
 		Отправляет сообщение внутри сервиса.
 		"""
 
 		pass
 
-	async def disconnectService(self, disconnect_type: int = AccountDisconnectType.INITIATED_BY_USER, send_service_messages: bool = True):
+	async def disconnectService(self, disconnect_type: int = AccountDisconnectType.INITIATED_BY_USER, send_service_messages: bool = True) -> None:
 		if disconnect_type != AccountDisconnectType.SILENT:
 			# Это не было "тихое" отключение аккаунта, поэтому
 			# отправляем сообщения пользователю Telegram.
@@ -387,6 +388,9 @@ class MiddlewareAPI:
 			upsert=True
 		)
 
+	def __str__(self) -> str:
+		return "<Base MiddlewareAPI class>"
+
 class VKMiddlewareAPI(MiddlewareAPI):
 	"""
 	Middleware API для ВКонтакте. Расширяет класс MiddlewareAPI.
@@ -401,13 +405,13 @@ class VKMiddlewareAPI(MiddlewareAPI):
 		self.pollingTask = None
 		self.isPollingRunning = False
 
-	def runPolling(self):
+	def runPolling(self) -> asyncio.Task:
 		"""
 		Запускает Polling для получения сообщений.
 		"""
 
 		if self.isPollingRunning:
-			return
+			self.pollingTask
 
 		assert not self.user.vkAccount is None, "VKAccount is None"
 
@@ -425,14 +429,16 @@ class VKMiddlewareAPI(MiddlewareAPI):
 
 		self.isPollingRunning = True
 
-	async def sendServiceMessage(self, message: str, msg_id_to_reply: int):
+		return self.pollingTask
+
+	async def sendServiceMessage(self, message: str, msg_id_to_reply: int) -> None:
 		await super().sendServiceMessage(message)
 
 		assert not self.user.vkAccount is None, "VKAccount is None"
 
 		await self.user.vkAccount.vkAPI.messages.send(self.user.vkAccount.vkFullUser.id, random_id=Utils.generateVKRandomID(), message=message, reply_to=msg_id_to_reply)
 
-	async def serviceCommandHandler(self, msg: Message):
+	async def serviceCommandHandler(self, msg: Message) -> None:
 		"""
 		Обработчик команд, отправленных внутри сервиса, т.е., например, в чате "Избранное" в ВК.
 		"""
@@ -461,7 +467,7 @@ class VKMiddlewareAPI(MiddlewareAPI):
 
 			await self.sendMessage("[<b>ВКонтакте</b>] » Проверка связи! 👋")
 
-	async def onMessage(self, msg: Message):
+	async def onMessage(self, msg: Message) -> None:
 		"""
 		Обработчик входящих/исходящих сообщений.
 		"""
@@ -493,7 +499,7 @@ class VKMiddlewareAPI(MiddlewareAPI):
 		# Для тестирования, я просто буду отправлять сообщение в чат с пользователем.
 		await self.user.TGUser.bot.send_message(self.user.TGUser.id, msg.text)
 
-	async def disconnectService(self, disconnect_type: int = AccountDisconnectType.INITIATED_BY_USER, send_service_messages: bool = True):
+	async def disconnectService(self, disconnect_type: int = AccountDisconnectType.INITIATED_BY_USER, send_service_messages: bool = True) -> None:
 		"""
 		Выполняет определённые действия при отключении сервиса/аккаунта от бота.
 		"""
@@ -510,7 +516,7 @@ class VKMiddlewareAPI(MiddlewareAPI):
 			await self.user.vkAccount.vkAPI.messages.send(self.user.vkAccount.vkFullUser.id, random_id=Utils.generateVKRandomID(), message="ℹ️ Ваш аккаунт ВКонтакте был успешно отключён от бота «Telehooper».\n\nНадеюсь, что ты в скором времени вернёшься 🥺")
 		
 
-	def stopPolling(self):
+	def stopPolling(self) -> None:
 		"""
 		Останавливает Polling.
 		"""
@@ -525,5 +531,3 @@ class VKMiddlewareAPI(MiddlewareAPI):
 		self.user.vkAccount.vkUser.polling.stop = True # type: ignore (переменной нет в vkbottle_types)
 
 		self.isPollingRunning = False
-
-# TODO: Везде сделать def ... : -> type

@@ -21,7 +21,7 @@ DP: 	Dispatcher 	= None # type: ignore
 logger = logging.getLogger(__name__)
 
 
-def _setupCHandler(bot: Telehooper):
+def _setupCHandler(bot: Telehooper) -> None:
 	"""
 	Инициализирует команду `Setup`.
 	"""
@@ -38,10 +38,10 @@ def _setupCHandler(bot: Telehooper):
 	DP.register_message_handler(VKTokenURLMessageHandler, lambda msg: msg.text.strip().startswith("https://oauth.vk.com/oauth/authorize?client_id=6463690"))
 
 
-async def Setup(msg: MessageType):
-	await SetupMessage(msg)
+async def Setup(msg: MessageType) -> MessageType:
+	return await SetupMessage(msg)
 
-async def SetupMessage(msg: MessageType, edit_message_instead: bool = False):
+async def SetupMessage(msg: MessageType, edit_message_instead: bool = False) -> MessageType:
 	keyboard = InlineKeyboardMarkup().add(
 		InlineKeyboardButton(text="ВКонтакте", callback_data=CButtons.ADD_VK_ACCOUNT),
 	)
@@ -49,10 +49,9 @@ async def SetupMessage(msg: MessageType, edit_message_instead: bool = False):
 	_text = "Выбери нужный тебе сервис, который необходимо подключить к боту. В данный момент поддерживается лишь <b>ВКонтакте</b>, однако, в будущем планируется больше!\nЕсли у тебя есть знания Python и ты хочешь помочь, то дорога в <a href=\"https://github.com/Zensonaton/Telehooper\">Github проекта</a> открыта! 👀\n\n⚙️ Выбери сервис:"
 
 	if edit_message_instead:
-		await msg.edit_text(_text, reply_markup=keyboard)
-		return
+		return await msg.edit_text(_text, reply_markup=keyboard)
 
-	await msg.answer(_text, reply_markup=keyboard)
+	return await msg.answer(_text, reply_markup=keyboard)
 
 
 async def SetupCallbackHandler(query: CallbackQuery):

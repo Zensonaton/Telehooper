@@ -15,7 +15,7 @@ DP: 	Dispatcher 	= None # type: ignore
 logger = logging.getLogger(__name__)
 
 
-def _setupCHandler(bot: Telehooper):
+def _setupCHandler(bot: Telehooper) -> None:
 	"""
 	Инициализирует команду `GroupEvents`.
 	"""
@@ -30,7 +30,7 @@ def _setupCHandler(bot: Telehooper):
 	DP.register_message_handler(GroupJoinHandler, content_types=["new_chat_members", "group_chat_created", "supergroup_chat_created"])
 
 
-async def GroupJoinHandler(msg: MessageType):
+async def GroupJoinHandler(msg: MessageType) -> None:
 	bot_id = (await TGBot.get_me()).id
 
 	if not ((msg.content_type != "new_chat_members") or ([i for i in msg.new_chat_members if i.id == bot_id] and msg.content_type == "new_chat_members")):

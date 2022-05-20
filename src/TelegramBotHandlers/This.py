@@ -20,7 +20,7 @@ DP: 	Dispatcher 	= None # type: ignore
 logger = logging.getLogger(__name__)
 
 
-def _setupCHandler(bot: Telehooper):
+def _setupCHandler(bot: Telehooper) -> None:
 	"""
 	Инициализирует команду `This`.
 	"""
@@ -47,14 +47,14 @@ async def This(msg: MessageType):
 		# Другая проверка на группу.
 		await ThisDialogue(msg, user)
 
-async def ThisGroup(msg: MessageType, user: TelehooperUser):
+async def ThisGroup(msg: MessageType, user: TelehooperUser) -> None:
 	"""
 	Вызывается в группах.
 	"""
 
 	await msg.answer("Группа!")
 
-async def ThisDialogue(msg: MessageType, user: TelehooperUser):
+async def ThisDialogue(msg: MessageType, user: TelehooperUser) -> None:
 	"""
 	Вызывается в диалогах.
 	"""

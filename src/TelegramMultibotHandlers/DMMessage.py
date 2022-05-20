@@ -15,7 +15,7 @@ DP: 	Dispatcher 	= None # type: ignore
 logger = logging.getLogger(__name__)
 
 
-def _setupCHandler(bot: Telehooper):
+def _setupCHandler(bot: Telehooper) -> None:
 	"""
 	Инициализирует команду `DMMessage`.
 	"""
@@ -29,5 +29,5 @@ def _setupCHandler(bot: Telehooper):
 	DP.register_message_handler(DMMessage, lambda msg: msg.chat.type == "private")
 
 
-async def DMMessage(msg: MessageType):
+async def DMMessage(msg: MessageType) -> None:
 	await msg.answer(f"<b>Привет!</b> 🙋‍♀️\n\nЭтот бот не делает ничего в личных сообщениях, этот бот является частью основного бота, {(await TGBot.get_me()).mention}.")

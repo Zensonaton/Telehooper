@@ -19,7 +19,7 @@ DP: 	Dispatcher 	= None # type: ignore
 logger = logging.getLogger(__name__)
 
 
-def _setupCHandler(bot: Telehooper):
+def _setupCHandler(bot: Telehooper) -> None:
 	"""
 	Инициализирует команду `ThisDialogue`.
 	"""
@@ -35,13 +35,13 @@ def _setupCHandler(bot: Telehooper):
 	DP.register_callback_query_handler(VKDialogueSelector, lambda query: query.data.startswith(CButton.DIALOGUE_SELECT_VK))
 
 
-async def ThisDialogue(msg: MessageType):
+async def ThisDialogue(msg: MessageType) -> None:
 	if msg.chat.type == "private": # TODO: Нормальную проверку.
 		raise CommandAllowedOnlyInBotDialogue()
 
 	await SendThisDialogueMessage(msg)
 
-async def SendThisDialogueMessage(msg: MessageType, edit_message_instead: bool = False):
+async def SendThisDialogueMessage(msg: MessageType, edit_message_instead: bool = False) -> None:
 	_text = "ℹ️ Эта группа не подключена ни к какому из диалогов сервиса.\n\n⚙️ Пожалуйста, выбери из подключённых сервисов:"
 
 	# TODO: Кнопка "Зарезервирать эту группу".
@@ -56,7 +56,7 @@ async def SendThisDialogueMessage(msg: MessageType, edit_message_instead: bool =
 
 	await msg.answer(_text, reply_markup=keyboard)
 
-async def ThisDialogueCallbackHandler(query: CallbackQuery):
+async def ThisDialogueCallbackHandler(query: CallbackQuery) -> None:
 	if query.data == CButton.DIALOGUE_SELECTOR_MENU_VK:
 		_text = "<b>Отлично!</b> Теперь ты можешь выбрать нужный тебе диалог сервиса."
 
@@ -100,7 +100,7 @@ async def ThisDialogueCallbackHandler(query: CallbackQuery):
 
 	return await query.answer()
 
-async def VKDialogueSelector(query: CallbackQuery):
+async def VKDialogueSelector(query: CallbackQuery) -> None:
 	VK_ID = int(query.data.split(CButton.DIALOGUE_SELECT_VK)[-1])
 
 	if await Bot.getDialogueGroupByTelegramGroup(query.message.chat):

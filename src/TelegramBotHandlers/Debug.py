@@ -15,7 +15,7 @@ DP: 	Dispatcher 	= None # type: ignore
 logger = logging.getLogger(__name__)
 
 
-def _setupCHandler(bot: Telehooper):
+def _setupCHandler(bot: Telehooper) -> None:
 	"""
 	Инициализирует команду `Debug`.
 	"""
@@ -29,7 +29,7 @@ def _setupCHandler(bot: Telehooper):
 	DP.register_message_handler(Debug, commands=["debug"])
 
 
-async def Debug(msg: MessageType):
+async def Debug(msg: MessageType) -> None:
 	# Команда используется для debugging'а.
 
 	user = await Bot.getBotUser(msg.from_user.id)

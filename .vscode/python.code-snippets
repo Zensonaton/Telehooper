@@ -22,7 +22,7 @@
 			"logger = logging.getLogger(__name__)",
 			"",
 			"",
-			"def _setupCHandler(bot: Telehooper):",
+			"def _setupCHandler(bot: Telehooper) -> None:",
 			"\t\"\"\"",
 			"\tИнициализирует команду `${1:$TM_FILENAME_BASE}`.",
 			"\t\"\"\"",
@@ -36,7 +36,7 @@
 			"\tDP.register_message_handler(${1:$TM_FILENAME_BASE}, commands=[\"${1:TM_FILENAME}\"])",
 			"",
 			"",
-			"async def ${1:$TM_FILENAME_BASE}(msg: MessageType):",
+			"async def ${1:$TM_FILENAME_BASE}(msg: MessageType) -> None:",
 			"\tawait msg.answer(\"${2:Привет, мир!}\")",
 			""
 		]
