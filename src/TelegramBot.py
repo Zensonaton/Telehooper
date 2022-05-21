@@ -3,6 +3,7 @@
 # Код для логики Telegram-бота.
 
 from __future__ import annotations
+import datetime
 
 import logging
 import os
@@ -144,7 +145,8 @@ class Telehooper:
 			"$push": {
 				"ServiceDialogues.VK": {
 					"ID": group.serviceDialogueID,
-					"TelegramGroupID": group.group.id
+					"TelegramGroupID": group.group.id,
+					"AddDate": datetime.datetime.now()
 				}
 			}
 		},
