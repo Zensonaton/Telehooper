@@ -119,6 +119,7 @@ class Telehooper:
 
 		# Пользователь не был найдем, создаём нового и его возвращаем:
 		user = TelehooperUser(
+			self,
 			(await self.TGBot.get_chat_member(user_id, user_id)).user
 		)
 		await user.restoreFromDB()
@@ -175,19 +176,18 @@ class Telehooper:
 				for oldDialogue in old_dialogueList:
 					if oldDialogue.serviceDialogueID == dialogue["ID"]:
 						newList.append(oldDialogue)
-						continue
-
-				# Если группы нет в кэше, то создаём новую:
-				newDialogue = DialogueGroup(
-					await self.TGBot.get_chat(dialogue["TelegramGroupID"]),
-					dialogue["ID"]
-				)
-				newList.append(newDialogue)
+						break
+				else:
+					# Если группы нет в кэше, то создаём новую:
+					newDialogue = DialogueGroup(
+						await self.TGBot.get_chat(dialogue["TelegramGroupID"]),
+						dialogue["ID"]
+					)
+					newList.append(newDialogue)
 
 			# Каждый диалог, находящийся в переменной, добавляем:
 			self.dialogueGroupsList = []
-			for dialogue in self.dialogueGroupsList:
-				self.dialogueGroupsList.append(dialogue)
+			self.dialogueGroupsList.extend(newList)
 
 		return self.dialogueGroupsList
 
@@ -215,7 +215,7 @@ class Telehooper:
 		await self.retrieveDialogueListFromDB()
 
 		for group in self.dialogueGroupsList:
-			if group.group.id == service_dialogue_id:
+			if group.serviceDialogueID == service_dialogue_id:
 				return group
 
 		return None

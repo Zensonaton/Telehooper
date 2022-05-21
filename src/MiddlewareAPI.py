@@ -24,6 +24,9 @@ from vkbottle_types.responses.users import UsersUserFull
 import Utils
 from Consts import AccountDisconnectType
 from DB import getDefaultCollection
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+	from TelegramBot import Telehooper
 
 logger = logging.getLogger(__name__)
 
@@ -181,10 +184,6 @@ class VKAccount:
 	def __str__(self) -> str:
 		return f"<VKAccount id{self.vkFullUser.id}>"
 
-	
-
-
-
 class VKDialogue:
 	"""
 	Класс, отображающий диалог ВК; это может быть диалог с пользователем, группой (ботом), или с беседой.
@@ -271,6 +270,7 @@ class TelehooperUser:
 	"""
 
 	TGUser: aiogram.types.User
+	bot: Telehooper
 
 	mAPI: MiddlewareAPI
 
@@ -278,8 +278,9 @@ class TelehooperUser:
 	vkMAPI: VKMiddlewareAPI | None
 	isVKConnected: bool
 
-	def __init__(self, user: aiogram.types.User) -> None:
+	def __init__(self, bot: Telehooper, user: aiogram.types.User) -> None:
 		self.TGUser = user
+		self.bot = bot
 		self.vkAccount = None
 		self.isVKConnected = False
 
@@ -307,7 +308,7 @@ class TelehooperUser:
 
 		await asyncio.sleep(0) # Спим 0 секунд, что бы последующий код не запускался до завершения кода выше.
 
-		self.vkMAPI = VKMiddlewareAPI(self, self.vkAccount)
+		self.vkMAPI = VKMiddlewareAPI(self, self.bot, self.vkAccount)
 
 		self.isVKConnected = True
 
@@ -316,16 +317,17 @@ class TelehooperUser:
 
 		return self.vkAccount
 
-
 class MiddlewareAPI:
 	"""
 	Класс, являющийся объединением всех сервисов, в частности, их API, например, отправки сообщений, ...
 	"""
 
 	user: TelehooperUser
+	bot: Telehooper
 
-	def __init__(self, user: TelehooperUser) -> None:
+	def __init__(self, user: TelehooperUser, bot: Telehooper) -> None:
 		self.user = user
+		self.bot = bot
 
 
 	async def onNewRecievedMessage(self, messageText: str) -> None:
@@ -357,6 +359,10 @@ class MiddlewareAPI:
 		pass
 
 	async def disconnectService(self, disconnect_type: int = AccountDisconnectType.INITIATED_BY_USER, send_service_messages: bool = True) -> None:
+		"""
+		Отключает сервис от бота.
+		"""
+
 		if disconnect_type != AccountDisconnectType.SILENT:
 			# Это не было "тихое" отключение аккаунта, поэтому
 			# отправляем сообщения пользователю Telegram.
@@ -399,8 +405,8 @@ class VKMiddlewareAPI(MiddlewareAPI):
 	pollingTask: asyncio.Task | None
 	isPollingRunning: bool
 
-	def __init__(self, user: TelehooperUser, vkAccount: VKAccount) -> None:
-		super().__init__(user)
+	def __init__(self, user: TelehooperUser, bot: Telehooper, vkAccount: VKAccount) -> None:
+		super().__init__(user, bot)
 
 		self.pollingTask = None
 		self.isPollingRunning = False
@@ -486,18 +492,26 @@ class VKMiddlewareAPI(MiddlewareAPI):
 
 			return
 
-		if msg.out:
-			# Мы получили сообщение, отправленное самим пользователем, игнорируем.
+		# if msg.out:
+		# 	# Мы получили сообщение, отправленное самим пользователем, игнорируем.
 
-			return
+		# 	return
 
 		if abs(msg.peer_id) == int(os.environ.get("VKBOT_NOTIFIER_ID", 0)):
 			# Мы получили сообщение от группы Telehooper, игнорируем.
 
 			return
 
-		# Для тестирования, я просто буду отправлять сообщение в чат с пользователем.
+		# Для тестирования, я просто буду отправлять сообщение в чат с пользователем,
+		# но если у пользователя есть группа-диалог, то я отправлю сообщение именно туда:
+		dialogue = await self.bot.getDialogueGroupByServiceDialogueID(abs(msg.peer_id))
+		if dialogue:
+			await self.user.TGUser.bot.send_message(dialogue.group.id, msg.text)
+			return
+
 		await self.user.TGUser.bot.send_message(self.user.TGUser.id, msg.text)
+
+		
 
 	async def disconnectService(self, disconnect_type: int = AccountDisconnectType.INITIATED_BY_USER, send_service_messages: bool = True) -> None:
 		"""
