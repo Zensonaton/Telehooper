@@ -2,12 +2,14 @@
 
 """Обработчик для команды `ThisDialogue`."""
 
+import io
 import logging
 
 from aiogram import Bot, Dispatcher
 from aiogram.types import (CallbackQuery, InlineKeyboardButton,
-                           InlineKeyboardMarkup)
+                           InlineKeyboardMarkup, InputFile)
 from aiogram.types import Message as MessageType
+import aiohttp
 from Consts import InlineButtonCallbacks as CButton
 from Exceptions import CommandAllowedOnlyInBotDialogue
 from TelegramBot import DialogueGroup, Telehooper
@@ -68,7 +70,7 @@ async def ThisDialogueCallbackHandler(query: CallbackQuery) -> None:
 		assert not user.vkAccount is None, "VKAccount is None"
 
 		# Получаем список всех диалогов:
-		user_convos = await user.vkAccount.getDialoguesList()
+		user_convos = await user.vkAccount.retrieveDialoguesList()
 
 		prefixEmojiDict = {
 			"group": "🫂",
@@ -104,10 +106,42 @@ async def VKDialogueSelector(query: CallbackQuery) -> None:
 	VK_ID = int(query.data.split(CButton.DIALOGUE_SELECT_VK)[-1])
 
 	if await Bot.getDialogueGroupByTelegramGroup(query.message.chat):
-		return await query.answer("ЧАТ УЖЕ СОЗДАН")
+		return await query.answer("Эта группа уже является диалогом.")
 
+	# Получаем информацию:
+	user = await Bot.getBotUser(query.from_user.id)
+	dialogue = user.vkAccount.getDialogueByID(VK_ID) # type: ignore
+	assert dialogue, "dialogue is None"
+
+	# Добавляем диалог-группу в базу:
 	Bot.addDialogueGroup(
 		DialogueGroup(query.message.chat, VK_ID)
 	)
 
-	return await query.answer(str(VK_ID))
+	# Отправляем сообщение:
+	await query.message.edit_text(f"<b>Отлично! 😌</b>\n\nТы выбрал диалог с <b>«{dialogue.fullName}»</b>, теперь все сообщения от <b>{dialogue.fullName}</b> будут появляться именно здесь.\n\n⚙️ Подожди немного, мне необходимо обновить кое-что в этой группе...")
+
+	# Изменяем параметры группы:
+	await query.message.chat.set_title(dialogue.fullName)
+
+	try:
+		pfpURL: str = "https://vk.com/images/camera_400.png"
+		if dialogue.isUser:
+			pfpURL = (await user.vkAccount.vkAPI.users.get(user_ids=[dialogue.id], fields=["photo_max_orig"]))[0].photo_max_orig # type: ignore
+		elif dialogue.isGroup:
+			pfpURL = (await user.vkAccount.vkAPI.groups.get_by_id(group_id=dialogue.id, fields=["photo_max_orig"]))[0].photo_max_orig # type: ignore
+		else:
+			pfpURL = dialogue.photoURL
+		
+		async with aiohttp.ClientSession() as session:
+			async with session.get(pfpURL) as response:
+				await query.message.chat.set_photo(InputFile(io.BytesIO(await response.read())))
+	except Exception as e:
+		logger.error("Не удалось загрузить картинку профиля: %s", e)
+
+	try:
+		await query.message.chat.set_description(f"[Telehooper] Диалог с {dialogue.fullName}.")
+	except: pass
+
+
+	return await query.answer()

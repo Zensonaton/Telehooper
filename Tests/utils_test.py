@@ -51,3 +51,24 @@ class TestUtils(unittest.TestCase):
 		# generateVKRandomID() генерирует случайный ID для отправки сообщения ВКонтакте.
 
 		self.assertIsInstance(Utils.generateVKRandomID(), int)
+
+	def test_getFirstAvailableValueFromClass(self):
+		# Тестирует функцию getFirstAvailableValueFromClass, которая пытается получить первое доступное значение из класса.
+
+		class TestClass:
+			def __init__(self):
+				self.value_1 = "bad"
+				self.value_2 = "bad"
+				self.value_3 = "bad"
+				self.value_4 = "bad"
+				self.value_5 = "good"
+				self.value_6 = "bad"
+
+		testClass = TestClass()
+
+		self.assertEqual(Utils.getFirstAvailableValueFromClass(testClass, "value_5"), "good")
+		self.assertEqual(Utils.getFirstAvailableValueFromClass(testClass, "value_6", "value_5"), "bad")
+		self.assertEqual(Utils.getFirstAvailableValueFromClass(testClass), None)
+		self.assertEqual(Utils.getFirstAvailableValueFromClass(testClass, "non_existing_value"), None)
+		self.assertEqual(Utils.getFirstAvailableValueFromClass(testClass, "non_existing_value", default=True), True)
+

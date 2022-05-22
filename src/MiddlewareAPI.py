@@ -58,6 +58,7 @@ class VKAccount:
 		self.vkAPI = vkbottle.API(self.vkToken)
 		self.vkFullUser = None # type: ignore
 		self.vkUser = vkbottle.User(self.vkToken)
+		self.vkDialogues = [] # type: ignore
 
 	async def initUserInfo(self) -> vkbottle_types.responses.users.UsersUserFull:
 		"""
@@ -154,7 +155,7 @@ class VKAccount:
 		else:
 			return True
 
-	async def getDialoguesList(self) -> List[VKDialogue]:
+	async def retrieveDialoguesList(self) -> List[VKDialogue]:
 		"""
 		Получает список всех диалогов пользователя, а так же кэширует их.
 		"""
@@ -180,6 +181,17 @@ class VKAccount:
 
 
 		return self.vkDialogues
+		
+	def getDialogueByID(self, dialogue_id: int) -> VKDialogue | None:
+		"""
+		Возвращает диалог по его ID.
+		"""
+
+		for dialogue in self.vkDialogues:
+			if dialogue.id == dialogue_id:
+				return dialogue
+
+		return None
 
 	def __str__(self) -> str:
 		return f"<VKAccount id{self.vkFullUser.id}>"
@@ -202,7 +214,7 @@ class VKDialogue:
 	lastName: str
 	fullName: str
 	username: str
-	photoUrl: str
+	photoURL: str
 	id: int
 	domain: str
 	isPinned: bool
@@ -235,7 +247,7 @@ class VKDialogue:
 				self.fullName = f"{self.firstName} {self.lastName}"
 
 			self.username = self._extended.domain
-			self.photoUrl = self._extended.photo_100
+			self.photoURL = self._extended.photo_100
 			self.id = self._extended.id
 			self.domain = self._extended.screen_name
 			self.isMale = self._extended.sex == 2
@@ -244,7 +256,7 @@ class VKDialogue:
 			self.lastName = ""
 			self.fullName = self.firstName
 			self.username = self._extended.screen_name
-			self.photoUrl = self._extended.photo_100
+			self.photoURL = self._extended.photo_100
 			self.id = self._extended.id
 			self.domain = self._extended.screen_name
 			self.isMale = True
@@ -259,7 +271,7 @@ class VKDialogue:
 
 			_photo = self._dialogue.conversation.chat_settings.photo
 			if _photo:
-				self.photoUrl = _photo.photo_100 # TODO: Нормальное получение доступной фотки в самом высоком качестве.
+				self.photoURL = Utils.getFirstAvailableValueFromClass(_photo, "photo_max_orig", "photo_max", "photo_400_orig", "photo_200_orig", "photo_200", default="https://vk.com/images/camera_400.png") # type: ignore
 
 	def __str__(self) -> str:
 		return f"<VKDialogue id{self.id}>"
@@ -283,6 +295,7 @@ class TelehooperUser:
 		self.bot = bot
 		self.vkAccount = None
 		self.isVKConnected = False
+
 
 	async def restoreFromDB(self) -> None:
 		"""
@@ -316,6 +329,9 @@ class TelehooperUser:
 			self.vkMAPI.runPolling()
 
 		return self.vkAccount
+
+	def __str__(self) -> str:
+		return f"<TelehooperUser id:{self.TGUser.id}>"
 
 class MiddlewareAPI:
 	"""
@@ -410,6 +426,7 @@ class VKMiddlewareAPI(MiddlewareAPI):
 
 		self.pollingTask = None
 		self.isPollingRunning = False
+
 
 	def runPolling(self) -> asyncio.Task:
 		"""
@@ -511,8 +528,6 @@ class VKMiddlewareAPI(MiddlewareAPI):
 
 		await self.user.TGUser.bot.send_message(self.user.TGUser.id, msg.text)
 
-		
-
 	async def disconnectService(self, disconnect_type: int = AccountDisconnectType.INITIATED_BY_USER, send_service_messages: bool = True) -> None:
 		"""
 		Выполняет определённые действия при отключении сервиса/аккаунта от бота.
@@ -529,7 +544,6 @@ class VKMiddlewareAPI(MiddlewareAPI):
 			# Мы должны отправить сообщения в самом сервисе о отключении:
 			await self.user.vkAccount.vkAPI.messages.send(self.user.vkAccount.vkFullUser.id, random_id=Utils.generateVKRandomID(), message="ℹ️ Ваш аккаунт ВКонтакте был успешно отключён от бота «Telehooper».\n\nНадеюсь, что ты в скором времени вернёшься 🥺")
 		
-
 	def stopPolling(self) -> None:
 		"""
 		Останавливает Polling.

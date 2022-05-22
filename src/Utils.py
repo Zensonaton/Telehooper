@@ -46,3 +46,14 @@ def generateVKRandomID() -> int:
 	"""
 
 	return random.randint(-2147483647, 2147483648)
+
+def getFirstAvailableValueFromClass(cls, *keys: str, default = None):
+	"""
+	Возвращает первое доступное значение из словаря.
+	"""
+
+	for key in keys:
+		if hasattr(cls, key):
+			return cls.__dict__.get(key)
+
+	return default
