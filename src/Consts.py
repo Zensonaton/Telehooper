@@ -82,6 +82,7 @@ class InlineButtonCallbacks:
 	BACK_TO_GROUP_CONVERTER = "back_group_converter"
 	DIALOGUE_SELECTOR_MENU_VK = "dialogue_select-vk"
 	DIALOGUE_SELECT_VK = "dialogue-vk:"
+	THIS_COMMAND = "this_command"
 
 class AccountDisconnectType:
 	INITIATED_BY_USER = 1

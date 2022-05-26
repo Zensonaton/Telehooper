@@ -5,8 +5,9 @@
 import logging
 
 from aiogram import Bot, Dispatcher
-from aiogram.types import Message as MessageType
+from aiogram.types import Message as MessageType, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
 from Consts import CommandThrottleNames as CThrottle
+from Consts import InlineButtonCallbacks as CButton
 
 from Exceptions import CommandAllowedOnlyInBotDialogue, CommandAllowedOnlyInGroup
 
@@ -32,6 +33,7 @@ def _setupCHandler(bot: Telehooper) -> None:
 	DP = Bot.DP
 
 	DP.register_message_handler(This, commands=["this", "thischat"])
+	DP.register_callback_query_handler(ThisGroupCallbackHandler, lambda query: query.data == CButton.THIS_COMMAND)
 
 
 async def This(msg: MessageType):
@@ -40,19 +42,38 @@ async def This(msg: MessageType):
 
 	await DP.throttle(CThrottle.THIS_DIALOGUE, rate=2, user_id=msg.from_user.id) 
 	user = await Bot.getBotUser(msg.from_user.id)
+	dialogue = await Bot.getDialogueGroupByTelegramGroup(msg.chat.id)
 
-	if msg.chat.type == "group":
-		await ThisGroup(msg, user)
-	else:
-		# Другая проверка на группу.
-		await ThisDialogue(msg, user)
+	if dialogue:
+		await ThisDialogue(msg, user) # TODO: Сообщения.
+		return
+
+	# Если в группе:
+	await ThisGroup(msg, user)
+		
 
 async def ThisGroup(msg: MessageType, user: TelehooperUser) -> None:
 	"""
 	Вызывается в группах.
 	"""
 
-	await msg.answer("Группа!")
+	await ThisGroupMessage(msg)
+
+async def ThisGroupMessage(msg: MessageType, edit_message_instead: bool = False):
+	_text = "ℹ️ Данная Telegram-группа <b>не является диалогом</b> сервиса.\n\n⚙️ Telegram-группу можно преобразовать в диалог, нажав на кнопку ниже:"
+
+	keyboard = InlineKeyboardMarkup().add(
+		InlineKeyboardButton(text="♻️ Преобразовать", callback_data=CButton.BACK_TO_GROUP_CONVERTER)
+	)
+
+	if edit_message_instead:
+		await msg.edit_text(_text, reply_markup=keyboard)
+		return
+
+	await msg.answer(_text, reply_markup=keyboard)
+
+async def ThisGroupCallbackHandler(query: CallbackQuery):
+	await ThisGroupMessage(query.message, True)
 
 async def ThisDialogue(msg: MessageType, user: TelehooperUser) -> None:
 	"""

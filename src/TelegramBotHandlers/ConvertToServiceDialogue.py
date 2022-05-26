@@ -84,7 +84,7 @@ async def ConvertToDialogueMessage(msg: MessageType, edit_message_instead: bool 
 		)
 
 	keyboard.insert(
-		InlineKeyboardButton("🔙 Отмена", callback_data=CButton.CANCEL_EDIT_CUR_MESSAGE)
+		InlineKeyboardButton("🔙 Отмена", callback_data=CButton.THIS_COMMAND)
 	)
 
 

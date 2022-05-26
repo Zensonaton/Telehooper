@@ -1,6 +1,6 @@
 # coding: utf-8
 
-"""Обработчик для команды `Services`."""
+"""Обработчик для команды `Self`."""
 
 import logging
 
@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 def _setupCHandler(bot: Telehooper) -> None:
 	"""
-	Инициализирует команду `Services`.
+	Инициализирует команду `Self`.
 	"""
 
 	global Bot, TGBot, DP
@@ -33,11 +33,11 @@ def _setupCHandler(bot: Telehooper) -> None:
 	TGBot = Bot.TGBot
 	DP = Bot.DP
 
-	DP.register_message_handler(Services, commands=["services"])
-	DP.register_callback_query_handler(ServicesCallbackHandler, lambda query: query.data in [CButtons.DISCONNECT_SERVICE])
+	DP.register_message_handler(Self, commands=["self", "me", "myself", "profile", "service"])
+	DP.register_callback_query_handler(SelfCallbackHandler, lambda query: query.data in [CButtons.DISCONNECT_SERVICE])
 
 
-async def Services(msg: MessageType):
+async def Self(msg: MessageType):
 	await DP.throttle(CThrottle.SERVICES_LIST, rate=2, user_id=msg.from_user.id)
 
 	# Получаем объект пользователя:
@@ -54,7 +54,7 @@ async def Services(msg: MessageType):
 	)
 	await msg.answer("В данный момент, у тебя есть подключённый сервис, <b>ВКонтакте</b>. Что ты хочешь с ним сделать?\n\n⚙️ Выбери действие над сервисом «ВКонтакте»:", reply_markup=keyboard)
 
-async def ServicesCallbackHandler(query: CallbackQuery):
+async def SelfCallbackHandler(query: CallbackQuery):
 	# Получаем объект пользователя:
 	user = await Bot.getBotUser(query.from_user.id)
 
