@@ -6,24 +6,24 @@ from __future__ import annotations
 
 import os
 
-import pymongo
+from pymongo.mongo_client import MongoClient
 
 
-def getDatabase(host: str = "localhost", port: int = 27017) -> pymongo.MongoClient:
+def getDatabase(host: str = "localhost", port: int = 27017) -> MongoClient:
 	"""
 	Пытается подключиться к MongoDB-базе данных.
 	"""
 
-	return pymongo.MongoClient(host, port)
+	return MongoClient(host, port)
 
-def getCollection(database: pymongo.MongoClient, database_name: str, collection: str):
+def getCollection(database: MongoClient, database_name: str, collection: str):
 	"""
 	Пытается подключиться к коллекции.
 	"""
 
 	return database[database_name][collection]
 
-def getDefaultDatabase() -> pymongo.MongoClient:
+def getDefaultDatabase() -> MongoClient:
 	"""
 	Пытается автоматически вытащить все данные из .env файла и подключиться к базе данных.
 	"""
