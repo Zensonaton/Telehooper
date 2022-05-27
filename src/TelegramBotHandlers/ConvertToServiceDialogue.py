@@ -6,8 +6,8 @@ import asyncio
 import logging
 from typing import Tuple
 
-from aiogram import Bot, Dispatcher
 import aiogram
+from aiogram import Bot, Dispatcher
 from aiogram.types import (CallbackQuery, Chat, InlineKeyboardButton,
                            InlineKeyboardMarkup)
 from aiogram.types import Message as MessageType

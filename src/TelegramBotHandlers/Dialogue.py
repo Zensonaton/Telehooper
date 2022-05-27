@@ -5,11 +5,11 @@
 import io
 import logging
 
+import aiohttp
 from aiogram import Bot, Dispatcher
 from aiogram.types import (CallbackQuery, InlineKeyboardButton,
                            InlineKeyboardMarkup, InputFile)
 from aiogram.types import Message as MessageType
-import aiohttp
 from Consts import InlineButtonCallbacks as CButton
 from Exceptions import CommandAllowedOnlyInBotDialogue
 from TelegramBot import DialogueGroup, Telehooper
@@ -133,7 +133,7 @@ async def VKDialogueSelector(query: CallbackQuery) -> None:
 			pfpURL = (await user.vkAccount.vkAPI.groups.get_by_id(group_id=dialogue.absID, fields=["photo_max_orig"]))[0].photo_max_orig # type: ignore
 		else:
 			pfpURL = dialogue.photoURL
-		
+
 		async with aiohttp.ClientSession() as session:
 			async with session.get(pfpURL) as response:
 				await query.message.chat.set_photo(InputFile(io.BytesIO(await response.read())))

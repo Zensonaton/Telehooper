@@ -40,5 +40,5 @@ async def RegularMessageHandlers(msg: MessageType):
 		return False
 
 	user.vkMAPI._saveMessageID(msg.message_id, await user.vkMAPI.sendMessageOut(msg.text, dialogue.serviceDialogueID))
-	
+
 

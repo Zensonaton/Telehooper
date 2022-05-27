@@ -9,7 +9,7 @@ import asyncio
 import datetime
 import logging
 import os
-from typing import Any, List, Optional
+from typing import TYPE_CHECKING, Any, List, Optional
 
 import aiogram
 import vkbottle
@@ -24,11 +24,10 @@ from vkbottle_types.responses.users import UsersUserFull
 import Utils
 from Consts import AccountDisconnectType
 from DB import getDefaultCollection
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-	from TelegramBot import Telehooper, DialogueGroup
-	from ServiceMAPIs.VK import VKMiddlewareAPI, VKAccount
+	from ServiceMAPIs.VK import VKAccount, VKMiddlewareAPI
+	from TelegramBot import DialogueGroup, Telehooper
 
 logger = logging.getLogger(__name__)
 
@@ -72,7 +71,7 @@ class TelehooperUser:
 		"""
 
 		# Я ненавижу Python.
-		from ServiceMAPIs.VK import VKMiddlewareAPI, VKAccount
+		from ServiceMAPIs.VK import VKAccount, VKMiddlewareAPI
 
 		# Авторизуемся в ВК:
 		self.vkAccount = VKAccount(token, self, auth_via_password)

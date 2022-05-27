@@ -8,7 +8,8 @@ from aiogram import Bot, Dispatcher
 from aiogram.types import (CallbackQuery, InlineKeyboardButton,
                            InlineKeyboardMarkup)
 from aiogram.types import Message as MessageType
-from Consts import VK_OAUTH_URL, InlineButtonCallbacks as CButtons
+from Consts import VK_OAUTH_URL
+from Consts import InlineButtonCallbacks as CButtons
 from TelegramBot import Telehooper
 
 from TelegramBotHandlers.VKLogin import (VKTokenMessageHandler,
@@ -31,7 +32,7 @@ def _setupCHandler(bot: Telehooper) -> None:
 	Bot = bot
 	TGBot = Bot.TGBot
 	DP = Bot.DP
-	
+
 	DP.register_message_handler(Connect, commands=["connect"])
 	DP.register_callback_query_handler(ConnectCallbackHandler, lambda query: query.data in [CButtons.ADD_VK_ACCOUNT, CButtons.VK_LOGIN_VIA_PASSWORD, CButtons.VK_LOGIN_VIA_VKID, CButtons.BACK_TO_SERVICE_SELECTOR])
 	DP.register_message_handler(VKTokenMessageHandler, lambda msg: msg.text.startswith("https://oauth.vk.com/blank.html#access_token="))

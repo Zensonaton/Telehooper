@@ -1,32 +1,32 @@
 # coding: utf-8
 
 from __future__ import annotations
+
+import asyncio
 import datetime
 import logging
+import os
 from typing import TYPE_CHECKING, Any, List, Optional
-import asyncio
+
 import aiogram
 import vkbottle
 import vkbottle_types
+import vkbottle_types.responses.users
 from Consts import AccountDisconnectType
 from DB import getDefaultCollection
-from vkbottle.user import Message
-import os
-from Utils import generateVKRandomID
 from MiddlewareAPI import MiddlewareAPI, TelehooperUser
+from Utils import generateVKRandomID, getFirstAvailableValueFromClass
 from vkbottle.user import Message
 from vkbottle_types.responses.groups import GroupsGroupFull
 from vkbottle_types.responses.messages import MessagesConversationWithMessage
 from vkbottle_types.responses.users import UsersUserFull
-import vkbottle_types.responses.users
-from Utils import generateVKRandomID, getFirstAvailableValueFromClass
 
 logger = logging.getLogger("VKMAPI") # TODO: Заменить этот logger на логгер внутри класса.
 
 
 if TYPE_CHECKING:
 	from TelegramBot import Telehooper
-	
+
 
 """
 MiddlewareAPI для ВКонтакте.
@@ -147,7 +147,7 @@ class VKMiddlewareAPI(MiddlewareAPI):
 		if send_service_messages:
 			# Мы должны отправить сообщения в самом сервисе о отключении:
 			await self.user.vkAccount.vkAPI.messages.send(self.user.vkAccount.vkFullUser.id, random_id=generateVKRandomID(), message="ℹ️ Ваш аккаунт ВКонтакте был успешно отключён от бота «Telehooper».\n\nНадеюсь, что ты в скором времени вернёшься 🥺")
-		
+
 	def _saveMessageID(self, telegram_message_id: int | str, vk_message_id: int | str) -> None:
 		"""
 		Сохраняет ID сообщения в БД.
@@ -191,7 +191,7 @@ class VKMiddlewareAPI(MiddlewareAPI):
 			# Неизвестная команда.
 
 			return 0
-	
+
 class VKAccount:
 	"""
 	Класс, отображающий аккаунт ВКонтакте пользователя.
@@ -343,7 +343,7 @@ class VKAccount:
 
 
 		return self.vkDialogues
-		
+
 	def getDialogueByID(self, dialogue_id: int) -> VKDialogue | None:
 		"""
 		Возвращает диалог по его ID.

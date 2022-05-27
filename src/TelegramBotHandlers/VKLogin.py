@@ -11,10 +11,11 @@ import vkbottle
 from aiogram import Bot, Dispatcher
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.types import Message as MessageType
-from Consts import AccountDisconnectType, CommandThrottleNames as CThrottle
+from Consts import AccountDisconnectType
+from Consts import CommandThrottleNames as CThrottle
 from Consts import InlineButtonCallbacks as CButtons
-from TelegramBot import Telehooper
 from ServiceMAPIs.VK import VKAccount
+from TelegramBot import Telehooper
 
 Bot: 	Telehooper 	= None # type: ignore
 TGBot: 	Bot 		= None # type: ignore

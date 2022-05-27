@@ -3,8 +3,8 @@
 # Код для логики Telegram-бота.
 
 from __future__ import annotations
-import datetime
 
+import datetime
 import logging
 import os
 from typing import List, Optional, Tuple
@@ -13,10 +13,10 @@ import aiogram
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 
 import Exceptions
-from TelegramBotHandlers import OtherCallbackQueryHandlers
-from MiddlewareAPI import TelehooperUser
 from Consts import MAPIServiceType
 from DB import getDefaultCollection
+from MiddlewareAPI import TelehooperUser
+from TelegramBotHandlers import OtherCallbackQueryHandlers
 
 logger = logging.getLogger(__name__)
 
@@ -82,9 +82,9 @@ class Telehooper:
 		"""
 
 		# Импортируем все Handler'ы как модули:
-		from TelegramBotHandlers import (ConvertToServiceDialogue, Dialogue,
-		                                 GroupEvents, Start,
-		                                 VKLogin, This, Connect, Self, RegularMessageHandlers)
+		from TelegramBotHandlers import (Connect, ConvertToServiceDialogue, Dialogue,
+		                                 GroupEvents, RegularMessageHandlers, Self,
+		                                 Start, This, VKLogin)
 
 		# А теперь добавляем их в бота:
 		importHandlers([Start, VKLogin, GroupEvents, ConvertToServiceDialogue, OtherCallbackQueryHandlers, Dialogue, This, Connect, Self, RegularMessageHandlers], self, is_multibot=False)

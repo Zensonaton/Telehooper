@@ -5,14 +5,15 @@
 import logging
 
 from aiogram import Bot, Dispatcher
-from aiogram.types import Message as MessageType, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
+from aiogram.types import (CallbackQuery, InlineKeyboardButton,
+                           InlineKeyboardMarkup)
+from aiogram.types import Message as MessageType
 from Consts import CommandThrottleNames as CThrottle
 from Consts import InlineButtonCallbacks as CButton
-
-from Exceptions import CommandAllowedOnlyInBotDialogue, CommandAllowedOnlyInGroup
-
-from TelegramBot import Telehooper
+from Exceptions import (CommandAllowedOnlyInBotDialogue,
+                        CommandAllowedOnlyInGroup)
 from MiddlewareAPI import TelehooperUser
+from TelegramBot import Telehooper
 
 Bot: 	Telehooper 	= None # type: ignore
 TGBot: 	Bot 		= None # type: ignore
@@ -51,7 +52,7 @@ async def This(msg: MessageType):
 
 	# Если в группе:
 	await ThisGroup(msg, user)
-		
+
 
 async def ThisGroup(msg: MessageType, user: TelehooperUser) -> None:
 	"""
