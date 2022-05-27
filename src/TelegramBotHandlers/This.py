@@ -40,9 +40,10 @@ async def This(msg: MessageType):
 	if msg.chat.type == "private":
 		raise CommandAllowedOnlyInGroup()
 
-	await DP.throttle(CThrottle.THIS_DIALOGUE, rate=2, user_id=msg.from_user.id) 
+	await DP.throttle(CThrottle.THIS_DIALOGUE, rate=2, user_id=msg.from_user.id)
+
 	user = await Bot.getBotUser(msg.from_user.id)
-	dialogue = await Bot.getDialogueGroupByTelegramGroup(msg.chat.id)
+	dialogue = await user.getDialogueGroupByTelegramGroup(msg.chat.id)
 
 	if dialogue:
 		await ThisDialogue(msg, user) # TODO: Сообщения.

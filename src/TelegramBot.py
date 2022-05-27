@@ -84,10 +84,10 @@ class Telehooper:
 		# Импортируем все Handler'ы как модули:
 		from TelegramBotHandlers import (ConvertToServiceDialogue, Dialogue,
 		                                 GroupEvents, Start,
-		                                 VKLogin, This, Connect, Self)
+		                                 VKLogin, This, Connect, Self, RegularMessageHandlers)
 
 		# А теперь добавляем их в бота:
-		importHandlers([Start, VKLogin, GroupEvents, ConvertToServiceDialogue, OtherCallbackQueryHandlers, Dialogue, This, Connect, Self], self, is_multibot=False)
+		importHandlers([Start, VKLogin, GroupEvents, ConvertToServiceDialogue, OtherCallbackQueryHandlers, Dialogue, This, Connect, Self, RegularMessageHandlers], self, is_multibot=False)
 		# TODO: Что-то сделать с этим срамом. Это ужасно.
 
 
@@ -145,6 +145,7 @@ class Telehooper:
 			"$push": {
 				"ServiceDialogues.VK": {
 					"ID": group.serviceDialogueID,
+					"ChatID": group,
 					"TelegramGroupID": group.group.id,
 					"AddDate": datetime.datetime.now()
 				}

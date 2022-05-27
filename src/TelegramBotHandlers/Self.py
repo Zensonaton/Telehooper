@@ -43,8 +43,6 @@ async def Self(msg: MessageType):
 	# Получаем объект пользователя:
 	user = await Bot.getBotUser(msg.from_user.id)
 
-	assert not user.vkAccount is None, "VKAccount is None"
-
 	if not user.isVKConnected:
 		await msg.answer("😔 Извини, но у тебя ещё нет ни одного подключённого сервиса.\n\n⚙️ Воспользуйся командой /setup для подключения!")
 		return
@@ -59,8 +57,6 @@ async def SelfCallbackHandler(query: CallbackQuery):
 	user = await Bot.getBotUser(query.from_user.id)
 
 	if query.data == CButtons.DISCONNECT_SERVICE:
-		assert not user.vkMAPI is None, "VKMAPI is None"
-
 		await user.vkMAPI.disconnectService(AccountDisconnectType.INITIATED_BY_USER, True)
 
 

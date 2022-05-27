@@ -25,8 +25,9 @@ import Utils
 from Consts import AccountDisconnectType
 from DB import getDefaultCollection
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
-	from TelegramBot import Telehooper
+	from TelegramBot import Telehooper, DialogueGroup
 
 logger = logging.getLogger(__name__)
 
@@ -188,7 +189,7 @@ class VKAccount:
 		"""
 
 		for dialogue in self.vkDialogues:
-			if dialogue.id == dialogue_id:
+			if dialogue.ID == dialogue_id:
 				return dialogue
 
 		return None
@@ -215,7 +216,8 @@ class VKDialogue:
 	fullName: str
 	username: str
 	photoURL: str
-	id: int
+	ID: int
+	absID: int
 	domain: str
 	isPinned: bool
 	isMale: bool
@@ -248,7 +250,8 @@ class VKDialogue:
 
 			self.username = self._extended.domain
 			self.photoURL = self._extended.photo_100
-			self.id = self._extended.id
+			self.ID = self._extended.id
+			self.absID = abs(self.ID)
 			self.domain = self._extended.screen_name
 			self.isMale = self._extended.sex == 2
 		elif self.isGroup:
@@ -257,7 +260,8 @@ class VKDialogue:
 			self.fullName = self.firstName
 			self.username = self._extended.screen_name
 			self.photoURL = self._extended.photo_100
-			self.id = self._extended.id
+			self.ID = self._extended.id
+			self.absID = abs(self.ID)
 			self.domain = self._extended.screen_name
 			self.isMale = True
 		else:
@@ -265,7 +269,8 @@ class VKDialogue:
 			self.lastName = ""
 			self.fullName = self.firstName
 			self.username = ""
-			self.id = self._dialogue.conversation.peer.id
+			self.ID = self._dialogue.conversation.peer.id
+			self.absID = abs(self.ID)
 			self.domain = ""
 			self.isMale = True
 
@@ -274,7 +279,7 @@ class VKDialogue:
 				self.photoURL = Utils.getFirstAvailableValueFromClass(_photo, "photo_max_orig", "photo_max", "photo_400_orig", "photo_200_orig", "photo_200", default="https://vk.com/images/camera_400.png") # type: ignore
 
 	def __str__(self) -> str:
-		return f"<VKDialogue id{self.id}>"
+		return f"<VKDialogue id{self.ID}>"
 
 class TelehooperUser:
 	"""
@@ -284,16 +289,15 @@ class TelehooperUser:
 	TGUser: aiogram.types.User
 	bot: Telehooper
 
-	mAPI: MiddlewareAPI
-
-	vkAccount: VKAccount | None
-	vkMAPI: VKMiddlewareAPI | None
+	vkAccount: VKAccount
+	vkMAPI: VKMiddlewareAPI
 	isVKConnected: bool
 
 	def __init__(self, bot: Telehooper, user: aiogram.types.User) -> None:
 		self.TGUser = user
 		self.bot = bot
-		self.vkAccount = None
+		self.vkAccount = None # type: ignore
+		self.vkMAPI = None # type: ignore
 		self.isVKConnected = False
 
 
@@ -330,6 +334,20 @@ class TelehooperUser:
 
 		return self.vkAccount
 
+	async def getDialogueGroupByTelegramGroup(self, telegram_group: aiogram.types.Chat | int) -> DialogueGroup | None:
+		"""
+		Возвращает диалог-группу по ID группы Telegram, либо же `None`, если ничего не было найдено.
+		"""
+
+		return await self.bot.getDialogueGroupByTelegramGroup(telegram_group)
+
+	async def getDialogueGroupByServiceDialogueID(self, service_dialogue_id: int) -> DialogueGroup | None:
+		"""
+		Возвращает диалог-группу по ID группы Telegram, либо же `None`, если ничего не было найдено.
+		"""
+
+		return await self.bot.getDialogueGroupByServiceDialogueID(service_dialogue_id)
+
 	def __str__(self) -> str:
 		return f"<TelehooperUser id:{self.TGUser.id}>"
 
@@ -360,16 +378,30 @@ class MiddlewareAPI:
 
 		pass
 
-	async def sendMessage(self, message: str) -> None:
+	async def sendMessageIn(self, message: str, chat_id: int) -> None:
 		"""
-		Отправляет сообщение пользователю в Telegram.
+		Отправляет сообщение в Telegram.
+		"""
+
+		await self.user.TGUser.bot.send_message(chat_id, message)
+
+	async def sendMessageOut(self, message: str) -> None:
+		"""
+		Отправляет сообщение в сервисе.
+		"""
+
+		pass
+
+	async def sendServiceMessageIn(self, message: str) -> None:
+		"""
+		Отправляет сообщению пользователю в Telegram. При использовании функции, сообщение появится у пользователя в диалоге с ботом.
 		"""
 
 		await self.user.TGUser.bot.send_message(self.user.TGUser.id, message)
 
-	async def sendServiceMessage(self, message: str) -> None:
+	async def sendServiceMessageOut(self, message: str) -> None:
 		"""
-		Отправляет сообщение внутри сервиса.
+		Отправляет сообщение внутри сервиса. Это не обычная отправка сообщения конкретному пользователю, данная функция отправляет сообщение пользователю к самому себе; например, во ВКонтакте, сообщение будет отправлено в диалог "избранное".
 		"""
 
 		pass
@@ -436,8 +468,6 @@ class VKMiddlewareAPI(MiddlewareAPI):
 		if self.isPollingRunning:
 			self.pollingTask
 
-		assert not self.user.vkAccount is None, "VKAccount is None"
-
 		@self.user.vkAccount.vkUser.error_handler.register_error_handler(vkbottle.VKAPIError[5])
 		async def errorHandler(error: vkbottle.VKAPIError):
 			# Если этот код вызывается, то значит, что пользователь отозвал разрешения ВК, и сессия была отозвана.
@@ -454,23 +484,18 @@ class VKMiddlewareAPI(MiddlewareAPI):
 
 		return self.pollingTask
 
-	async def sendServiceMessage(self, message: str, msg_id_to_reply: int) -> None:
-		await super().sendServiceMessage(message)
+	async def sendServiceMessageOut(self, message: str, msg_id_to_reply: int | None = None) -> None:
+		await self.sendMessageOut(message, self.user.vkAccount.vkFullUser.id, msg_id_to_reply)
 
-		assert not self.user.vkAccount is None, "VKAccount is None"
+	async def sendMessageOut(self, message: str, chat_id: int, msg_id_to_reply: int | None = None) -> None:
+		await self.user.vkAccount.vkAPI.messages.send(peer_id=chat_id, random_id=Utils.generateVKRandomID(), message=message, reply_to=msg_id_to_reply)
 
-		await self.user.vkAccount.vkAPI.messages.send(self.user.vkAccount.vkFullUser.id, random_id=Utils.generateVKRandomID(), message=message, reply_to=msg_id_to_reply)
-
-	async def serviceCommandHandler(self, msg: Message) -> None:
+	async def _serviceCommandHandler(self, msg: Message) -> None:
 		"""
 		Обработчик команд, отправленных внутри сервиса, т.е., например, в чате "Избранное" в ВК.
 		"""
 
-		assert not self.user.vkAccount is None, "VKAccount is None"
-
 		async def _commandRecieved(msg: Message):
-			assert not self.user.vkAccount is None, "VKAccount is None"
-
 			await self.user.vkAccount.vkAPI.messages.edit(self.user.vkAccount.vkFullUser.id, "✅ " + msg.text, message_id=msg.id)
 
 		if msg.text.startswith("logoff"):
@@ -480,22 +505,20 @@ class VKMiddlewareAPI(MiddlewareAPI):
 			await self.disconnectService(AccountDisconnectType.EXTERNAL)
 
 			# Отправляем сообщения:
-			await self.sendServiceMessage("ℹ️ Ваш аккаунт ВКонтакте был успешно отключён от бота «Telehooper».", msg.id)
+			await self.sendServiceMessageOut("ℹ️ Ваш аккаунт ВКонтакте был успешно отключён от бота «Telehooper».", msg.id)
 		elif msg.text.startswith("test"):
 			await _commandRecieved(msg)
 
-			await self.sendServiceMessage("✅ Telegram-бот «Telehooper» работает!", msg.id)
+			await self.sendServiceMessageOut("✅ Telegram-бот «Telehooper» работает!", msg.id)
 		elif msg.text.startswith("ping"):
 			await _commandRecieved(msg)
 
-			await self.sendMessage("[<b>ВКонтакте</b>] » Проверка связи! 👋")
-
+			await self.sendServiceMessageIn("[<b>ВКонтакте</b>] » Проверка связи! 👋")
+	
 	async def onMessage(self, msg: Message) -> None:
 		"""
-		Обработчик входящих/исходящих сообщений.
+		Обработчик входящих/исходящих сообщений полученных из ВКонтакте.
 		"""
-
-		assert not self.user.vkAccount is None, "VKAccount is None"
 
 		if self.user.vkAccount.vkFullUser is None:
 			# Полная информация о пользователе ещё не была получена.
@@ -505,14 +528,14 @@ class VKMiddlewareAPI(MiddlewareAPI):
 		if msg.peer_id == self.user.vkAccount.vkFullUser.id:
 			# Мы получили сообщение в "Избранном", обрабатываем сообщение как команду,
 			# но боту в ТГ ничего не передаём.
-			await self.serviceCommandHandler(msg)
+			await self._serviceCommandHandler(msg)
 
 			return
 
-		# if msg.out:
-		# 	# Мы получили сообщение, отправленное самим пользователем, игнорируем.
+		if msg.out:
+			# Мы получили сообщение, отправленное самим пользователем, игнорируем.
 
-		# 	return
+			return
 
 		if abs(msg.peer_id) == int(os.environ.get("VKBOT_NOTIFIER_ID", 0)):
 			# Мы получили сообщение от группы Telehooper, игнорируем.
@@ -539,8 +562,6 @@ class VKMiddlewareAPI(MiddlewareAPI):
 		self.stopPolling()
 
 		if send_service_messages:
-			assert not self.user.vkAccount is None, "VKAccount is None"
-
 			# Мы должны отправить сообщения в самом сервисе о отключении:
 			await self.user.vkAccount.vkAPI.messages.send(self.user.vkAccount.vkFullUser.id, random_id=Utils.generateVKRandomID(), message="ℹ️ Ваш аккаунт ВКонтакте был успешно отключён от бота «Telehooper».\n\nНадеюсь, что ты в скором времени вернёшься 🥺")
 		

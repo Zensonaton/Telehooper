@@ -67,8 +67,6 @@ async def ThisDialogueCallbackHandler(query: CallbackQuery) -> None:
 		# Получаем объект пользователя:
 		user = await Bot.getBotUser(query.from_user.id)
 
-		assert not user.vkAccount is None, "VKAccount is None"
-
 		# Получаем список всех диалогов:
 		user_convos = await user.vkAccount.retrieveDialoguesList()
 
@@ -96,7 +94,7 @@ async def ThisDialogueCallbackHandler(query: CallbackQuery) -> None:
 
 			buttonText = f"{prefixEmojiDict[(convo._type + '_' + str(convo.isMale)) if convo.isUser else convo._type]} {convo.fullName} {'📌' if convo.isPinned else ''}"
 
-			keyboard.add(InlineKeyboardButton(buttonText, callback_data=f"{CButton.DIALOGUE_SELECT_VK}{convo.id}"))
+			keyboard.add(InlineKeyboardButton(buttonText, callback_data=f"{CButton.DIALOGUE_SELECT_VK}{convo.ID}"))
 
 		await query.message.edit_text(f"{_text}\n\n⚙️ Выбери нужный тебе диалог из <b>«ВКонтакте»</b>:", reply_markup=keyboard)
 
@@ -105,12 +103,14 @@ async def ThisDialogueCallbackHandler(query: CallbackQuery) -> None:
 async def VKDialogueSelector(query: CallbackQuery) -> None:
 	VK_ID = int(query.data.split(CButton.DIALOGUE_SELECT_VK)[-1])
 
-	if await Bot.getDialogueGroupByTelegramGroup(query.message.chat):
-		return await query.answer("Эта группа уже является диалогом.")
-
 	# Получаем информацию:
 	user = await Bot.getBotUser(query.from_user.id)
-	dialogue = user.vkAccount.getDialogueByID(VK_ID) # type: ignore
+
+	# Проверяем, не является ли группа диалогом:
+	if await user.getDialogueGroupByTelegramGroup(query.message.chat.id):
+		return await query.answer("Эта группа уже является диалогом.")
+
+	dialogue = user.vkAccount.getDialogueByID(VK_ID)
 	assert dialogue, "dialogue is None"
 
 	# Добавляем диалог-группу в базу:
@@ -127,9 +127,9 @@ async def VKDialogueSelector(query: CallbackQuery) -> None:
 	try:
 		pfpURL: str = "https://vk.com/images/camera_400.png"
 		if dialogue.isUser:
-			pfpURL = (await user.vkAccount.vkAPI.users.get(user_ids=[dialogue.id], fields=["photo_max_orig"]))[0].photo_max_orig # type: ignore
+			pfpURL = (await user.vkAccount.vkAPI.users.get(user_ids=[dialogue.ID], fields=["photo_max_orig"]))[0].photo_max_orig # type: ignore
 		elif dialogue.isGroup:
-			pfpURL = (await user.vkAccount.vkAPI.groups.get_by_id(group_id=dialogue.id, fields=["photo_max_orig"]))[0].photo_max_orig # type: ignore
+			pfpURL = (await user.vkAccount.vkAPI.groups.get_by_id(group_id=dialogue.ID, fields=["photo_max_orig"]))[0].photo_max_orig # type: ignore
 		else:
 			pfpURL = dialogue.photoURL
 		
