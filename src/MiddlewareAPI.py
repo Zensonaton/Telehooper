@@ -251,7 +251,7 @@ class VKDialogue:
 			self.username = self._extended.domain
 			self.photoURL = self._extended.photo_100
 			self.ID = self._extended.id
-			self.absID = abs(self.ID)
+			self.absID = self.ID
 			self.domain = self._extended.screen_name
 			self.isMale = self._extended.sex == 2
 		elif self.isGroup:
@@ -260,8 +260,8 @@ class VKDialogue:
 			self.fullName = self.firstName
 			self.username = self._extended.screen_name
 			self.photoURL = self._extended.photo_100
-			self.ID = self._extended.id
-			self.absID = abs(self.ID)
+			self.ID = -self._extended.id
+			self.absID = self.ID
 			self.domain = self._extended.screen_name
 			self.isMale = True
 		else:
@@ -270,7 +270,7 @@ class VKDialogue:
 			self.fullName = self.firstName
 			self.username = ""
 			self.ID = self._dialogue.conversation.peer.id
-			self.absID = abs(self.ID)
+			self.absID = self.ID - 2000000000
 			self.domain = ""
 			self.isMale = True
 

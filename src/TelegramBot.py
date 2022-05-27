@@ -145,7 +145,6 @@ class Telehooper:
 			"$push": {
 				"ServiceDialogues.VK": {
 					"ID": group.serviceDialogueID,
-					"ChatID": group,
 					"TelegramGroupID": group.group.id,
 					"AddDate": datetime.datetime.now()
 				}
@@ -302,7 +301,7 @@ class DialogueGroup:
 	def __str__(self) -> str:
 		return f"<DialogueGroup serviceID:{self.serviceType} ID:{self.serviceDialogueID}>"
 
-async def global_error_handler(update, exception) -> bool:
+async def global_error_handler(update: aiogram.types.Update, exception) -> bool:
 	"""
 	Глобальный обработчик ВСЕХ ошибок у бота.
 	"""
@@ -318,7 +317,7 @@ async def global_error_handler(update, exception) -> bool:
 	else:
 		logger.exception(exception)
 
-		await update.message.answer(f"⚠️ Произошла ошибка: <code>{exception}</code>.\nПопробуй позже.\n\nТак же, ты можешь зарепортить баг в <a href=\"https://github.com/Zensonaton/Telehooper/issues\">Issues</a> проекта.")
+		await update.bot.send_message(update.callback_query.message.chat.id, f"⚠️ Произошла ошибка: <code>{exception}</code>.\nПопробуй позже.\n\nТак же, ты можешь зарепортить баг в <a href=\"https://github.com/Zensonaton/Telehooper/issues\">Issues</a> проекта.")
 
 	return True
 

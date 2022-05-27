@@ -111,7 +111,8 @@ async def VKDialogueSelector(query: CallbackQuery) -> None:
 		return await query.answer("Эта группа уже является диалогом.")
 
 	dialogue = user.vkAccount.getDialogueByID(VK_ID)
-	assert dialogue, "dialogue is None"
+	if not dialogue:
+		return await query.answer("Произошла ошибка, выполни команду снова.")
 
 	# Добавляем диалог-группу в базу:
 	Bot.addDialogueGroup(
@@ -127,9 +128,9 @@ async def VKDialogueSelector(query: CallbackQuery) -> None:
 	try:
 		pfpURL: str = "https://vk.com/images/camera_400.png"
 		if dialogue.isUser:
-			pfpURL = (await user.vkAccount.vkAPI.users.get(user_ids=[dialogue.ID], fields=["photo_max_orig"]))[0].photo_max_orig # type: ignore
+			pfpURL = (await user.vkAccount.vkAPI.users.get(user_ids=[dialogue.absID], fields=["photo_max_orig"]))[0].photo_max_orig # type: ignore
 		elif dialogue.isGroup:
-			pfpURL = (await user.vkAccount.vkAPI.groups.get_by_id(group_id=dialogue.ID, fields=["photo_max_orig"]))[0].photo_max_orig # type: ignore
+			pfpURL = (await user.vkAccount.vkAPI.groups.get_by_id(group_id=dialogue.absID, fields=["photo_max_orig"]))[0].photo_max_orig # type: ignore
 		else:
 			pfpURL = dialogue.photoURL
 		
