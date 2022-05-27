@@ -8,7 +8,7 @@ from aiogram import Bot, Dispatcher
 from aiogram.types import (CallbackQuery, InlineKeyboardButton,
                            InlineKeyboardMarkup)
 from aiogram.types import Message as MessageType
-from Consts import InlineButtonCallbacks as CButtons
+from Consts import VK_OAUTH_URL, InlineButtonCallbacks as CButtons
 from TelegramBot import Telehooper
 
 from TelegramBotHandlers.VKLogin import (VKTokenMessageHandler,
@@ -71,15 +71,13 @@ async def ConnectCallbackHandler(query: CallbackQuery):
 	elif query.data == CButtons.BACK_TO_SERVICE_SELECTOR:
 		await ConnectMessage(query.message, True)
 	elif query.data == CButtons.VK_LOGIN_VIA_VKID:
-		auth_url = f"https://oauth.vk.com/authorize?client_id=6463690&redirect_uri=https://oauth.vk.com/blank.html&display=page&response_type=token&revoke=1"
-
 		keyboard = InlineKeyboardMarkup().add(
-			InlineKeyboardButton(text="🔑 Авторизоваться", url=auth_url),
+			InlineKeyboardButton(text="🔑 Авторизоваться", url=VK_OAUTH_URL),
 		).add(
 			InlineKeyboardButton(text="🔙 Назад", callback_data=CButtons.ADD_VK_ACCOUNT),
 		)
 
-		await query.message.edit_text(f"Отлично! Перейди по <a href=\"{auth_url}\">вот этой ссылке</a>, авторизуйся там.\nК сожалению, ввиду технических ограничений ВКонтакте, авторизация производится через приложение «Маруся». После авторизации во ВКонтакте, отправь адресную ссылку <i>(URL)</i> страницы, на которой говорится «Не копировать» сюда.\n\n⚙️ Отправь ссылку на страницу сюда:", reply_markup=keyboard)
+		await query.message.edit_text(f"Отлично! Перейди по <a href=\"{VK_OAUTH_URL}\">вот этой ссылке</a>, авторизуйся там.\nК сожалению, ввиду технических ограничений ВКонтакте, авторизация производится через приложение «Kate Mobile». После авторизации во ВКонтакте, отправь адресную ссылку (URL) страницы, на которой говорится «Не копировать» сюда.\n\n⚙️ Отправь ссылку на страницу сюда:", reply_markup=keyboard)
 	elif query.data == CButtons.VK_LOGIN_VIA_PASSWORD:
 		keyboard = InlineKeyboardMarkup().add(
 			InlineKeyboardButton(text="🔙 Назад", callback_data=CButtons.ADD_VK_ACCOUNT),

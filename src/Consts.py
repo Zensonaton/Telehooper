@@ -99,3 +99,5 @@ class CommandThrottleNames:
 	DIALOGUE_CONVERT = "grouptodialogueconvert"
 	SERVICES_LIST = "services"
 	THIS_DIALOGUE = "this"
+
+VK_OAUTH_URL = "https://oauth.vk.com/authorize?client_id=2685278&scope=69634&redirect_uri=https://oauth.vk.com/blank.html&display=page&response_type=token&revoke=1"
