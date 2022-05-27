@@ -39,6 +39,6 @@ async def RegularMessageHandlers(msg: MessageType):
 	if not dialogue:
 		return False
 
-	await user.vkMAPI.sendMessageOut(msg.text, dialogue.serviceDialogueID)
+	user.vkMAPI._saveMessageID(msg.message_id, await user.vkMAPI.sendMessageOut(msg.text, dialogue.serviceDialogueID))
 	
 

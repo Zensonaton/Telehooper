@@ -133,7 +133,7 @@ class VKAccount:
 						"AuthDate": datetime.datetime.now(),
 						"Token": self.vkToken,
 						"ID": self.vkFullUser.id,
-						"DialogueGroupIDs": []
+						"ServiceToTelegramMIDs": {} # "ID сообщения сервиса": "ID сообщения Telegram"
 					}
 				}
 			}},
@@ -392,12 +392,12 @@ class MiddlewareAPI:
 
 		pass
 
-	async def sendServiceMessageIn(self, message: str) -> None:
+	async def sendServiceMessageIn(self, message: str) -> aiogram.types.Message:
 		"""
 		Отправляет сообщению пользователю в Telegram. При использовании функции, сообщение появится у пользователя в диалоге с ботом.
 		"""
 
-		await self.user.TGUser.bot.send_message(self.user.TGUser.id, message)
+		return await self.user.TGUser.bot.send_message(self.user.TGUser.id, message)
 
 	async def sendServiceMessageOut(self, message: str) -> None:
 		"""
@@ -484,13 +484,13 @@ class VKMiddlewareAPI(MiddlewareAPI):
 
 		return self.pollingTask
 
-	async def sendServiceMessageOut(self, message: str, msg_id_to_reply: int | None = None) -> None:
-		await self.sendMessageOut(message, self.user.vkAccount.vkFullUser.id, msg_id_to_reply)
+	async def sendServiceMessageOut(self, message: str, msg_id_to_reply: int | None = None) -> int:
+		return await self.sendMessageOut(message, self.user.vkAccount.vkFullUser.id, msg_id_to_reply)
 
-	async def sendMessageOut(self, message: str, chat_id: int, msg_id_to_reply: int | None = None) -> None:
-		await self.user.vkAccount.vkAPI.messages.send(peer_id=chat_id, random_id=Utils.generateVKRandomID(), message=message, reply_to=msg_id_to_reply)
+	async def sendMessageOut(self, message: str, chat_id: int, msg_id_to_reply: int | None = None) -> int:
+		return await self.user.vkAccount.vkAPI.messages.send(peer_id=chat_id, random_id=Utils.generateVKRandomID(), message=message, reply_to=msg_id_to_reply)
 
-	async def _serviceCommandHandler(self, msg: Message) -> None:
+	async def _serviceCommandHandler(self, msg: Message) -> int | aiogram.types.Message:
 		"""
 		Обработчик команд, отправленных внутри сервиса, т.е., например, в чате "Избранное" в ВК.
 		"""
@@ -506,14 +506,20 @@ class VKMiddlewareAPI(MiddlewareAPI):
 
 			# Отправляем сообщения:
 			await self.sendServiceMessageOut("ℹ️ Ваш аккаунт ВКонтакте был успешно отключён от бота «Telehooper».", msg.id)
+			return 0
 		elif msg.text.startswith("test"):
 			await _commandRecieved(msg)
 
 			await self.sendServiceMessageOut("✅ Telegram-бот «Telehooper» работает!", msg.id)
+			return 0
 		elif msg.text.startswith("ping"):
 			await _commandRecieved(msg)
 
-			await self.sendServiceMessageIn("[<b>ВКонтакте</b>] » Проверка связи! 👋")
+			return await self.sendServiceMessageIn("[<b>ВКонтакте</b>] » Проверка связи! 👋")
+		else:
+			# Неизвестная команда.
+
+			return 0
 	
 	async def onMessage(self, msg: Message) -> None:
 		"""
@@ -528,7 +534,13 @@ class VKMiddlewareAPI(MiddlewareAPI):
 		if msg.peer_id == self.user.vkAccount.vkFullUser.id:
 			# Мы получили сообщение в "Избранном", обрабатываем сообщение как команду,
 			# но боту в ТГ ничего не передаём.
-			await self._serviceCommandHandler(msg)
+			message = await self._serviceCommandHandler(msg)
+
+			if message and isinstance(message, aiogram.types.Message):
+				# Сообщение в Телеграм.
+
+				self._saveMessageID(message.message_id, msg.message_id)
+
 
 			return
 
@@ -546,10 +558,10 @@ class VKMiddlewareAPI(MiddlewareAPI):
 		# но если у пользователя есть группа-диалог, то я отправлю сообщение именно туда:
 		dialogue = await self.bot.getDialogueGroupByServiceDialogueID(abs(msg.peer_id))
 		if dialogue:
-			await self.user.TGUser.bot.send_message(dialogue.group.id, msg.text)
+			self._saveMessageID((await self.user.TGUser.bot.send_message(dialogue.group.id, msg.text)).message_id, msg.message_id)
 			return
 
-		await self.user.TGUser.bot.send_message(self.user.TGUser.id, msg.text)
+		# _saveMessageID((await self.user.TGUser.bot.send_message(self.user.TGUser.id, msg.text)).message_id)
 
 	async def disconnectService(self, disconnect_type: int = AccountDisconnectType.INITIATED_BY_USER, send_service_messages: bool = True) -> None:
 		"""
@@ -580,3 +592,12 @@ class VKMiddlewareAPI(MiddlewareAPI):
 		self.user.vkAccount.vkUser.polling.stop = True # type: ignore (переменной нет в vkbottle_types)
 
 		self.isPollingRunning = False
+
+	def _saveMessageID(self, telegram_message_id: int | str, vk_message_id: int | str) -> None:
+		# Сохраняем ID сообщения в ДБ:
+		DB = getDefaultCollection()
+		DB.update_one({"_id": self.user.TGUser.id}, {
+			"$set": {
+				f"Services.VK.ServiceToTelegramMIDs.{vk_message_id}": str(telegram_message_id)
+			}
+		})
