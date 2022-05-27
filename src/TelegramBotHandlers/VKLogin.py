@@ -14,6 +14,7 @@ from aiogram.types import Message as MessageType
 from Consts import AccountDisconnectType, CommandThrottleNames as CThrottle
 from Consts import InlineButtonCallbacks as CButtons
 from TelegramBot import Telehooper
+from ServiceMAPIs.VK import VKAccount
 
 Bot: 	Telehooper 	= None # type: ignore
 TGBot: 	Bot 		= None # type: ignore
@@ -102,7 +103,7 @@ async def VKTokenMessageHandler(msg: MessageType) -> MessageType:
 
 	return await successConnectionMessage(msg, vkAccount)
 
-async def successConnectionMessage(msg: MessageType, vkAccount: MiddlewareAPI.VKAccount) -> MessageType:
+async def successConnectionMessage(msg: MessageType, vkAccount: VKAccount) -> MessageType:
 	return await msg.answer(f"Успех, я успешно подключился к твоей странице ВКонтакте. Приветствую тебя, <i>{vkAccount.vkFullUser.first_name} {vkAccount.vkFullUser.last_name}!</i> 😉👍\n\n⚙️ После подключения страницы <b>«ВКонтакте»</b> стоит проверить команду /services для просмотра дальнейших возможностей.")
 
 async def VKTokenURLMessageHandler(msg: MessageType) -> MessageType:
