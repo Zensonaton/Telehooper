@@ -1,6 +1,10 @@
 aiogram==2.20
-Pillow==9.1.0
-pymongo==3.12.3
+aiohttp==3.8.1
+numpy==1.22.4
+opencv_python==4.5.5.64
+Pillow==9.1.1
+pymongo==4.0
 python-dotenv==0.20.0
-vkbottle==4.3.0
+Telethon==1.24.0
+vkbottle==4.3.2
 vkbottle_types==5.131.146.2.post1

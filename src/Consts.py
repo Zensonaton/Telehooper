@@ -9,6 +9,33 @@ REQUIREDENVVARS = {
 	"VKBOT_NOTIFIER_ID": "ID VK группы, в которую будет отправляться сообщение для уведомление о подключении нового пользователя. Отрицательное, числовое значение. По умолчанию 213024897. Используй число 0 для отключения.",
 }
 
+class officialVKAppCreds:
+	"""
+	Класс/Enum для хранения официальных данных приложений ВК. Необходимо для авторизации через логин-пароль.
+	"""
+
+	# Взято из:
+	# https://github.com/negezor/vk-io/blob/master/packages/authorization/src/constants.ts#L63-L88
+
+	class appCredential:
+		"""
+		Класс с информацией о приложении ВК.
+		"""
+
+		clientID: int
+		clientSecret: str
+
+		def __init__(self, clientID: int, clientSecret: str) -> None:
+			self.clientID = clientID
+			self.clientSecret = clientSecret
+
+	ANDROID = appCredential(2274003, "hHbZxrka2uZ6jB1inYsH")
+	WINDOWS = appCredential(3697615, "AlVXZFMUqyrnABp8ncuU")
+	WINDOWS_PHONE = appCredential(3502557, "PEObAuQi6KloPM4T30DV")
+	IPHONE = appCredential(3140623, "VeWdmVclDCtn6ihuP1nt")
+	IPAD = appCredential(3682744, "mY6CDUswIVdJLCD3j15n")
+	VK_ME = appCredential(6146827, "qVxWRF1CwHERuIrKBnqe")
+
 class InlineButtonCallbacks:
 	ADD_VK_ACCOUNT = "add_vk"
 	VK_LOGIN_VIA_PASSWORD = "add_vk_password"
