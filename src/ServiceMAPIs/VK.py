@@ -40,7 +40,7 @@ class VKMiddlewareAPI(MiddlewareAPI):
 	pollingTask: asyncio.Task | None
 	isPollingRunning: bool
 
-	def __init__(self, user: "TelehooperUser", bot: "Telehooper", vkAccount: VKAccount) -> None:
+	def __init__(self, user: "TelehooperUser", bot: "Telehooper") -> None:
 		super().__init__(user, bot)
 
 		self.pollingTask = None
@@ -94,6 +94,9 @@ class VKMiddlewareAPI(MiddlewareAPI):
 	async def sendMessageOut(self, message: str, chat_id: int, msg_id_to_reply: int | None = None) -> int:
 		return await self.user.vkAccount.vkAPI.messages.send(peer_id=chat_id, random_id=generateVKRandomID(), message=message, reply_to=msg_id_to_reply)
 
+	async def editMessageOut(self, message: str, chat_id: int, message_id: int) -> int:
+		return await self.user.vkAccount.vkAPI.messages.edit(peer_id=chat_id, message_id=message_id, message=message)
+
 	async def onNewRecievedMessage(self, msg: Message) -> None:
 		"""
 		Обработчик входящих/исходящих сообщений полученных из ВКонтакте.
@@ -112,7 +115,7 @@ class VKMiddlewareAPI(MiddlewareAPI):
 			if message and isinstance(message, aiogram.types.Message):
 				# Сообщение в Телеграм.
 
-				self._saveMessageID(message.message_id, msg.message_id)
+				self.saveMessageID(message.message_id, msg.message_id)
 
 
 			return
@@ -131,7 +134,7 @@ class VKMiddlewareAPI(MiddlewareAPI):
 		# но если у пользователя есть группа-диалог, то я отправлю сообщение именно туда:
 		dialogue = await self.bot.getDialogueGroupByServiceDialogueID(abs(msg.peer_id))
 		if dialogue:
-			self._saveMessageID((await self.user.TGUser.bot.send_message(dialogue.group.id, msg.text)).message_id, msg.message_id)
+			self.saveMessageID((await self.user.TGUser.bot.send_message(dialogue.group.id, msg.text)).message_id, msg.message_id)
 			return
 
 	async def disconnectService(self, disconnect_type: int = AccountDisconnectType.INITIATED_BY_USER, send_service_messages: bool = True) -> None:
@@ -148,18 +151,31 @@ class VKMiddlewareAPI(MiddlewareAPI):
 			# Мы должны отправить сообщения в самом сервисе о отключении:
 			await self.user.vkAccount.vkAPI.messages.send(self.user.vkAccount.vkFullUser.id, random_id=generateVKRandomID(), message="ℹ️ Ваш аккаунт ВКонтакте был успешно отключён от бота «Telehooper».\n\nНадеюсь, что ты в скором времени вернёшься 🥺")
 
-	def _saveMessageID(self, telegram_message_id: int | str, vk_message_id: int | str) -> None:
-		"""
-		Сохраняет ID сообщения в БД.
-		"""
+	def getMessageIDByTelegramMID(self, telegram_message_id: int | str) -> int | None:
+		"""Достаёт ID сообщения сервиса по ID сообщения Telegram."""
 
-		# Сохраняем ID сообщения в ДБ:
+		# Получаем из ДБ информацию:
 		DB = getDefaultCollection()
-		DB.update_one({"_id": self.user.TGUser.id}, {
-			"$set": {
-				f"Services.VK.ServiceToTelegramMIDs.{vk_message_id}": str(telegram_message_id)
-			}
-		})
+		res = DB.find_one({"_id": self.user.TGUser.id}) # TODO: Заменить на нормальный query для ДБ.
+		if res:
+			res = res["Services"]["VK"]["ServiceToTelegramMIDs"]
+
+			for r in res:
+				if res[r] == str(telegram_message_id):
+					return int(r)
+
+		return None
+
+	def getMessageIDByServiceMID(self, vk_message_id: int | str):
+		"""Достаёт ID сообщения сервиса по ID сообщения Telegram."""
+
+		# Получаем из ДБ информацию:
+		DB = getDefaultCollection()
+		res = DB.find({"_id": self.user.TGUser.id, f"Services.VK.ServiceToTelegramMIDs.{vk_message_id}": {"$exists": True}})
+		if res:
+			pass
+
+
 
 	async def _commandHandler(self, msg: Message) -> int | aiogram.types.Message:
 		"""

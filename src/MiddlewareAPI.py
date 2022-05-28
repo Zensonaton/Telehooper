@@ -31,6 +31,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# TODO: Перенести этот класс в TelegramBot.py
 class TelehooperUser:
 	"""
 	Класс, отображающий пользователя бота Telehooper: тут будут все подключённые сервисы.
@@ -79,7 +80,7 @@ class TelehooperUser:
 
 		await asyncio.sleep(0) # Спим 0 секунд, что бы последующий код не запускался до завершения кода выше.
 
-		self.vkMAPI = VKMiddlewareAPI(self, self.bot, self.vkAccount)
+		self.vkMAPI = VKMiddlewareAPI(self, self.bot)
 
 		self.isVKConnected = True
 
@@ -120,14 +121,14 @@ class MiddlewareAPI:
 
 	async def onNewRecievedMessage(self, messageText: str) -> None:
 		"""
-		Событие, когда получено новое сообщение.
+		Событие, когда в сервисе получено новое сообщение.
 		"""
 
 		pass
 
 	async def onMessageEdit(self) -> None:
 		"""
-		Событие, когда сообщение редактируется.
+		Событие, когда в сервисе сообщение отредактировалось.
 		"""
 
 	async def sendMessageIn(self, message: str, chat_id: int) -> None:
@@ -140,6 +141,20 @@ class MiddlewareAPI:
 	async def sendMessageOut(self, message: str) -> None:
 		"""
 		Отправляет сообщение в сервисе.
+		"""
+
+		pass
+
+	async def editMessageIn(self, message: str, chat_id: int, message_id: int) -> None:
+		"""
+		Редактирует сообщение в Telegram.
+		"""
+
+		await self.user.TGUser.bot.edit_message_text(message, chat_id, message_id)
+
+	async def editMessageOut(self, message: str, message_id: int) -> None:
+		"""
+		Редактирует сообщение в сервисе.
 		"""
 
 		pass
@@ -193,6 +208,28 @@ class MiddlewareAPI:
 			}},
 			upsert=True
 		)
+
+	def saveMessageID(self, telegram_message_id: int | str, service_message_id: int | str) -> None:
+		"""Сохраняет ID сообщения в базу."""
+
+		# Сохраняем ID сообщения в ДБ:
+		DB = getDefaultCollection()
+		DB.update_one({"_id": self.user.TGUser.id}, {
+			"$set": {
+				f"Services.VK.ServiceToTelegramMIDs.{service_message_id}": str(telegram_message_id)
+			}
+		})
+
+	def getMessageIDByTelegramMID(self, telegram_message_id: int | str):
+		"""Достаёт ID сообщения сервиса по ID сообщения Telegram."""
+
+		pass
+
+	def getMessageIDByServiceMID(self, service_message_id: int | str):
+		"""Достаёт ID сообщения сервиса по ID сообщения Telegram."""
+
+		pass
+
 
 	def __str__(self) -> str:
 		return "<Base MiddlewareAPI class>"

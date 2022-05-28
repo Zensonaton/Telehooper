@@ -58,7 +58,7 @@ async def SendThisDialogueMessage(msg: MessageType, edit_message_instead: bool =
 
 	await msg.answer(_text, reply_markup=keyboard)
 
-async def ThisDialogueCallbackHandler(query: CallbackQuery) -> None:
+async def ThisDialogueCallbackHandler(query: CallbackQuery) -> bool:
 	if query.data == CButton.DIALOGUE_SELECTOR_MENU_VK:
 		_text = "<b>Отлично!</b> Теперь ты можешь выбрать нужный тебе диалог сервиса."
 
@@ -100,7 +100,7 @@ async def ThisDialogueCallbackHandler(query: CallbackQuery) -> None:
 
 	return await query.answer()
 
-async def VKDialogueSelector(query: CallbackQuery) -> None:
+async def VKDialogueSelector(query: CallbackQuery) -> bool:
 	VK_ID = int(query.data.split(CButton.DIALOGUE_SELECT_VK)[-1])
 
 	# Получаем информацию:

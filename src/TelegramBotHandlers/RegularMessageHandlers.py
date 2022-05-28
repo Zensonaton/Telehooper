@@ -26,8 +26,8 @@ def _setupCHandler(bot: Telehooper) -> None:
 	TGBot = Bot.TGBot
 	DP = Bot.DP
 
-	# Only if user is not used a command
 	DP.register_message_handler(RegularMessageHandlers)
+	DP.register_edited_message_handler(RegularMessageEditHandler)
 
 
 async def RegularMessageHandlers(msg: MessageType):
@@ -39,6 +39,20 @@ async def RegularMessageHandlers(msg: MessageType):
 	if not dialogue:
 		return False
 
-	user.vkMAPI._saveMessageID(msg.message_id, await user.vkMAPI.sendMessageOut(msg.text, dialogue.serviceDialogueID))
+	# Отправляем сообщение в ВК:
+	user.vkMAPI.saveMessageID(msg.message_id, await user.vkMAPI.sendMessageOut(msg.text, dialogue.serviceDialogueID))
 
+async def RegularMessageEditHandler(msg: MessageType):
+	# Получаем объект пользователя:
+	user = await Bot.getBotUser(msg.from_user.id)
 
+	# Узнаём, диалог ли это:
+	dialogue = await user.getDialogueGroupByTelegramGroup(msg.chat.id)
+	if not dialogue:
+		return False
+
+	# Редактируем сообщение в ВК.
+	# Получаем ID сообщения в ВК через ID сообщения Telegram:
+	messageID = user.vkMAPI.getMessageIDByTelegramMID(msg.message_id)
+	if messageID:
+		await user.vkMAPI.editMessageOut(msg.text, dialogue.serviceDialogueID, messageID)
