@@ -6,7 +6,8 @@ import logging
 
 from aiogram import Bot, Dispatcher
 from aiogram.types import Message as MessageType
-from TelegramBot import Telehooper
+from MiddlewareAPI import TelehooperUser
+from TelegramBot import DialogueGroup, Telehooper
 
 Bot: 	Telehooper 	= None # type: ignore
 TGBot: 	Bot 		= None # type: ignore
@@ -49,14 +50,18 @@ async def shouldBeHandled(msg: MessageType):
 
 async def RegularMessageHandlers(msg: MessageType):
 	dialogue: DialogueGroup = msg._dialogue # type: ignore
-	user: BotUser = msg._user # type: ignore
+	user: TelehooperUser = msg._user # type: ignore
+
+	reply_message_id = None
+	if msg.reply_to_message:
+		reply_message_id = user.vkMAPI.getMessageIDByTelegramMID(msg.reply_to_message.message_id)
 
 	# Отправляем сообщение в ВК:
-	user.vkMAPI.saveMessageID(msg.message_id, await user.vkMAPI.sendMessageOut(msg.text, dialogue.serviceDialogueID))
+	user.vkMAPI.saveMessageID(msg.message_id, await user.vkMAPI.sendMessageOut(msg.text, dialogue.serviceDialogueID, reply_message_id))
 
 async def RegularMessageEditHandler(msg: MessageType):
 	dialogue: DialogueGroup = msg._dialogue # type: ignore
-	user: BotUser = msg._user # type: ignore
+	user: TelehooperUser = msg._user # type: ignore
 
 	# Редактируем сообщение в ВК.
 	# Получаем ID сообщения в ВК через ID сообщения Telegram:

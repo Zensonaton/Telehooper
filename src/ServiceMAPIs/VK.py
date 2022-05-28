@@ -130,11 +130,10 @@ class VKMiddlewareAPI(MiddlewareAPI):
 
 			return
 
-		# Для тестирования, я просто буду отправлять сообщение в чат с пользователем,
-		# но если у пользователя есть группа-диалог, то я отправлю сообщение именно туда:
+		# Если у пользователя есть группа-диалог, то сообщение будет отправлено именно туда:
 		dialogue = await self.bot.getDialogueGroupByServiceDialogueID(abs(msg.peer_id))
 		if dialogue:
-			self.saveMessageID((await self.user.TGUser.bot.send_message(dialogue.group.id, msg.text)).message_id, msg.message_id)
+			self.saveMessageID((await self.user.TGUser.bot.send_message(dialogue.group.id, msg.text)).message_id, msg.id)
 			return
 
 	async def onMessageEdit(self, a) -> None:
