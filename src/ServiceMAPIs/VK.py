@@ -64,7 +64,7 @@ class VKMiddlewareAPI(MiddlewareAPI):
 
 		# Регестрируем события в ВК:
 		self.user.vkAccount.vkUser.on.message()(self.onNewRecievedMessage)
-		self.user.vkAccount.vkUser.on.raw_event(str(vkbottle.UserEventType.DIALOG_TYPING_STATE), dict)
+		self.user.vkAccount.vkUser.on.raw_event(str(vkbottle.UserEventType.MESSAGE_EDIT), dict) # TODO: Данный код не работает.
 
 		# Создаём Polling-задачу:
 		self.pollingTask = asyncio.create_task(self.user.vkAccount.vkUser.run_polling(), name=f"VK Polling, id{self.user.vkAccount.vkFullUser.id}")
@@ -136,6 +136,9 @@ class VKMiddlewareAPI(MiddlewareAPI):
 		if dialogue:
 			self.saveMessageID((await self.user.TGUser.bot.send_message(dialogue.group.id, msg.text)).message_id, msg.message_id)
 			return
+
+	async def onMessageEdit(self, a) -> None:
+		logger.info("Edited message from outside!")
 
 	async def disconnectService(self, disconnect_type: int = AccountDisconnectType.INITIATED_BY_USER, send_service_messages: bool = True) -> None:
 		"""
