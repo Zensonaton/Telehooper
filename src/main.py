@@ -29,7 +29,7 @@ os.makedirs("Logs", exist_ok=True)
 logging.basicConfig(
 	level=logging.INFO,
 	format="[%(levelname)-8s %(asctime)s at %(funcName)s]: %(message)s",
-	datefmt="%d.%d.%Y %H:%M:%S",
+	datefmt="%d.%m.%Y %H:%M:%S",
 	handlers=[
 		logging.handlers.RotatingFileHandler("Logs/TGBot.log", maxBytes=10485760, backupCount=0),
 		logging.StreamHandler()
