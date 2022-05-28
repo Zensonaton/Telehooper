@@ -26,11 +26,14 @@ def _setupCHandler(bot: Telehooper) -> None:
 	TGBot = Bot.TGBot
 	DP = Bot.DP
 
-	DP.register_message_handler(RegularMessageHandlers)
-	DP.register_edited_message_handler(RegularMessageEditHandler)
+	DP.register_message_handler(RegularMessageHandlers, shouldBeHandled)
+	DP.register_edited_message_handler(RegularMessageEditHandler, shouldBeHandled)
 
+async def shouldBeHandled(msg: MessageType):
+	"""
+	Проверка на то, нужно ли обрабатывать событие сообщения.
+	"""
 
-async def RegularMessageHandlers(msg: MessageType):
 	# Получаем объект пользователя:
 	user = await Bot.getBotUser(msg.from_user.id)
 
@@ -38,18 +41,22 @@ async def RegularMessageHandlers(msg: MessageType):
 	dialogue = await user.getDialogueGroupByTelegramGroup(msg.chat.id)
 	if not dialogue:
 		return False
+
+	# Если ок:
+	msg._user = user # type: ignore
+	msg._dialogue = dialogue # type: ignore
+	return True
+
+async def RegularMessageHandlers(msg: MessageType):
+	dialogue: DialogueGroup = msg._dialogue # type: ignore
+	user: BotUser = msg._user # type: ignore
 
 	# Отправляем сообщение в ВК:
 	user.vkMAPI.saveMessageID(msg.message_id, await user.vkMAPI.sendMessageOut(msg.text, dialogue.serviceDialogueID))
 
 async def RegularMessageEditHandler(msg: MessageType):
-	# Получаем объект пользователя:
-	user = await Bot.getBotUser(msg.from_user.id)
-
-	# Узнаём, диалог ли это:
-	dialogue = await user.getDialogueGroupByTelegramGroup(msg.chat.id)
-	if not dialogue:
-		return False
+	dialogue: DialogueGroup = msg._dialogue # type: ignore
+	user: BotUser = msg._user # type: ignore
 
 	# Редактируем сообщение в ВК.
 	# Получаем ID сообщения в ВК через ID сообщения Telegram:
