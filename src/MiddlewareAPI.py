@@ -9,7 +9,7 @@ import asyncio
 import datetime
 import logging
 import os
-from typing import TYPE_CHECKING, Any, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, List, Literal, Optional, Tuple
 
 import aiogram
 import vkbottle
@@ -131,6 +131,15 @@ class MiddlewareAPI:
 		Событие, когда в сервисе сообщение отредактировалось.
 		"""
 
+		pass
+
+	async def onChatTypingState(self, chat_id: int) -> None:
+		"""
+		Событие, когда в сервисе в каком-либо чате происходит событие по типу печатанья.
+		"""
+
+		pass
+
 	async def sendMessageIn(self, message: str, chat_id: int) -> None:
 		"""
 		Отправляет сообщение в Telegram.
@@ -172,6 +181,13 @@ class MiddlewareAPI:
 		"""
 
 		pass
+
+	async def startChatActionStateIn(self, chat_id: int | str, action: Literal["typing", "upload_photo", "record_video", "record_video", "upload_video", "record_voice", "upload_voice", "upload_document", "find_location", "record_video_note", "upload_video_note"] = "typing") -> None:
+		"""
+		Начинает событие "печати" в Telegram.
+		"""
+
+		await self.user.TGUser.bot.send_chat_action(chat_id, action)
 
 	async def disconnectService(self, disconnect_type: int = AccountDisconnectType.INITIATED_BY_USER, send_service_messages: bool = True) -> None:
 		"""

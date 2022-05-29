@@ -64,7 +64,8 @@ class VKMiddlewareAPI(MiddlewareAPI):
 
 		# Регестрируем события в ВК:
 		self.user.vkAccount.vkUser.on.message()(self.onNewRecievedMessage)
-		self.user.vkAccount.vkUser.on.raw_event(vkbottle.UserEventType.MESSAGE_EDIT)(self.onMessageEdit)
+		self.user.vkAccount.vkUser.on.raw_event(vkbottle.UserEventType.MESSAGE_EDIT)(self.onMessageEdit) # type: ignore
+		self.user.vkAccount.vkUser.on.raw_event(vkbottle.UserEventType.DIALOG_TYPING_STATE)(self.onChatTypingState) # type: ignore
 
 		# Создаём Polling-задачу:
 		self.pollingTask = asyncio.create_task(self.user.vkAccount.vkUser.run_polling(), name=f"VK Polling, id{self.user.vkAccount.vkFullUser.id}")
@@ -148,6 +149,17 @@ class VKMiddlewareAPI(MiddlewareAPI):
 			# Сообщение найдено, редактируем его в Telegram:
 
 			await self.editMessageIn(MSGTEXT + "ㅤㅤㅤ<i>изменено</i>", tgchatid, tgmid)
+
+	async def onChatTypingState(self, typing_object):
+		CHAT_ID = typing_object.object[1]
+
+		# Узнаём, диалог ли это:
+		dialogue = await self.user.getDialogueGroupByServiceDialogueID(CHAT_ID)
+		if not dialogue:
+			return False
+
+		# В ином случае, начинаем "печатать":
+		await self.startChatActionStateIn(dialogue.group.id, "typing")
 
 	async def disconnectService(self, disconnect_type: int = AccountDisconnectType.INITIATED_BY_USER, send_service_messages: bool = True) -> None:
 		"""
