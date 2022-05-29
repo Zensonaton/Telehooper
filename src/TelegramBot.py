@@ -146,7 +146,8 @@ class Telehooper:
 				"ServiceDialogues.VK": {
 					"ID": group.serviceDialogueID,
 					"TelegramGroupID": group.group.id,
-					"AddDate": datetime.datetime.now()
+					"AddDate": datetime.datetime.now(),
+					# TODO: "PinnedMessageID": group.pinnedMessageID
 				}
 			}
 		},

@@ -6,7 +6,7 @@ import asyncio
 import datetime
 import logging
 import os
-from typing import TYPE_CHECKING, Any, List, Optional
+from typing import TYPE_CHECKING, Any, List, Optional, Tuple
 
 import aiogram
 import vkbottle
@@ -64,7 +64,7 @@ class VKMiddlewareAPI(MiddlewareAPI):
 
 		# Регестрируем события в ВК:
 		self.user.vkAccount.vkUser.on.message()(self.onNewRecievedMessage)
-		self.user.vkAccount.vkUser.on.raw_event(str(vkbottle.UserEventType.MESSAGE_EDIT), dict) # TODO: Данный код не работает.
+		self.user.vkAccount.vkUser.on.raw_event(vkbottle.UserEventType.MESSAGE_EDIT)(self.onMessageEdit)
 
 		# Создаём Polling-задачу:
 		self.pollingTask = asyncio.create_task(self.user.vkAccount.vkUser.run_polling(), name=f"VK Polling, id{self.user.vkAccount.vkFullUser.id}")
@@ -115,7 +115,7 @@ class VKMiddlewareAPI(MiddlewareAPI):
 			if message and isinstance(message, aiogram.types.Message):
 				# Сообщение в Телеграм.
 
-				self.saveMessageID(message.message_id, msg.message_id)
+				self.saveMessageID(message.message_id, msg.message_id, message.chat.id, msg.chat_id)
 
 
 			return
@@ -133,11 +133,21 @@ class VKMiddlewareAPI(MiddlewareAPI):
 		# Если у пользователя есть группа-диалог, то сообщение будет отправлено именно туда:
 		dialogue = await self.bot.getDialogueGroupByServiceDialogueID(abs(msg.peer_id))
 		if dialogue:
-			self.saveMessageID((await self.user.TGUser.bot.send_message(dialogue.group.id, msg.text)).message_id, msg.id)
+			self.saveMessageID((await self.user.TGUser.bot.send_message(dialogue.group.id, msg.text)).message_id, msg.id, dialogue.group.id, msg.chat_id)
 			return
 
-	async def onMessageEdit(self, a) -> None:
-		logger.info("Edited message from outside!")
+	async def onMessageEdit(self, msg) -> None:
+		# Получаем ID сообщения в Telegram:
+
+		MSGID = msg.object[1]
+		MSGTEXT = msg.object[6]
+		MSGCHATID = msg.object[3]
+
+		tgmid, vkmid, tgchatid, vkchatid = self.getMessageDataByServiceMID(MSGID) or (None, None, None, None)
+		if tgmid and tgchatid:
+			# Сообщение найдено, редактируем его в Telegram:
+
+			await self.editMessageIn(MSGTEXT + "ㅤㅤㅤ<i>изменено</i>", tgchatid, tgmid)
 
 	async def disconnectService(self, disconnect_type: int = AccountDisconnectType.INITIATED_BY_USER, send_service_messages: bool = True) -> None:
 		"""
@@ -153,29 +163,29 @@ class VKMiddlewareAPI(MiddlewareAPI):
 			# Мы должны отправить сообщения в самом сервисе о отключении:
 			await self.user.vkAccount.vkAPI.messages.send(self.user.vkAccount.vkFullUser.id, random_id=generateVKRandomID(), message="ℹ️ Ваш аккаунт ВКонтакте был успешно отключён от бота «Telehooper».\n\nНадеюсь, что ты в скором времени вернёшься 🥺")
 
-	def getMessageIDByTelegramMID(self, telegram_message_id: int | str) -> int | None:
-		"""Достаёт ID сообщения сервиса по ID сообщения Telegram."""
+	def getMessageIDByTelegramMID(self, telegram_message_id: int | str) -> None | Tuple[int, int, int, int]:
+		return self._getMessageDataByKeyname("TelegramMID", telegram_message_id)
 
+	def getMessageDataByServiceMID(self, vk_message_id: int | str) -> None | Tuple[int, int, int, int]:
+		return self._getMessageDataByKeyname("ServiceMID", vk_message_id)
+
+	def _getMessageDataByKeyname(self, key: str, value: int | str):
 		# Получаем из ДБ информацию:
 		DB = getDefaultCollection()
-		res = DB.find_one({"_id": self.user.TGUser.id}) # TODO: Заменить на нормальный query для ДБ.
+		res = DB.find_one({"_id": self.user.TGUser.id})
 		if res:
 			res = res["Services"]["VK"]["ServiceToTelegramMIDs"]
 
 			for r in res:
-				if res[r] == str(telegram_message_id):
-					return int(r)
+				if r[key] == str(value):
+					TELEGRAMMID = int(r["TelegramMID"])
+					SERVICEMID = int(r["ServiceMID"])
+					TELEGRAMDIALOGUEID = int(r["TelegramDialogueID"])
+					SERVICEDIALOGUEID = int(r["ServiceDialogueID"])
+
+					return TELEGRAMMID, SERVICEMID, TELEGRAMDIALOGUEID, SERVICEDIALOGUEID
 
 		return None
-
-	def getMessageIDByServiceMID(self, vk_message_id: int | str):
-		"""Достаёт ID сообщения сервиса по ID сообщения Telegram."""
-
-		# Получаем из ДБ информацию:
-		DB = getDefaultCollection()
-		res = DB.find({"_id": self.user.TGUser.id, f"Services.VK.ServiceToTelegramMIDs.{vk_message_id}": {"$exists": True}})
-		if res:
-			pass
 
 
 
@@ -312,7 +322,7 @@ class VKAccount:
 						"AuthDate": datetime.datetime.now(),
 						"Token": self.vkToken,
 						"ID": self.vkFullUser.id,
-						"ServiceToTelegramMIDs": {} # "ID сообщения сервиса": "ID сообщения Telegram"
+						"ServiceToTelegramMIDs": []
 					}
 				}
 			}},

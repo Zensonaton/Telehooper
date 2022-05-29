@@ -9,7 +9,7 @@ import asyncio
 import datetime
 import logging
 import os
-from typing import TYPE_CHECKING, Any, List, Optional
+from typing import TYPE_CHECKING, Any, List, Optional, Tuple
 
 import aiogram
 import vkbottle
@@ -209,26 +209,40 @@ class MiddlewareAPI:
 			upsert=True
 		)
 
-	def saveMessageID(self, telegram_message_id: int | str, service_message_id: int | str) -> None:
+	def saveMessageID(self, telegram_message_id: int | str, service_message_id: int | str, telegram_dialogue_id: int | str, service_dialogue_id: int | str) -> None:
 		"""Сохраняет ID сообщения в базу."""
 
 		# Сохраняем ID сообщения в ДБ:
 		DB = getDefaultCollection()
 		DB.update_one({"_id": self.user.TGUser.id}, {
-			"$set": {
-				f"Services.VK.ServiceToTelegramMIDs.{service_message_id}": str(telegram_message_id)
+			"$push": {
+				"Services.VK.ServiceToTelegramMIDs": {
+					"TelegramMID": str(telegram_message_id),
+					"ServiceMID": str(service_message_id),
+					"TelegramDialogueID": str(telegram_dialogue_id),
+					"ServiceDialogueID": str(service_dialogue_id)
+				}
 			}
 		})
 
-	def getMessageIDByTelegramMID(self, telegram_message_id: int | str):
-		"""Достаёт ID сообщения сервиса по ID сообщения Telegram."""
+	def getMessageIDByTelegramMID(self, telegram_message_id: int | str) -> None | Tuple[int, int, int, int]:
+		"""Достаёт ID сообщения сервиса по ID сообщения Telegram. В случае успеха выводит Tuple с значениями: `telegram_message_id`, `service_message_id`, `telegram_chat_id`, `service_chat_id`."""
 
 		pass
 
-	def getMessageIDByServiceMID(self, service_message_id: int | str):
-		"""Достаёт ID сообщения сервиса по ID сообщения Telegram."""
+	def getMessageDataByServiceMID(self, service_message_id: int | str) -> None | Tuple[int, int, int, int]:
+		"""Достаёт ID сообщения Telegram по ID сообщения сервиса. В случае успеха выводит Tuple с значениями: `telegram_message_id`, `service_message_id`, `telegram_chat_id`, `service_chat_id`."""
 
 		pass
+
+	def _getMessageDataByKeyname(self, key: int | str, value: int | str) -> None | Tuple[int, int, int, int]:
+		"""
+		Ищет информацию о сообщении (ID, Chat ID, ...) по ключу и значению.
+		"""
+
+		pass
+
+
 
 
 	def __str__(self) -> str:
