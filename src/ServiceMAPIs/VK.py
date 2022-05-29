@@ -20,6 +20,7 @@ from vkbottle.user import Message
 from vkbottle_types.responses.groups import GroupsGroupFull
 from vkbottle_types.responses.messages import MessagesConversationWithMessage
 from vkbottle_types.responses.users import UsersUserFull
+import Utils
 
 logger = logging.getLogger("VKMAPI") # TODO: Заменить этот logger на логгер внутри класса.
 
@@ -39,12 +40,16 @@ class VKMiddlewareAPI(MiddlewareAPI):
 
 	pollingTask: asyncio.Task | None
 	isPollingRunning: bool
+	vkAccount: VKAccount
+	vkAPI: vkbottle.API
 
 	def __init__(self, user: "TelehooperUser", bot: "Telehooper") -> None:
 		super().__init__(user, bot)
 
 		self.pollingTask = None
 		self.isPollingRunning = False
+		self.vkAccount = self.user.vkAccount
+		self.vkAPI = self.vkAccount.vkAPI
 
 
 	def runPolling(self) -> asyncio.Task:
@@ -55,7 +60,7 @@ class VKMiddlewareAPI(MiddlewareAPI):
 		if self.isPollingRunning:
 			self.pollingTask
 
-		@self.user.vkAccount.vkUser.error_handler.register_error_handler(vkbottle.VKAPIError[5])
+		@self.vkAccount.vkUser.error_handler.register_error_handler(vkbottle.VKAPIError[5])
 		async def errorHandler(error: vkbottle.VKAPIError):
 			# Если этот код вызывается, то значит, что пользователь отозвал разрешения ВК, и сессия была отозвана.
 
@@ -63,12 +68,12 @@ class VKMiddlewareAPI(MiddlewareAPI):
 			await self.disconnectService(AccountDisconnectType.EXTERNAL)
 
 		# Регестрируем события в ВК:
-		self.user.vkAccount.vkUser.on.message()(self.onNewRecievedMessage)
-		self.user.vkAccount.vkUser.on.raw_event(vkbottle.UserEventType.MESSAGE_EDIT)(self.onMessageEdit) # type: ignore
-		self.user.vkAccount.vkUser.on.raw_event(vkbottle.UserEventType.DIALOG_TYPING_STATE)(self.onChatTypingState) # type: ignore
+		self.vkAccount.vkUser.on.message()(self.onNewRecievedMessage)
+		self.vkAccount.vkUser.on.raw_event(vkbottle.UserEventType.MESSAGE_EDIT)(self.onMessageEdit) # type: ignore
+		self.vkAccount.vkUser.on.raw_event(vkbottle.UserEventType.DIALOG_TYPING_STATE)(self.onChatTypingState) # type: ignore
 
 		# Создаём Polling-задачу:
-		self.pollingTask = asyncio.create_task(self.user.vkAccount.vkUser.run_polling(), name=f"VK Polling, id{self.user.vkAccount.vkFullUser.id}")
+		self.pollingTask = asyncio.create_task(self.vkAccount.vkUser.run_polling(), name=f"VK Polling, id{self.user.vkAccount.vkFullUser.id}")
 		self.isPollingRunning = True
 
 		return self.pollingTask
@@ -92,8 +97,12 @@ class VKMiddlewareAPI(MiddlewareAPI):
 	async def sendServiceMessageOut(self, message: str, msg_id_to_reply: int | None = None) -> int:
 		return await self.sendMessageOut(message, self.user.vkAccount.vkFullUser.id, msg_id_to_reply)
 
-	async def sendMessageOut(self, message: str, chat_id: int, msg_id_to_reply: int | None = None) -> int:
-		return await self.user.vkAccount.vkAPI.messages.send(peer_id=chat_id, random_id=generateVKRandomID(), message=message, reply_to=msg_id_to_reply)
+	async def sendMessageOut(self, message: str, chat_id: int, msg_id_to_reply: int | None = None, attachments: Utils.File | None = None) -> int:
+		doc = None
+		if attachments and attachments.bytes:
+			doc = await vkbottle.PhotoMessageUploader(self.vkAPI).upload(attachments.bytes)
+
+		return await self.user.vkAccount.vkAPI.messages.send(peer_id=chat_id, random_id=generateVKRandomID(), message=message, reply_to=msg_id_to_reply, attachment=doc) # type: ignore
 
 	async def editMessageOut(self, message: str, chat_id: int, message_id: int) -> int:
 		return await self.user.vkAccount.vkAPI.messages.edit(peer_id=chat_id, message_id=message_id, message=message)

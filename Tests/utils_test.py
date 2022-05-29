@@ -1,7 +1,8 @@
 # coding: utf-8
 
-import unittest
+from unittest.mock import patch, mock_open
 from src import Utils
+import unittest
 
 class TestUtils(unittest.TestCase):
 
@@ -13,7 +14,7 @@ class TestUtils(unittest.TestCase):
 
 		self.assertEqual(Utils.parseStrAsBoolean("Yes"), True)
 		self.assertEqual(Utils.parseStrAsBoolean("No"), False)
-		
+
 		self.assertEqual(Utils.parseStrAsBoolean("0"), False)
 		self.assertEqual(Utils.parseStrAsBoolean("1"), True)
 
@@ -72,3 +73,12 @@ class TestUtils(unittest.TestCase):
 		self.assertEqual(Utils.getFirstAvailableValueFromClass(testClass, "non_existing_value"), None)
 		self.assertEqual(Utils.getFirstAvailableValueFromClass(testClass, "non_existing_value", default=True), True)
 
+	def test_isURL(self):
+		# isURL() проверяет, является ли строка ссылкой.
+
+		self.assertEqual(Utils.isURL("https://vk.com/"), True)
+		self.assertEqual(Utils.isURL("https://vk.com"), True)
+		self.assertEqual(Utils.isURL("file://hi.com"), False)
+		self.assertEqual(Utils.isURL("C:/Windows/hi"), False)
+		self.assertEqual(Utils.isURL("C:\\Windows\\hi"), False)
+		self.assertEqual(Utils.isURL("/home/hi"), False)

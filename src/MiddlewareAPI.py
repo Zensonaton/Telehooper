@@ -7,9 +7,10 @@ from __future__ import annotations
 
 import asyncio
 import datetime
+import io
 import logging
 import os
-from typing import TYPE_CHECKING, Any, List, Literal, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Iterable, List, Literal, Optional, Tuple
 
 import aiogram
 import vkbottle
@@ -24,6 +25,7 @@ from vkbottle_types.responses.users import UsersUserFull
 import Utils
 from Consts import AccountDisconnectType
 from DB import getDefaultCollection
+import aiohttp
 
 if TYPE_CHECKING:
 	from ServiceMAPIs.VK import VKAccount, VKMiddlewareAPI

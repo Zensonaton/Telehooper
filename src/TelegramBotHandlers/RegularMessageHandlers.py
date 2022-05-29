@@ -2,12 +2,14 @@
 
 """Обработчик для команды `RegularMessageHandlers`."""
 
+from io import BytesIO
 import logging
 
 from aiogram import Bot, Dispatcher
 from aiogram.types import Message as MessageType
 from MiddlewareAPI import TelehooperUser
 from TelegramBot import DialogueGroup, Telehooper
+import Utils
 
 Bot: 	Telehooper 	= None # type: ignore
 TGBot: 	Bot 		= None # type: ignore
@@ -27,7 +29,9 @@ def _setupCHandler(bot: Telehooper) -> None:
 	TGBot = Bot.TGBot
 	DP = Bot.DP
 
-	DP.register_message_handler(RegularMessageHandlers, shouldBeHandled)
+	# "text", "audio", "document", "photo", "sticker", "video", "video_note", "voice", "location", "contact", "new_chat_members", "left_chat_member", "new_chat_title", "new_chat_photo", "delete_chat_photo", "group_chat_created", "supergroup_chat_created", "channel_chat_created", "migrate_to_chat_id", "migrate_from_chat_id", "pinned_message",
+
+	DP.register_message_handler(RegularMessageHandlers, shouldBeHandled, content_types=["text", "photo", "audio", "voice", "document", "sticker", "video", "video_note"])
 	DP.register_edited_message_handler(RegularMessageEditHandler, shouldBeHandled)
 
 async def shouldBeHandled(msg: MessageType):
@@ -59,9 +63,14 @@ async def RegularMessageHandlers(msg: MessageType):
 		if reply_message_id:
 			reply_message_id = reply_message_id[1]
 
+	# Получаем вложение как File:
+	attachedFile = None
+	if msg.photo:
+		attachedFile = await Utils.File(await msg.photo[-1].download(destination_file=BytesIO())).parse()
+
 	# Отправляем сообщение в ВК:
 	user.vkMAPI.saveMessageID(
-		msg.message_id, await user.vkMAPI.sendMessageOut(msg.text, dialogue.serviceDialogueID, reply_message_id), msg.chat.id, dialogue.serviceDialogueID
+		msg.message_id, await user.vkMAPI.sendMessageOut(msg.text, dialogue.serviceDialogueID, reply_message_id, attachedFile), msg.chat.id, dialogue.serviceDialogueID
 	)
 
 async def RegularMessageEditHandler(msg: MessageType):
