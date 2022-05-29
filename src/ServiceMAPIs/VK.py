@@ -110,12 +110,12 @@ class VKMiddlewareAPI(MiddlewareAPI):
 		if msg.peer_id == self.user.vkAccount.vkFullUser.id:
 			# Мы получили сообщение в "Избранном", обрабатываем сообщение как команду,
 			# но боту в ТГ ничего не передаём.
-			message = await self._commandHandler(msg)
+			tg_message = await self._commandHandler(msg)
 
-			if message and isinstance(message, aiogram.types.Message):
+			if tg_message and isinstance(tg_message, aiogram.types.Message):
 				# Сообщение в Телеграм.
 
-				self.saveMessageID(message.message_id, msg.message_id, message.chat.id, msg.chat_id)
+				self.saveMessageID(tg_message.message_id, msg.message_id, tg_message.chat.id, msg.chat_id)
 
 
 			return
