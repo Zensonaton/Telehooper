@@ -97,17 +97,26 @@ class VKMiddlewareAPI(MiddlewareAPI):
 	async def sendServiceMessageOut(self, message: str, msg_id_to_reply: int | None = None) -> int:
 		return await self.sendMessageOut(message, self.user.vkAccount.vkFullUser.id, msg_id_to_reply)
 
-	async def sendMessageOut(self, message: str, chat_id: int, msg_id_to_reply: int | None = None, attachments: Utils.File | List[Utils.File] | None = None) -> int:
-		attachmentDocuments: List[str] = []
+	async def sendMessageOut(self, message: str, chat_id: int, msg_id_to_reply: int | None = None, attachmentsFile: Utils.File | List[Utils.File] | None = None, allow_creating_temp_message: bool = True) -> int:
+		attachmentStr: List[str] = []
 
-		if attachments:
+		tempMessageID: None | int = None
+		if attachmentsFile:
 			photoUploader = vkbottle.PhotoMessageUploader(self.vkAPI)
 
 			# Я не хотел делать отдельный кейс когда переменная не является листом, поэтому:
-			if not isinstance(attachments, list):
-				attachments = [attachments]
+			if not isinstance(attachmentsFile, list):
+				attachmentsFile = [attachmentsFile]
 
-			for index, file in enumerate(attachments):
+			# Проверяем, если у нас >= 2 вложений, то мы должны отправить временное
+			# сообщение, и потом в него добавить вложения.
+			if allow_creating_temp_message and len(attachmentsFile) >= 2:
+				tempPhotoAttachment = await self.vkAccount.getDefaultDownloadingImage()
+				assert tempPhotoAttachment is not None, "Не удалось получить временное изображение для вложений."
+
+				tempMessageID = await self.user.vkAccount.vkAPI.messages.send(peer_id=chat_id, random_id=generateVKRandomID(), message=f"{message or ''}\n\n(пожалуйста, дождись загрузки всех {len(attachmentsFile)} вложений, они появятся в этом сообщении.)", reply_to=msg_id_to_reply, attachment=(tempPhotoAttachment + ",") * len(attachmentsFile))
+
+			for index, file in enumerate(attachmentsFile):
 				# attachment является типом Utils.File, но иногда он бывает не готовым к использованию,
 				# т.е., он не имеет поля bytes, к примеру. Поэтому я сделаю дополнительную проверку:
 				if not file.ready:
@@ -120,13 +129,17 @@ class VKMiddlewareAPI(MiddlewareAPI):
 				assert isinstance(uploaded, str), "uploaded вернул не тип строки."
 
 				# Добавляем строку вида "photo123_456" в массив:
-				attachmentDocuments.append(uploaded)
+				attachmentStr.append(uploaded)
 
 				# Через каждый второй файл делаем sleep:
 				if index % 2 == 1:
 					await asyncio.sleep(0.5)
 
-		return await self.user.vkAccount.vkAPI.messages.send(peer_id=chat_id, random_id=generateVKRandomID(), message=message, reply_to=msg_id_to_reply, attachment=",".join(attachmentDocuments)) # type: ignore
+		if allow_creating_temp_message and tempMessageID:
+			await self.vkAPI.messages.edit(peer_id=chat_id, message=message, message_id=tempMessageID, attachment=",".join(attachmentStr))
+			return tempMessageID
+		else:
+			return await self.vkAPI.messages.send(peer_id=chat_id, random_id=generateVKRandomID(), message=message, reply_to=msg_id_to_reply, attachment=",".join(attachmentStr))
 
 	async def editMessageOut(self, message: str, chat_id: int, message_id: int) -> int:
 		return await self.user.vkAccount.vkAPI.messages.edit(peer_id=chat_id, message_id=message_id, message=message)
@@ -176,6 +189,8 @@ class VKMiddlewareAPI(MiddlewareAPI):
 		MSGID = msg.object[1]
 		MSGTEXT = msg.object[6]
 		MSGCHATID = msg.object[3]
+
+		# TODO: Добавить проверку, кто именно редактировал сообщение.
 
 		tgmid, vkmid, tgchatid, vkchatid = self.getMessageDataByServiceMID(MSGID) or (None, None, None, None)
 		if tgmid and tgchatid:
@@ -367,12 +382,31 @@ class VKAccount:
 						"AuthDate": datetime.datetime.now(),
 						"Token": self.vkToken,
 						"ID": self.vkFullUser.id,
+						"DownloadImage": await vkbottle.PhotoMessageUploader(self.vkAPI).upload("downloadImage.png"),
 						"ServiceToTelegramMIDs": []
 					}
 				}
 			}},
 			upsert=True
 		)
+
+	async def getDefaultDownloadingImage(self) -> None | str:
+		"""
+		Выдаёт строку вида "photo123_456" которую можно использовать как attachment во время загрузки.
+		"""
+
+		DB = getDefaultCollection()
+		res = DB.find_one({"_id": self.user.TGUser.id})
+		if res:
+			vkService = res["Services"]["VK"]
+			if not vkService.get("DownloadImage"):
+				vkService["DownloadImage"] = await vkbottle.PhotoMessageUploader(self.vkAPI).upload("downloadImage.png")
+				DB.update_one({"_id": self.user.TGUser.id}, {"$set": {"Services.VK.DownloadImage": vkService["DownloadImage"]}})
+
+			return vkService["DownloadImage"]
+
+		return None
+
 
 	async def checkAvailability(self, no_error: bool = False) -> bool:
 		"""
