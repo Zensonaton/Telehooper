@@ -90,7 +90,7 @@ async def RegularMessageHandlers(msg: MessageType):
 	if msg.reply_to_message:
 		reply_message_id = user.vkMAPI.getMessageIDByTelegramMID(msg.reply_to_message.message_id)
 		if reply_message_id:
-			reply_message_id = reply_message_id[1]
+			reply_message_id = reply_message_id.serviceMID
 
 	# Получаем вложение как File:
 	attachments: List[Utils.File] = []
@@ -119,7 +119,7 @@ async def RegularMessageHandlers(msg: MessageType):
 	# Отправляем сообщение в ВК:
 	if shouldSendMessage:
 		user.vkMAPI.saveMessageID(
-			msg.message_id, await user.vkMAPI.sendMessageOut(msg.text, dialogue.serviceDialogueID, reply_message_id, attachments), msg.chat.id, dialogue.serviceDialogueID
+			msg.message_id, await user.vkMAPI.sendMessageOut(msg.text, dialogue.serviceDialogueID, reply_message_id, attachments), msg.chat.id, dialogue.serviceDialogueID, True
 		)
 
 async def RegularMessageEditHandler(msg: MessageType):
@@ -130,7 +130,7 @@ async def RegularMessageEditHandler(msg: MessageType):
 	# Получаем ID сообщения в ВК через ID сообщения Telegram:
 	messageID = user.vkMAPI.getMessageIDByTelegramMID(msg.message_id)
 	if messageID:
-		messageID = messageID[1]
+		messageID = messageID.serviceMID
 
 	if messageID:
 		await user.vkMAPI.editMessageOut(msg.text, dialogue.serviceDialogueID, messageID)

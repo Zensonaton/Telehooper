@@ -14,7 +14,7 @@ import vkbottle_types
 import vkbottle_types.responses.users
 from Consts import AccountDisconnectType
 from DB import getDefaultCollection
-from MiddlewareAPI import MiddlewareAPI, TelehooperUser
+from MiddlewareAPI import MappedMessage, MiddlewareAPI, TelehooperUser
 from Utils import generateVKRandomID, getFirstAvailableValueFromClass
 from vkbottle.user import Message
 from vkbottle_types.responses.groups import GroupsGroupFull
@@ -162,7 +162,7 @@ class VKMiddlewareAPI(MiddlewareAPI):
 			if tg_message and isinstance(tg_message, aiogram.types.Message):
 				# Сообщение в Телеграм.
 
-				self.saveMessageID(tg_message.message_id, msg.message_id, tg_message.chat.id, msg.chat_id)
+				self.saveMessageID(tg_message.message_id, msg.message_id, tg_message.chat.id, msg.chat_id, False)
 
 
 			return
@@ -180,7 +180,7 @@ class VKMiddlewareAPI(MiddlewareAPI):
 		# Если у пользователя есть группа-диалог, то сообщение будет отправлено именно туда:
 		dialogue = await self.bot.getDialogueGroupByServiceDialogueID(abs(msg.peer_id))
 		if dialogue:
-			self.saveMessageID((await self.user.TGUser.bot.send_message(dialogue.group.id, msg.text)).message_id, msg.id, dialogue.group.id, msg.chat_id)
+			self.saveMessageID((await self.user.TGUser.bot.send_message(dialogue.group.id, msg.text)).message_id, msg.id, dialogue.group.id, msg.chat_id, False)
 			return
 
 	async def onMessageEdit(self, msg) -> None:
@@ -192,11 +192,11 @@ class VKMiddlewareAPI(MiddlewareAPI):
 
 		# TODO: Добавить проверку, кто именно редактировал сообщение.
 
-		tgmid, vkmid, tgchatid, vkchatid = self.getMessageDataByServiceMID(MSGID) or (None, None, None, None)
-		if tgmid and tgchatid:
+		res = self.getMessageDataByServiceMID(MSGID)
+		if res:
 			# Сообщение найдено, редактируем его в Telegram:
 
-			await self.editMessageIn(MSGTEXT + "ㅤㅤㅤ<i>изменено</i>", tgchatid, tgmid)
+			await self.editMessageIn(MSGTEXT + "ㅤㅤㅤ<i>изменено</i>", res.telegramDialogueID, res.telegramMID)
 
 	async def onChatTypingState(self, typing_object):
 		CHAT_ID = typing_object.object[1]
@@ -223,10 +223,10 @@ class VKMiddlewareAPI(MiddlewareAPI):
 			# Мы должны отправить сообщения в самом сервисе о отключении:
 			await self.user.vkAccount.vkAPI.messages.send(self.user.vkAccount.vkFullUser.id, random_id=generateVKRandomID(), message="ℹ️ Ваш аккаунт ВКонтакте был успешно отключён от бота «Telehooper».\n\nНадеюсь, что ты в скором времени вернёшься 🥺")
 
-	def getMessageIDByTelegramMID(self, telegram_message_id: int | str) -> None | Tuple[int, int, int, int]:
+	def getMessageIDByTelegramMID(self, telegram_message_id: int | str) -> None | MappedMessage:
 		return self._getMessageDataByKeyname("TelegramMID", telegram_message_id)
 
-	def getMessageDataByServiceMID(self, vk_message_id: int | str) -> None | Tuple[int, int, int, int]:
+	def getMessageDataByServiceMID(self, vk_message_id: int | str) -> None | MappedMessage:
 		return self._getMessageDataByKeyname("ServiceMID", vk_message_id)
 
 	def _getMessageDataByKeyname(self, key: str, value: int | str):
@@ -242,8 +242,9 @@ class VKMiddlewareAPI(MiddlewareAPI):
 					SERVICEMID = int(r["ServiceMID"])
 					TELEGRAMDIALOGUEID = int(r["TelegramDialogueID"])
 					SERVICEDIALOGUEID = int(r["ServiceDialogueID"])
+					VIATELEGRAM = bool(r["ViaTelegram"])
 
-					return TELEGRAMMID, SERVICEMID, TELEGRAMDIALOGUEID, SERVICEDIALOGUEID
+					return MappedMessage(TELEGRAMMID, SERVICEMID, TELEGRAMDIALOGUEID, SERVICEDIALOGUEID, VIATELEGRAM)
 
 		return None
 
@@ -406,7 +407,6 @@ class VKAccount:
 			return vkService["DownloadImage"]
 
 		return None
-
 
 	async def checkAvailability(self, no_error: bool = False) -> bool:
 		"""

@@ -227,7 +227,7 @@ class MiddlewareAPI:
 			upsert=True
 		)
 
-	def saveMessageID(self, telegram_message_id: int | str, service_message_id: int | str, telegram_dialogue_id: int | str, service_dialogue_id: int | str) -> None:
+	def saveMessageID(self, telegram_message_id: int | str, service_message_id: int | str, telegram_dialogue_id: int | str, service_dialogue_id: int | str, sent_via_telegram: bool) -> None:
 		"""Сохраняет ID сообщения в базу."""
 
 		# Сохраняем ID сообщения в ДБ:
@@ -238,7 +238,8 @@ class MiddlewareAPI:
 					"TelegramMID": str(telegram_message_id),
 					"ServiceMID": str(service_message_id),
 					"TelegramDialogueID": str(telegram_dialogue_id),
-					"ServiceDialogueID": str(service_dialogue_id)
+					"ServiceDialogueID": str(service_dialogue_id),
+					"ViaTelegram": sent_via_telegram
 				}
 			}
 		})
@@ -265,3 +266,24 @@ class MiddlewareAPI:
 
 	def __str__(self) -> str:
 		return "<Base MiddlewareAPI class>"
+
+class MappedMessage:
+	"""
+	Класс, показывающий ID сообщений сервиса и его ID в Telegram.
+	"""
+
+	sentViaTelegram: bool
+	sentViaService: bool
+
+	telegramMID: int
+	serviceMID: int
+	telegramDialogueID: int
+	serviceDialogueID: int
+
+	def __init__(self, telegram_message_id: int, service_message_id: int, telegram_dialogue_id: int, service_dialogue_id: int, sent_via_telegram: bool) -> None:
+		self.telegramMID = telegram_message_id
+		self.serviceMID = service_message_id
+		self.telegramDialogueID = telegram_dialogue_id
+		self.serviceDialogueID = service_dialogue_id
+		self.sentViaTelegram = sent_via_telegram
+		self.sentViaService = not self.sentViaTelegram
