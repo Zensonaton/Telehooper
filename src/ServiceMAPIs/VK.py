@@ -103,8 +103,6 @@ class VKMiddlewareAPI(MiddlewareAPI):
 		if attachments:
 			photoUploader = vkbottle.PhotoMessageUploader(self.vkAPI)
 
-			logger.debug("Было обнаружено несколько вложений для отправки в ВК.")
-
 			# Я не хотел делать отдельный кейс когда переменная не является листом, поэтому:
 			if not isinstance(attachments, list):
 				attachments = [attachments]

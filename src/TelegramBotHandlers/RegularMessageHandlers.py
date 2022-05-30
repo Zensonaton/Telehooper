@@ -105,8 +105,6 @@ async def RegularMessageHandlers(msg: MessageType):
 			# Единственное решение, что пришло ко мне в голову - запускать "таймер",
 			# и по его истечению смотреть всё, что было добавлено в массив.
 
-			logger.debug("Была получена группа фото.")
-
 			if msg.media_group_id not in MEDIA_GROUPS:
 				MEDIA_GROUPS[msg.media_group_id] = [msg.photo[-1]]
 				# Создаём таймер:
