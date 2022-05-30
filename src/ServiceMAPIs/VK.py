@@ -194,8 +194,12 @@ class VKMiddlewareAPI(MiddlewareAPI):
 
 		res = self.getMessageDataByServiceMID(MSGID)
 		if res:
-			# Сообщение найдено, редактируем его в Telegram:
+			# Сообщение найдено, проверяем, кто его отправил.
+			# Если было получено с Telegram, то не редактируем.
+			if res.sentViaTelegram:
+				return
 
+			# В ином случае, редактируем:
 			await self.editMessageIn(MSGTEXT + "ㅤㅤㅤ<i>изменено</i>", res.telegramDialogueID, res.telegramMID)
 
 	async def onChatTypingState(self, typing_object):
