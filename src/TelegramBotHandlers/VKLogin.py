@@ -43,6 +43,8 @@ async def VKLogin(msg: MessageType) -> None:
 
 	args = (msg.get_args() or "").split(" ")
 
+	# TODO: пасхалка
+
 	if len(args) != 2:
 		await msg.answer("Пожалуйста, используй команду в следующем формате для авторизации: <code>/vklogin логин пароль</code>.")
 

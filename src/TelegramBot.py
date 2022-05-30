@@ -84,10 +84,10 @@ class Telehooper:
 		# Импортируем все Handler'ы как модули:
 		from TelegramBotHandlers import (Connect, ConvertToServiceDialogue, Dialogue,
 		                                 GroupEvents, RegularMessageHandlers, Self,
-		                                 Start, This, VKLogin)
+		                                 Start, This, VKLogin, Debug)
 
 		# А теперь добавляем их в бота:
-		importHandlers([Start, VKLogin, GroupEvents, ConvertToServiceDialogue, OtherCallbackQueryHandlers, Dialogue, This, Connect, Self, RegularMessageHandlers], self, is_multibot=False)
+		importHandlers([Start, VKLogin, GroupEvents, ConvertToServiceDialogue, OtherCallbackQueryHandlers, Dialogue, This, Connect, Self, RegularMessageHandlers, Debug], self, is_multibot=False)
 		# TODO: Что-то сделать с этим срамом. Это ужасно.
 
 
