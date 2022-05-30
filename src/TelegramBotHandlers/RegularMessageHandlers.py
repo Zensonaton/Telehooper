@@ -2,8 +2,10 @@
 
 """Обработчик для команды `RegularMessageHandlers`."""
 
+import asyncio
 from io import BytesIO
 import logging
+from typing import List
 
 from aiogram import Bot, Dispatcher
 from aiogram.types import Message as MessageType
@@ -17,6 +19,12 @@ DP: 	Dispatcher 	= None # type: ignore
 
 logger = logging.getLogger(__name__)
 
+
+
+# TODO: Перенести этот Handler в папку ServiceMAPIs.
+
+
+MEDIA_GROUPS = {}
 
 def _setupCHandler(bot: Telehooper) -> None:
 	"""
@@ -52,6 +60,27 @@ async def shouldBeHandled(msg: MessageType):
 	msg._dialogue = dialogue # type: ignore
 	return True
 
+async def checkMediaGroup(media_group_id: str, sleep: float = 0.5) -> List[Utils.File]:
+	"""
+	Ждёт некоторое время, и после, возвращаем список всех файлов в медиа-группе.
+	"""
+
+	# Сначала, спим некоторое время, что бы все сообщения из медиа группы пришли:
+	await asyncio.sleep(sleep)
+
+	# После, у нас должен быть полный список всех файлов в медиа группе:
+	MEDIA = MEDIA_GROUPS.get(media_group_id, []).copy()
+
+	# Загружаем все файлы с серверов Telegram, и создаем Utils.File объект:
+	for index, media in enumerate(MEDIA):
+		MEDIA[index] = await Utils.File(await media.download(destination_file=BytesIO())).parse()
+
+	# Удаляем старый список медиа:
+	MEDIA_GROUPS.pop(media_group_id)
+
+	# Возвращаем полученный список файлов типа Utils.File:
+	return MEDIA
+
 async def RegularMessageHandlers(msg: MessageType):
 	dialogue: DialogueGroup = msg._dialogue # type: ignore
 	user: TelehooperUser = msg._user # type: ignore
@@ -64,14 +93,36 @@ async def RegularMessageHandlers(msg: MessageType):
 			reply_message_id = reply_message_id[1]
 
 	# Получаем вложение как File:
-	attachedFile = None
+	attachments: List[Utils.File] = []
+	shouldSendMessage: bool = True
 	if msg.photo:
-		attachedFile = await Utils.File(await msg.photo[-1].download(destination_file=BytesIO())).parse()
+		# Если мы получили группу фоток:
+		if msg.media_group_id:
+			# Как оказалось, в Telegram группа фото отправляется в виде нескольких
+			# сообщений, и единственное, что их связывает - значение msg.media_group_id.
+			# Нет даже метода узнать, сколько фото в такой группе находится.
+			#
+			# Единственное решение, что пришло ко мне в голову - запускать "таймер",
+			# и по его истечению смотреть всё, что было добавлено в массив.
+
+			logger.debug("Была получена группа фото.")
+
+			if msg.media_group_id not in MEDIA_GROUPS:
+				MEDIA_GROUPS[msg.media_group_id] = [msg.photo[-1]]
+				# Создаём таймер:
+				attachments.extend(await checkMediaGroup(msg.media_group_id))
+			else:
+				shouldSendMessage = False
+
+				MEDIA_GROUPS[msg.media_group_id].append(msg.photo[-1])
+		else:
+			attachments.append(await Utils.File(await msg.photo[-1].download(destination_file=BytesIO())).parse())
 
 	# Отправляем сообщение в ВК:
-	user.vkMAPI.saveMessageID(
-		msg.message_id, await user.vkMAPI.sendMessageOut(msg.text, dialogue.serviceDialogueID, reply_message_id, attachedFile), msg.chat.id, dialogue.serviceDialogueID
-	)
+	if shouldSendMessage:
+		user.vkMAPI.saveMessageID(
+			msg.message_id, await user.vkMAPI.sendMessageOut(msg.text, dialogue.serviceDialogueID, reply_message_id, attachments), msg.chat.id, dialogue.serviceDialogueID
+		)
 
 async def RegularMessageEditHandler(msg: MessageType):
 	dialogue: DialogueGroup = msg._dialogue # type: ignore

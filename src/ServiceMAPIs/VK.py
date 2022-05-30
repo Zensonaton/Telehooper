@@ -97,12 +97,38 @@ class VKMiddlewareAPI(MiddlewareAPI):
 	async def sendServiceMessageOut(self, message: str, msg_id_to_reply: int | None = None) -> int:
 		return await self.sendMessageOut(message, self.user.vkAccount.vkFullUser.id, msg_id_to_reply)
 
-	async def sendMessageOut(self, message: str, chat_id: int, msg_id_to_reply: int | None = None, attachments: Utils.File | None = None) -> int:
-		doc = None
-		if attachments and attachments.bytes:
-			doc = await vkbottle.PhotoMessageUploader(self.vkAPI).upload(attachments.bytes)
+	async def sendMessageOut(self, message: str, chat_id: int, msg_id_to_reply: int | None = None, attachments: Utils.File | List[Utils.File] | None = None) -> int:
+		attachmentDocuments: List[str] = []
 
-		return await self.user.vkAccount.vkAPI.messages.send(peer_id=chat_id, random_id=generateVKRandomID(), message=message, reply_to=msg_id_to_reply, attachment=doc) # type: ignore
+		if attachments:
+			photoUploader = vkbottle.PhotoMessageUploader(self.vkAPI)
+
+			logger.debug("Было обнаружено несколько вложений для отправки в ВК.")
+
+			# Я не хотел делать отдельный кейс когда переменная не является листом, поэтому:
+			if not isinstance(attachments, list):
+				attachments = [attachments]
+
+			for index, file in enumerate(attachments):
+				# attachment является типом Utils.File, но иногда он бывает не готовым к использованию,
+				# т.е., он не имеет поля bytes, к примеру. Поэтому я сделаю дополнительную проверку:
+				if not file.ready:
+					await file.parse()
+
+				assert file.bytes is not None, "attachment.bytes is None"
+
+				# Окончательно загружаем файл на сервера ВК:
+				uploaded = await photoUploader.upload(file.bytes)
+				assert isinstance(uploaded, str), "uploaded вернул не тип строки."
+
+				# Добавляем строку вида "photo123_456" в массив:
+				attachmentDocuments.append(uploaded)
+
+				# Через каждый второй файл делаем sleep:
+				if index % 2 == 1:
+					await asyncio.sleep(0.5)
+
+		return await self.user.vkAccount.vkAPI.messages.send(peer_id=chat_id, random_id=generateVKRandomID(), message=message, reply_to=msg_id_to_reply, attachment=",".join(attachmentDocuments)) # type: ignore
 
 	async def editMessageOut(self, message: str, chat_id: int, message_id: int) -> int:
 		return await self.user.vkAccount.vkAPI.messages.edit(peer_id=chat_id, message_id=message_id, message=message)
