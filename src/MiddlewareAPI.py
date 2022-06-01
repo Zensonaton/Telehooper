@@ -205,10 +205,9 @@ class MiddlewareAPI:
 			await self.user.TGUser.bot.send_message(
 				self.user.TGUser.id,
 				(
-					# TODO: Поменять этот текст:
-					"⚠️ Аккаунт <b>«ВКонтакте»</b> был принудительно отключён от бота Telehooper; это действие было совершено <b>внешне</b>, напримёр, <b>отозвав все сессии в настройках безопасности аккаунта</b>."
+					"<b>Аккаунт был отключён от Telehooper</b> ⚠️\n\nАккаунт <b>«ВКонтакте»</b> был отключён от бота. Действие было произведено <b>внешне</b>, например, путём отзыва всех сессий в <b>настройках безопасности аккаунта</b>."
 					if (is_external) else
-					"ℹ️ Аккаунт <b>«ВКонтакте»</b> был успешно отключён от Telehooper."
+					"<b>Аккаунт был отключён от Telehooper</b> ℹ️\n\nАккаунт <b>«ВКонтакте»</b> был успешно отключён от бота. Очень жаль, что так вышло."
 				)
 			)
 
@@ -222,7 +221,12 @@ class MiddlewareAPI:
 			},
 			{"$set": {
 				"Services.VK.Auth": False,
-				"Services.VK.Token": None
+				"Services.VK.Token": None,
+				"Services.VK.IsAuthViaPassword": None,
+				"Services.VK.AuthDate": None,
+				"Services.VK.ID": None,
+				"Services.VK.DownloadImage": None,
+				"Services.VK.ServiceToTelegramMIDs": []
 			}},
 			upsert=True
 		)

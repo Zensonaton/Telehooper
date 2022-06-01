@@ -82,12 +82,11 @@ class Telehooper:
 		"""
 
 		# Импортируем все Handler'ы как модули:
-		from TelegramBotHandlers import (Connect, ConvertToServiceDialogue, Dialogue,
-		                                 GroupEvents, RegularMessageHandlers, Self,
-		                                 Start, This, VKLogin, Debug)
+		from TelegramBotHandlers import (GroupEvents, RegularMessageHandlers, Self,
+		                                 Start, This, VKLogin, Debug, Help)
 
 		# А теперь добавляем их в бота:
-		importHandlers([Start, VKLogin, GroupEvents, ConvertToServiceDialogue, OtherCallbackQueryHandlers, Dialogue, This, Connect, Self, RegularMessageHandlers, Debug], self, is_multibot=False)
+		importHandlers([Start, VKLogin, GroupEvents, OtherCallbackQueryHandlers, This, Self, RegularMessageHandlers, Debug, Help], self, is_multibot=False)
 		# TODO: Что-то сделать с этим срамом. Это ужасно.
 
 
@@ -312,13 +311,13 @@ async def global_error_handler(update: aiogram.types.Update, exception) -> bool:
 	elif isinstance(exception, Exceptions.CommandAllowedOnlyInGroup):
 		await update.message.answer("⚠️ Данную команду можно использовать только в Telegram-группах.")
 	elif isinstance(exception, Exceptions.CommandAllowedOnlyInPrivateChats):
-		await update.message.answer("⚠️ Данную команду можно использовать только в личном диалоге с ботом.")
+		await update.message.answer(f"⚠️ Данную команду можно использовать только {(await update.bot.get_me()).get_mention('в личном диалоге с ботом', as_html=True)}.")
 	elif isinstance(exception, Exceptions.CommandAllowedOnlyInBotDialogue):
-		await update.message.answer("⚠️ Данную команду можно использовать только в диалоге подключённого сервиса.\n\n⚙️ Попробуй присоеденить диалог сервиса к группе Telegram, используя команду /setup.")
+		await update.message.answer("⚠️ Данную команду можно использовать только в диалоге подключённого сервиса.\n\n⚙️ Используй команду /help, что бы узнать, как создать диалог сервиса.")
 	else:
 		logger.exception(exception)
 
-		await update.bot.send_message(update.callback_query.message.chat.id, f"⚠️ Произошла ошибка: <code>{exception}</code>.\nПопробуй позже.\n\nТак же, ты можешь зарепортить баг в <a href=\"https://github.com/Zensonaton/Telehooper/issues\">Issues</a> проекта.")
+		await update.bot.send_message(update.callback_query.message.chat.id, f"<b>Что-то пошло не так 😕\n\n</b>У бота произошла внутренняя ошибка: \n<code>{exception}\n</code>Попробуй позже. Если ошибка повторяется, сделай баг репорт в <a href=\"https://github.com/Zensonaton/Telehooper/issues\">Issue</a> проекта.")
 
 	return True
 

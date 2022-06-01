@@ -33,12 +33,26 @@ def _setupCHandler(bot: Telehooper) -> None:
 	TGBot = Bot.TGBot
 	DP = Bot.DP
 
-	DP.register_callback_query_handler(CancelDeleteCurMessageCallbackHandler, lambda query: query.data in [CButton.CANCEL_DELETE_CUR_MESSAGE, CButton.CANCEL_EDIT_CUR_MESSAGE])
+	DP.register_callback_query_handler(CancelDeleteCurMessageCallbackHandler, lambda query: query.data in [CButton.CancelAction.CANCEL_EDIT_MESSAGE, CButton.CancelAction.CANCEL_DELETE_MESSAGE, CButton.CancelAction.CANCEL_HIDE_BUTTONS])
+	DP.register_callback_query_handler(DoNothingCallback, lambda query: query.data == CButton.DO_NOTHING)
 
 async def CancelDeleteCurMessageCallbackHandler(query: CallbackQuery):
-	if query.data == CButton.CANCEL_DELETE_CUR_MESSAGE:
+	"""
+	Редактируем сообщение.
+	"""
+
+	if query.data == CButton.CancelAction.CANCEL_DELETE_MESSAGE:
 		await query.message.delete()
-	else:
+	elif query.data == CButton.CancelAction.CANCEL_EDIT_MESSAGE:
 		await query.message.edit_text("<i>Действие было отменено.</i>")
+	else:
+		await query.message.edit_text(query.message.html_text)
+
+	return await query.answer()
+
+async def DoNothingCallback(query: CallbackQuery):
+	"""
+	Ничего вообще не делаем.
+	"""
 
 	return await query.answer()

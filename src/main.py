@@ -36,8 +36,6 @@ logging.basicConfig(
 	]
 )
 
-
-
 # Загружаем .env файл.
 dotenv.load_dotenv()
 
@@ -102,16 +100,10 @@ async def onBotStart(dp: aiogram.Dispatcher) -> None:
 			except Exception as error:
 				logger.warning(f"Ошибка авторизации пользователя с TID {doc['_id']}: {error}")
 
-				if user and user.vkMAPI: # type: ignore
+				if user and user.vkMAPI:
 					await user.vkMAPI.disconnectService(AccountDisconnectType.ERRORED, False)
 
-
-				# TODO: Заменить этот код:
-				keyboard = InlineKeyboardMarkup().add(
-					InlineKeyboardButton(text="Снова авторизоваться", callback_data=CButtons.ADD_VK_ACCOUNT),
-				)
-
-				await HOOPER.TGBot.send_message(int(doc['_id']), "⚠️ После моей перезагрузки я не сумел авторизоваться в твой аккаунт <b>«ВКонтакте»</b>.\nЕсли бот был отключён от ВКонтакте специально, например, путём отключения всех приложений/сессий в настройках безопасности, то волноваться незачем.\n\n⚙️ Ты снова можешь авторизоваться, нажав на кнопку ниже:", reply_markup=keyboard)
+				await HOOPER.TGBot.send_message(int(doc['_id']), "<b>Аккаунт был отключён от Telehooper</b> ⚠️\n\nПосле собственной перезагрузки, я не сумел переподключиться к аккаунту ВКонтакте. Если бот был отключён от ВКонтакте специально, например, путём отключения всех приложений/сессий в настройках безопасности, то волноваться незачем. В ином случае, ты можешь снова переподключить аккаунт, воспользовавшись командою /self.")
 
 	# Авторизуем всех остальных 'миниботов' для функции мультибота:
 	helperbots = os.environ.get("HELPER_BOTS", "[]")
@@ -151,3 +143,7 @@ if __name__ == "__main__":
 		skip_updates=SKIP_UPDATES,
 		loop=loop,
 	)
+
+# TODO: Поддержка супер групп
+# TODO: добавить кнопки во время загрузки диалогов вк
+# TODO: Возвращение диалога в группу

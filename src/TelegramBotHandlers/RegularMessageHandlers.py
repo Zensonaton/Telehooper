@@ -50,6 +50,10 @@ async def shouldBeHandled(msg: MessageType):
 	# Получаем объект пользователя:
 	user = await Bot.getBotUser(msg.from_user.id)
 
+	# Проверяем, подключён ли у него ВК:
+	if not user.isVKConnected:
+		return False
+
 	# Узнаём, диалог ли это:
 	dialogue = await user.getDialogueGroupByTelegramGroup(msg.chat.id)
 	if not dialogue:
@@ -119,7 +123,7 @@ async def RegularMessageHandlers(msg: MessageType):
 	# Отправляем сообщение в ВК:
 	if shouldSendMessage:
 		user.vkMAPI.saveMessageID(
-			msg.message_id, await user.vkMAPI.sendMessageOut(msg.text, dialogue.serviceDialogueID, reply_message_id, attachments), msg.chat.id, dialogue.serviceDialogueID, True
+			msg.message_id, await user.vkMAPI.sendMessageOut(msg.text or msg.caption, dialogue.serviceDialogueID, reply_message_id, attachments), msg.chat.id, dialogue.serviceDialogueID, True
 		)
 
 async def RegularMessageEditHandler(msg: MessageType):

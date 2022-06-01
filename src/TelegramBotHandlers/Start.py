@@ -26,8 +26,8 @@ def _setupCHandler(bot: Telehooper) -> None:
 	TGBot = Bot.TGBot
 	DP = Bot.DP
 
-	DP.register_message_handler(Start, commands=["start", "help"])
+	DP.register_message_handler(Start, commands=["start"])
 
 
 async def Start(msg: MessageType) -> None:
-	await msg.answer("<b>Привет! 🙋</b>\n\nЯ — бот с <a href=\"https://github.com/Zensonaton/Telehooper\">открытым исходным кодом</a>, позволяющий <b>отправлять</b> и <b>получать</b> сообщения из <b>ВКонтакте</b> напрямую в Telegram.\n\n⚙️ Для продолжения, воспользуйся командой /setup.")
+	await msg.answer("<b>Привет! 🙋\n\n</b>Я — бот с <a href=\"https://github.com/Zensonaton/Telehooper\">открытым исходным кодом</a>, позволяющий <b>отправлять</b> и <b>получать</b> сообщения из <b>ВКонтакте</b> напрямую в Telegram. 🤖\n\n⚙️ Для продолжения воспользуйся командой /self.")

@@ -100,6 +100,10 @@ class VKMiddlewareAPI(MiddlewareAPI):
 	async def sendMessageOut(self, message: str, chat_id: int, msg_id_to_reply: int | None = None, attachmentsFile: Utils.File | List[Utils.File] | None = None, allow_creating_temp_message: bool = True) -> int:
 		attachmentStr: List[str] = []
 
+		# Небольшой багфикс:
+		if message is None:
+			message = ""
+
 		tempMessageID: None | int = None
 		if attachmentsFile:
 			photoUploader = vkbottle.PhotoMessageUploader(self.vkAPI)
@@ -114,7 +118,7 @@ class VKMiddlewareAPI(MiddlewareAPI):
 				tempPhotoAttachment = await self.vkAccount.getDefaultDownloadingImage()
 				assert tempPhotoAttachment is not None, "Не удалось получить временное изображение для вложений."
 
-				tempMessageID = await self.user.vkAccount.vkAPI.messages.send(peer_id=chat_id, random_id=generateVKRandomID(), message=f"{message or ''}\n\n(пожалуйста, дождись загрузки всех {len(attachmentsFile)} вложений, они появятся в этом сообщении.)", reply_to=msg_id_to_reply, attachment=(tempPhotoAttachment + ",") * len(attachmentsFile))
+				tempMessageID = await self.user.vkAccount.vkAPI.messages.send(peer_id=chat_id, random_id=generateVKRandomID(), message=f"{message}\n\n(пожалуйста, дождись загрузки всех {len(attachmentsFile)} вложений, они появятся в этом сообщении.)", reply_to=msg_id_to_reply, attachment=(tempPhotoAttachment + ",") * len(attachmentsFile))
 
 			for index, file in enumerate(attachmentsFile):
 				# attachment является типом Utils.File, но иногда он бывает не готовым к использованию,
@@ -227,6 +231,10 @@ class VKMiddlewareAPI(MiddlewareAPI):
 			# Мы должны отправить сообщения в самом сервисе о отключении:
 			await self.user.vkAccount.vkAPI.messages.send(self.user.vkAccount.vkFullUser.id, random_id=generateVKRandomID(), message="ℹ️ Ваш аккаунт ВКонтакте был успешно отключён от бота «Telehooper».\n\nНадеюсь, что ты в скором времени вернёшься 🥺")
 
+		self.user.isVKConnected = False
+		self.vkAccount = None # type: ignore
+		self.vkAPI = None # type: ignore
+
 	def getMessageIDByTelegramMID(self, telegram_message_id: int | str) -> None | MappedMessage:
 		return self._getMessageDataByKeyname("TelegramMID", telegram_message_id)
 
@@ -329,17 +337,17 @@ class VKAccount:
 		"""Действия, выполняемые после успешной авторизации пользоваля ВКонтакте: Отправляет предупредительные сообщения, и так далее."""
 
 		space = "&#12288;" # Символ пробела, который не удаляется при отправке сообщения ВКонтакте.
-		userInfoData = f"{space}* Имя: {self.user.TGUser.first_name}"
+		userInfoData = f"{space}• Имя: {self.user.TGUser.first_name}"
 
 		if self.user.TGUser.last_name:
 			userInfoData += " {self.telegramUser.last_name}"
 		userInfoData += ".\n"
 
 		if self.user.TGUser.username:
-			userInfoData += f"{space}* Никнейм в Telegram: {self.user.TGUser.username}.\n"
-			userInfoData += f"{space}* Ссылка: https://t.me/{self.user.TGUser.username}​.\n"
+			userInfoData += f"{space}• Никнейм в Telegram: {self.user.TGUser.username}.\n"
+			userInfoData += f"{space}• Ссылка: https://t.me/{self.user.TGUser.username}​.\n"
 
-		userInfoData += f"{space}* Авторизация была произведена через " + ("пароль" if self.authViaPassword else f"VK ID") + ".\n"
+		userInfoData += f"{space}• Авторизация была произведена через " + ("пароль" if self.authViaPassword else f"VK ID") + ".\n"
 
 
 		await self.vkAPI.messages.send(self.vkFullUser.id, random_id=generateVKRandomID(), message=f"""⚠️ ВАЖНАЯ ИНФОРМАЦИЯ ⚠️ {space * 15}
@@ -350,7 +358,7 @@ class VKAccount:
 {space}• Отправлять сообщения.
 {space}• Смотреть список диалогов.
 {space}• Просматривать список твоих друзей, отправлять им сообщения.
-⚠ Если подключал бота не ты, то срочно {"в настройках подключённых приложений (https://vk.com/settings?act=apps) отключи приложение «VK Messenger», либо же " if self.authViaPassword else "настройках «безопасности» (https://vk.com/settings?act=security) нажми на кнопку «Отключить все сеансы», либо же "}в этот же диалог пропиши команду «logoff», (без кавычек) и если же тут появится сообщение о успешном отключении, то значит, что бот был отключён. После отключения срочно меняй пароль от ВКонтакте, поскольку произошедшее значит, что кто-то сумел войти в твой аккаунт ВКонтакте, либо же ты забыл выйти с чужого компьютера!
+⚠ Если подключал бота не ты, то срочно {"в настройках подключённых приложений (https://vk.com/settings?act=apps) отключи приложение «Kate Mobile», либо же " if self.authViaPassword else "настройках «безопасности» (https://vk.com/settings?act=security) нажми на кнопку «Отключить все сеансы», либо же "}в этот же диалог пропиши команду «logoff», (без кавычек) и если же тут появится сообщение о успешном отключении, то значит, что бот был отключён. После отключения срочно меняй пароль от ВКонтакте, поскольку произошедшее значит, что кто-то сумел войти в твой аккаунт ВКонтакте, либо же ты забыл выйти с чужого компьютера!
 Информация о пользователе, который подключил бота к твоей странице:
 {userInfoData}
 Если же это был ты, то волноваться незачем, и ты можешь просто проигнорировать всю предыдущую часть сообщения.
@@ -380,6 +388,7 @@ class VKAccount:
 			{"$set": {
 				"_id": self.user.TGUser.id,
 				"TelegramUserID": self.user.TGUser.id,
+				"IsAwareOfDialogueConversionConditions": False,
 				"Services": {
 					"VK": {
 						"Auth": True,
@@ -533,7 +542,7 @@ class VKDialogue:
 			self.username = self._extended.screen_name
 			self.photoURL = self._extended.photo_100
 			self.ID = -self._extended.id
-			self.absID = self.ID
+			self.absID = abs(self.ID)
 			self.domain = self._extended.screen_name
 			self.isMale = True
 		else:

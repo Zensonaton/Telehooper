@@ -37,19 +37,27 @@ class officialVKAppCreds:
 	VK_ME = appCredential(6146827, "qVxWRF1CwHERuIrKBnqe")
 
 class InlineButtonCallbacks:
-	ADD_VK_ACCOUNT = "add_vk"
-	VK_LOGIN_VIA_PASSWORD = "add_vk_password"
-	VK_LOGIN_VIA_VKID = "add_vk_vkid"
-	BACK_TO_SERVICE_SELECTOR = "back_to_service_selector"
-	DISCONNECT_SERVICE = "disconnect"
-	CANCEL_GROUP_TRANSFORM = "cancel_to_servicegroup_transform"
-	CONVERT_GROUP_TO_DIALOGUE = "convert_to_dialogue"
-	CANCEL_DELETE_CUR_MESSAGE = "cancel"
-	CANCEL_EDIT_CUR_MESSAGE = "cancel_edit"
-	BACK_TO_GROUP_CONVERTER = "back_group_converter"
-	DIALOGUE_SELECTOR_MENU_VK = "dialogue_select-vk"
-	DIALOGUE_SELECT_VK = "dialogue-vk:"
-	THIS_COMMAND = "this_command"
+	class CommandCallers:
+		SELF = "command_self"
+		THIS = "command_this"
+		CONVERT = "command_convert_to_dialogue"
+
+	class CommandActions:
+		CONVERT_TO_DIALOGUE = "action_convert_to_dialogue"
+		DISCONNECT_SERVICE = "action_disconnect_service"
+		DIALOGUE_SELECT_VK = "action_dialogue-vk:"
+		CONVERT_TO_REGULAR_GROUP = "action_convert_to_group"
+
+	class CommandMenus:
+		VK_LOGIN_VKID = "menu_login_vkid"
+		VK_LOGIN_PASSWORD = "menu_login_pass"
+
+	class CancelAction:
+		CANCEL_DELETE_MESSAGE = "cancel_delete_message"
+		CANCEL_EDIT_MESSAGE = "cancel_edit_message"
+		CANCEL_HIDE_BUTTONS = "cancel_hide_buttons"
+
+	DO_NOTHING = "do_nothing"
 
 class AccountDisconnectType:
 	INITIATED_BY_USER = 1
