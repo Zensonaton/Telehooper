@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import datetime
+import io
 import logging
 import os
 from typing import TYPE_CHECKING, Any, List, Optional, Tuple
@@ -21,6 +22,8 @@ from vkbottle_types.responses.groups import GroupsGroupFull
 from vkbottle_types.responses.messages import MessagesConversationWithMessage
 from vkbottle_types.responses.users import UsersUserFull
 import Utils
+import PIL
+from PIL import Image
 
 logger = logging.getLogger("VKMAPI") # TODO: Заменить этот logger на логгер внутри класса.
 
@@ -106,8 +109,6 @@ class VKMiddlewareAPI(MiddlewareAPI):
 
 		tempMessageID: None | int = None
 		if attachmentsFile:
-			photoUploader = vkbottle.PhotoMessageUploader(self.vkAPI)
-
 			# Я не хотел делать отдельный кейс когда переменная не является листом, поэтому:
 			if not isinstance(attachmentsFile, list):
 				attachmentsFile = [attachmentsFile]
@@ -129,11 +130,24 @@ class VKMiddlewareAPI(MiddlewareAPI):
 				assert file.bytes is not None, "attachment.bytes is None"
 
 				# Окончательно загружаем файл на сервера ВК:
-				uploaded = await photoUploader.upload(file.bytes)
-				assert isinstance(uploaded, str), "uploaded вернул не тип строки."
+				uploadedAttachment: str
+				uploadRes: str | None = None
+				if file.type == "photo" or file.type == "sticker":
+					uploadRes = await vkbottle.PhotoMessageUploader(self.vkAPI).upload(file.bytes) # type: ignore
+				elif False:
+					# Спасибо ВК что ограничили доступ к отправки граффити <3
+
+					uploadRes = await vkbottle.GraffitiUploader(self.vkAPI).upload(title="стикер", file_source=open("downloadImage.png", "rb").read()) # type: ignore
+
+
+				assert uploadRes is not None, "uploadRes is None"
+
+				uploadedAttachment = uploadRes
+				del uploadRes
 
 				# Добавляем строку вида "photo123_456" в массив:
-				attachmentStr.append(uploaded)
+				attachmentStr.append(uploadedAttachment)
+
 
 				# Через каждый второй файл делаем sleep:
 				if index % 2 == 1:

@@ -38,9 +38,9 @@ class Telehooper:
 	dialogueGroupsList: List[DialogueGroup]
 
 
-	def __init__(self, telegram_bot_token: str, telegram_bot_parse_mode: str = aiogram.types.ParseMode.HTML, storage: Optional[MemoryStorage] = None) -> None:
+	def __init__(self, telegram_bot_token: str, telegram_bot_parse_mode = aiogram.types.ParseMode.HTML, storage: Optional[MemoryStorage] = None) -> None: # type: ignore
 		self.token = telegram_bot_token
-		self.parse_mode = telegram_bot_parse_mode
+		self.parse_mode = telegram_bot_parse_mode  # type: ignore
 
 		self.miniBots = []
 
@@ -235,7 +235,7 @@ class Minibot:
 	TGBot: aiogram.Bot
 	DP: aiogram.Dispatcher
 
-	def __init__(self, main_telegram_bot: Telehooper, telegram_bot_token: str, telegram_bot_parse_mode: str = aiogram.types.ParseMode.HTML, storage: Optional[MemoryStorage] = None) -> None:
+	def __init__(self, main_telegram_bot: Telehooper, telegram_bot_token: str, telegram_bot_parse_mode: str = aiogram.types.ParseMode.HTML, storage: Optional[MemoryStorage] = None) -> None: # type: ignore
 		self.MainBot = main_telegram_bot
 		self.token = telegram_bot_token
 		self.parse_mode = telegram_bot_parse_mode

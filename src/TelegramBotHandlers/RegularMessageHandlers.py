@@ -4,6 +4,7 @@
 
 import asyncio
 from io import BytesIO
+import io
 import logging
 from typing import List
 
@@ -119,11 +120,25 @@ async def RegularMessageHandlers(msg: MessageType):
 				MEDIA_GROUPS[msg.media_group_id].append(msg.photo[-1])
 		else:
 			attachments.append(await Utils.File(await msg.photo[-1].download(destination_file=BytesIO())).parse())
+	elif msg.sticker:
+		attachments.append(
+			Utils.File(await msg.sticker.download(destination_file=io.BytesIO()), file_type="sticker")
+		)
 
 	# Отправляем сообщение в ВК:
 	if shouldSendMessage:
 		user.vkMAPI.saveMessageID(
-			msg.message_id, await user.vkMAPI.sendMessageOut(msg.text or msg.caption, dialogue.serviceDialogueID, reply_message_id, attachments), msg.chat.id, dialogue.serviceDialogueID, True
+			msg.message_id,
+			await user.vkMAPI.sendMessageOut(
+				msg.text
+				or msg.caption,
+				dialogue.serviceDialogueID,
+				reply_message_id,
+				attachments
+			),
+			msg.chat.id,
+			dialogue.serviceDialogueID,
+			True
 		)
 
 async def RegularMessageEditHandler(msg: MessageType):
