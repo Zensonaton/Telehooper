@@ -82,3 +82,13 @@ class TestUtils(unittest.TestCase):
 		self.assertEqual(Utils.isURL("C:/Windows/hi"), False)
 		self.assertEqual(Utils.isURL("C:\\Windows\\hi"), False)
 		self.assertEqual(Utils.isURL("/home/hi"), False)
+
+	def test_clamp(self):
+		# clamp() ограничивает значение в заданных пределах.
+
+		self.assertEqual(Utils.clamp(number=0, value_min=0, value_max=1), 0)
+		self.assertEqual(Utils.clamp(number=0, value_min=1, value_max=0), 1)
+		self.assertEqual(Utils.clamp(number=1, value_min=0, value_max=0), 0)
+		self.assertEqual(Utils.clamp(number=2, value_min=0, value_max=0), 0)
+		self.assertEqual(Utils.clamp(number=2, value_min=-1, value_max=2), 2)
+		self.assertEqual(Utils.clamp(number=-5, value_min=-1, value_max=2), -1)

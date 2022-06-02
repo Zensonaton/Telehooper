@@ -182,10 +182,29 @@ class VKMiddlewareAPI(MiddlewareAPI):
 			return
 
 		# Если у пользователя есть группа-диалог, то сообщение будет отправлено именно туда:
-		dialogue = await self.bot.getDialogueGroupByServiceDialogueID(abs(msg.peer_id))
-		if dialogue:
-			self.saveMessageID((await self.user.TGUser.bot.send_message(dialogue.group.id, msg.text)).message_id, msg.id, dialogue.group.id, msg.chat_id, False)
+		dialogue = await self.bot.getDialogueGroupByServiceDialogueID(msg.peer_id)
+		if not dialogue:
 			return
+
+		# Обработаем вложения:
+		fileAttachments: List[Utils.File] = []
+		for vkAttachment in msg.attachments or []:
+			TYPE = vkAttachment.type.value
+
+			# Смотрим, какой тип вложения получили:
+			if TYPE == "photo":
+				# Фотография.
+				URL: str = vkAttachment.photo.sizes[-5].url # type: ignore
+
+				fileAttachments.append(Utils.File(URL))
+
+		self.saveMessageID(
+			(await self.sendMessageIn(msg.text, dialogue.group.id, fileAttachments, return_only_first_element=True)).message_id, # type: ignore
+			msg.id,
+			dialogue.group.id,
+			msg.chat_id,
+			False
+		)
 
 	async def onMessageEdit(self, msg) -> None:
 		# Получаем ID сообщения в Telegram:

@@ -69,16 +69,17 @@ async def onBotStart(dp: aiogram.Dispatcher) -> None:
 
 	if DB.find_one({"_id": "_global"}) is None:
 		DB.update_one({
-			"_id": "_global"
-		}, {
-			"$set": {
-				"_id": "_global",
-				"ServiceDialogues": {
-					"VK": []
+				"_id": "_global"
+			}, {
+				"$set": {
+					"_id": "_global",
+					"TempDownloadImageFileID": None,
+					"ServiceDialogues": {
+						"VK": []
+					}
 				}
-			}
-		},
-		upsert=True
+			},
+			upsert=True
 		)
 
 	# Производим восстановление всех сессий:

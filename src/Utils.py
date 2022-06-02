@@ -122,7 +122,7 @@ class File:
 			async with aiohttp.ClientSession() as session:
 				async with session.get(self.url) as response:
 					self.bytes = await response.read()
-					self.filename = response.headers.get("Content-Disposition", "").split("filename=")[1].strip('"')
+					self.filename = response.headers.get("Content-Disposition", "filename=unknown").split("filename=")[-1].strip('"')[-1]
 		elif self.path:
 			assert os.path.exists(self.path), f"Файл {self.path} не существует в системе"
 
@@ -138,3 +138,11 @@ class File:
 
 	def __str__(self) -> str:
 		return "<File class>"
+
+
+def clamp(number: float, value_min: float, value_max: float) -> float:
+	"""
+	Ограничивает значение `number` в пределах `value_min` и `value_max`.
+	"""
+
+	return max(value_min, min(number, value_max))

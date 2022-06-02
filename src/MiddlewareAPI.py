@@ -142,12 +142,100 @@ class MiddlewareAPI:
 
 		pass
 
-	async def sendMessageIn(self, message: str, chat_id: int) -> None:
+	async def sendMessageIn(self, message: str, chat_id: int, attachments: None | List[Utils.File] = None, allow_sending_temp_messages: bool = True, return_only_first_element: bool = False) -> aiogram.types.Message | List[aiogram.types.Message]:
 		"""
 		Отправляет сообщение в Telegram.
 		"""
 
-		await self.user.TGUser.bot.send_message(chat_id, message)
+		def _return(variable):
+			"""
+			Возвращает первый элемент, если это массив, и `return_only_first_element` - True.
+			"""
+
+			if return_only_first_element and isinstance(variable, list):
+				return variable[0]
+			else:
+				return variable
+
+		# Фикс:
+		if attachments is None:
+			attachments = []
+
+		# Проверяем, есть ли у нас вложения, которые стоит отправить:
+		if len(attachments) > 0:
+			tempMediaGroup = aiogram.types.MediaGroup()
+			loadingCaption = "<i>Весь контент появится здесь после загрузки, подожди...</i>\n\n" + message
+
+			# Если мы можем отправить временные сообщения, то отправляем их:
+			if allow_sending_temp_messages and len(attachments) > 1:
+
+				fileID: str | None = None
+				tempMessages: List[aiogram.types.Message] = []
+				DB = getDefaultCollection()
+
+				# Пытаемся достать fileID временной фотки из ДБ:
+				res = DB.find_one({"_id": "_global"})
+				if res:
+					fileID = res["TempDownloadImageFileID"]
+
+				# Добавляем временные вложения:
+				for index in range(len(attachments)):
+
+					# Проверяем, есть ли у нас в ДБ идентификатор для временного файла. Если да,
+					# то добавляем caption только на первом элементе, в ином случае Telegram
+					# не покажет нам текст сообщения.
+					#
+					# Как бы я не хвалил Telegram, технические решения здесь отвратительны.
+					if fileID:
+						tempMediaGroup.attach(aiogram.types.InputMediaPhoto(fileID, loadingCaption if index == 0 else None))
+					else:
+						tempMediaGroup.attach(aiogram.types.InputMediaPhoto(aiogram.types.InputFile("downloadImage.png"), loadingCaption if index == 0 else None))
+
+				# Отправляем файлы с временными сообщениями, которые мы заменим реальными вложениями.
+				tempMessages = await self.user.TGUser.bot.send_media_group(chat_id, tempMediaGroup)
+
+				# Если же у нас таковой нет, то мы сохраняем ID временной фотки в ДБ:
+				if not fileID:
+					DB.update_one({"_id": "_global"}, {
+						"$set": {
+							"TempDownloadImageFileID": tempMessages[0].photo[-1].file_id
+						}
+					})
+
+				# Теперь нам стоит отредачить сообщение с новыми вложениями.
+				# Я специально редактирую всё с конца, что бы не трогать лишний раз caption
+				# самого первого сообщения.
+				for index, attachment in reversed(list(enumerate(attachments))):
+
+					# Загружаем файл, если он не был загружен:
+					if not attachment.ready:
+						await attachment.parse()
+
+					# Заменяем старый временный файл на новый:
+					await tempMessages[index].edit_media(
+						aiogram.types.InputMedia(
+							media=attachment.aiofile, caption=message if index == 0 else None
+						)
+					)
+
+					# Каждый запрос спим, что бы не превысить лимит:
+					await asyncio.sleep(1)
+
+				return _return(tempMessages)
+			else:
+				# Если мы не можем отправить временные сообщения, то добавляем их по одному в MediaGroup:
+
+				for index, attachment in enumerate(attachments):
+					if not attachment.ready:
+						await attachment.parse()
+
+					tempMediaGroup.attach(aiogram.types.InputMedia(media=attachment.aiofile, caption=message if index == 0 else None))
+
+				# И после добавления в MediaGroup, отправляем сообщение:
+				return _return(await self.user.TGUser.bot.send_media_group(chat_id, tempMediaGroup))
+
+		# У нас нет никакой группы вложений, поэтому мы просто отправим сообщение:
+		return _return(await self.user.TGUser.bot.send_message(chat_id, message))
 
 	async def sendMessageOut(self, message: str) -> None:
 		"""
