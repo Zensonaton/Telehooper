@@ -223,16 +223,15 @@ class VKMiddlewareAPI(MiddlewareAPI):
 				replyMessageID = res.telegramMID
 
 		# Если сообщение из беседы, то добавляем имя:
+		msgPrefix = ""
 		if FROM_CONVO:
 			# Получаем имя отправителя:
 			sender = await msg.get_user()
-			senderName = (sender.first_name or "") + " " + (sender.last_name or "")
+			msgPrefix = (sender.first_name or "") + " " + (sender.last_name or "") + ": "
 
-			# Собираем сообщение:
-			message = f"{senderName}:\n{msg.text}"
-
+		telegramMessage = await self.sendMessageIn(text=msgPrefix + (msg.text or "<i>ошибка: пустой текст у сообщения. возможно, в сообщении неподдерживаемый тип?</i>"), chat_id=dialogue.group.id, attachments=fileAttachments, reply_to=replyMessageID, return_only_first_element=True)
 		self.saveMessageID(
-			(await self.sendMessageIn(text=msg.text, chat_id=dialogue.group.id, attachments=fileAttachments, reply_to=replyMessageID, return_only_first_element=True)).message_id, # type: ignore
+			telegramMessage.message_id, # type: ignore
 			msg.id,
 			dialogue.group.id,
 			msg.chat_id,
