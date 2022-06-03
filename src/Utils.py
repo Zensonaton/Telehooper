@@ -83,11 +83,11 @@ class File:
 	bytes: _bytes | None
 	filename: str | None
 
-	type: Literal["photo", "sticker"]
+	type: Literal["photo", "sticker", "voice"]
 
 	ready: bool = False
 
-	def __init__(self, path_url_bytes_file: str | InputFile | io.IOBase | _bytes, file_type: Literal["photo", "sticker"] = "photo") -> None:
+	def __init__(self, path_url_bytes_file: str | InputFile | io.IOBase | _bytes, file_type: Literal["photo", "sticker", "voice"] = "photo") -> None:
 		self.type = file_type
 
 		self.url = None

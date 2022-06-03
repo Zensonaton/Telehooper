@@ -134,6 +134,8 @@ class VKMiddlewareAPI(MiddlewareAPI):
 				uploadRes: str | None = None
 				if file.type == "photo" or file.type == "sticker":
 					uploadRes = await vkbottle.PhotoMessageUploader(self.vkAPI).upload(file.bytes) # type: ignore
+				elif file.type == "voice":
+					uploadRes = await vkbottle.VoiceMessageUploader(self.vkAPI).upload(title="voice message title?", file_source=file.bytes) # type: ignore
 				elif False:
 					# Спасибо ВК что ограничили доступ к отправки граффити <3
 

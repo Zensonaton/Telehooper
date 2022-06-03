@@ -124,6 +124,10 @@ async def RegularMessageHandlers(msg: MessageType):
 		attachments.append(
 			Utils.File(await msg.sticker.download(destination_file=io.BytesIO()), file_type="sticker")
 		)
+	elif msg.voice:
+		attachments.append(
+			Utils.File(await msg.voice.download(destination_file=io.BytesIO()), file_type="voice")
+		)
 
 	# Отправляем сообщение в ВК:
 	if shouldSendMessage:
