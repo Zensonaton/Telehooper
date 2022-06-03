@@ -167,6 +167,9 @@ class VKMiddlewareAPI(MiddlewareAPI):
 		Обработчик входящих/исходящих сообщений полученных из ВКонтакте.
 		"""
 
+		FROM_USER = msg.peer_id < 2000000000
+		FROM_CONVO = msg.peer_id >= 2000000000
+
 		if self.user.vkAccount.vkFullUser is None:
 			# Полная информация о пользователе ещё не была получена.
 
@@ -218,6 +221,15 @@ class VKMiddlewareAPI(MiddlewareAPI):
 			res = self.getMessageDataByServiceMID(msg.reply_message.id or 0)
 			if res:
 				replyMessageID = res.telegramMID
+
+		# Если сообщение из беседы, то добавляем имя:
+		if FROM_CONVO:
+			# Получаем имя отправителя:
+			sender = await msg.get_user()
+			senderName = (sender.first_name or "") + " " + (sender.last_name or "")
+
+			# Собираем сообщение:
+			message = f"{senderName}:\n{msg.text}"
 
 		self.saveMessageID(
 			(await self.sendMessageIn(text=msg.text, chat_id=dialogue.group.id, attachments=fileAttachments, reply_to=replyMessageID, return_only_first_element=True)).message_id, # type: ignore
