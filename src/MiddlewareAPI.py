@@ -208,6 +208,8 @@ class MiddlewareAPI:
 				# самого первого сообщения.
 				for index, attachment in reversed(list(enumerate(attachments))):
 
+					await self.startChatActionStateIn(chat_id, "upload_photo")
+
 					# Загружаем файл, если он не был загружен:
 					if not attachment.ready:
 						await attachment.parse()
@@ -233,6 +235,7 @@ class MiddlewareAPI:
 					tempMediaGroup.attach(aiogram.types.InputMedia(media=attachment.aiofile, caption=text if index == 0 else None))
 
 				# И после добавления в MediaGroup, отправляем сообщение:
+				await self.startChatActionStateIn(chat_id, "upload_photo")
 				return _return(await self.user.TGUser.bot.send_media_group(chat_id, tempMediaGroup, reply_to_message_id=reply_to))
 
 		# У нас нет никакой группы вложений, поэтому мы просто отправим сообщение:
@@ -273,12 +276,19 @@ class MiddlewareAPI:
 
 		pass
 
-	async def startChatActionStateIn(self, chat_id: int | str, action: Literal["typing", "upload_photo", "record_video", "record_video", "upload_video", "record_voice", "upload_voice", "upload_document", "find_location", "record_video_note", "upload_video_note"] = "typing") -> None:
+	async def startChatActionStateIn(self, chat_id: int | str, action: Literal["typing", "upload_photo", "record_video", "upload_video", "record_voice", "upload_voice", "upload_document", "find_location", "record_video_note", "upload_video_note"] = "typing") -> None:
 		"""
-		Начинает событие "печати" в Telegram.
+		Начинает какое либо действие в чате, к примеру, действие "печати" в Telegram.
 		"""
 
 		await self.user.TGUser.bot.send_chat_action(chat_id, action)
+
+	async def startChatActionStateOut(self, chat_id: int | str, action: str):
+		"""
+		Начинает какое либо действие в чате, к примеру, действие "печати" в сервисе.
+		"""
+
+		pass
 
 	async def disconnectService(self, disconnect_type: int = AccountDisconnectType.INITIATED_BY_USER, send_service_messages: bool = True) -> None:
 		"""

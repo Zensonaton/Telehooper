@@ -7,7 +7,7 @@ import datetime
 import io
 import logging
 import os
-from typing import TYPE_CHECKING, Any, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, List, Literal, Optional, Tuple
 
 import aiogram
 import vkbottle
@@ -74,6 +74,11 @@ class VKMiddlewareAPI(MiddlewareAPI):
 		self.vkAccount.vkUser.on.message()(self.onNewRecievedMessage)
 		self.vkAccount.vkUser.on.raw_event(vkbottle.UserEventType.MESSAGE_EDIT)(self.onMessageEdit) # type: ignore
 		self.vkAccount.vkUser.on.raw_event(vkbottle.UserEventType.DIALOG_TYPING_STATE)(self.onChatTypingState) # type: ignore
+		self.vkAccount.vkUser.on.raw_event(vkbottle.UserEventType.CHAT_TYPING_STATE)(self.onChatTypingState) # type: ignore
+		self.vkAccount.vkUser.on.raw_event(vkbottle.UserEventType.CHAT_VOICE_MESSAGE_STATES)(self.onChatTypingState) # type: ignore
+		self.vkAccount.vkUser.on.raw_event(vkbottle.UserEventType.FILE_UPLOAD_STATE)(self.onChatTypingState) # type: ignore
+		self.vkAccount.vkUser.on.raw_event(vkbottle.UserEventType.VIDEO_UPLOAD_STATE)(self.onChatTypingState) # type: ignore
+		self.vkAccount.vkUser.on.raw_event(vkbottle.UserEventType.PHOTO_UPLOAD_STATE)(self.onChatTypingState) # type: ignore
 
 		# Создаём Polling-задачу:
 		self.pollingTask = asyncio.create_task(self.vkAccount.vkUser.run_polling(), name=f"VK Polling, id{self.user.vkAccount.vkFullUser.id}")
@@ -100,7 +105,15 @@ class VKMiddlewareAPI(MiddlewareAPI):
 	async def sendServiceMessageOut(self, message: str, msg_id_to_reply: int | None = None) -> int:
 		return await self.sendMessageOut(message, self.user.vkAccount.vkFullUser.id, msg_id_to_reply)
 
-	async def sendMessageOut(self, message: str, chat_id: int, msg_id_to_reply: int | None = None, attachmentsFile: Utils.File | List[Utils.File] | None = None, allow_creating_temp_message: bool = True) -> int:
+	async def sendMessageOut(self, message: str, chat_id: int, msg_id_to_reply: int | None = None, attachmentsFile: Utils.File | List[Utils.File] | None = None, allow_creating_temp_message: bool = True, start_typing: bool = True) -> int:
+		async def _chatAction(action: Literal["audiomessage", "file", "photo", "typing", "video"] = "typing"):
+			"""
+			Выполняет действие в чати по типу печати.
+			"""
+
+			if start_typing:
+				await self.startChatActionStateOut(chat_id, action)
+
 		attachmentStr: List[str] = []
 
 		# Небольшой багфикс:
@@ -133,8 +146,10 @@ class VKMiddlewareAPI(MiddlewareAPI):
 				uploadedAttachment: str
 				uploadRes: str | None = None
 				if file.type == "photo" or file.type == "sticker":
+					await _chatAction("photo")
 					uploadRes = await vkbottle.PhotoMessageUploader(self.vkAPI).upload(file.bytes) # type: ignore
 				elif file.type == "voice":
+					await _chatAction("audiomessage")
 					uploadRes = await vkbottle.VoiceMessageUploader(self.vkAPI).upload(title="voice message title?", file_source=file.bytes) # type: ignore
 				elif False:
 					# Спасибо ВК что ограничили доступ к отправки граффити <3
@@ -154,12 +169,18 @@ class VKMiddlewareAPI(MiddlewareAPI):
 				# Через каждый второй файл делаем sleep:
 				if index % 2 == 1:
 					await asyncio.sleep(0.5)
+		else:
+			# У нас нет никаких вложений:
+			await _chatAction("typing")
 
 		if allow_creating_temp_message and tempMessageID:
 			await self.vkAPI.messages.edit(peer_id=chat_id, message=message, message_id=tempMessageID, attachment=",".join(attachmentStr))
 			return tempMessageID
 		else:
 			return await self.vkAPI.messages.send(peer_id=chat_id, random_id=generateVKRandomID(), message=message, reply_to=msg_id_to_reply, attachment=",".join(attachmentStr))
+
+	async def startChatActionStateOut(self, chat_id: int | str, action: Literal["audiomessage", "file", "photo", "typing", "video"]):
+		await self.vkAPI.messages.set_activity(int(chat_id), action)
 
 	async def editMessageOut(self, message: str, chat_id: int, message_id: int) -> int:
 		return await self.user.vkAccount.vkAPI.messages.edit(peer_id=chat_id, message_id=message_id, message=message)
@@ -231,7 +252,15 @@ class VKMiddlewareAPI(MiddlewareAPI):
 			sender = await msg.get_user()
 			msgPrefix = (sender.first_name or "") + " " + (sender.last_name or "") + ": "
 
-		telegramMessage = await self.sendMessageIn(text=msgPrefix + (msg.text or "<i>ошибка: пустой текст у сообщения. возможно, в сообщении неподдерживаемый тип?</i>"), chat_id=dialogue.group.id, attachments=fileAttachments, reply_to=replyMessageID, return_only_first_element=True)
+		# Отправляем сообщение и сохраняем в ДБ:
+		telegramMessage = await self.sendMessageIn(
+			text=msgPrefix + (msg.text or "<i>ошибка: пустой текст у сообщения. возможно, в сообщении неподдерживаемый тип?</i>"),
+			chat_id=dialogue.group.id,
+			attachments=fileAttachments,
+			reply_to=replyMessageID,
+			return_only_first_element=True
+		)
+
 		self.saveMessageID(
 			telegramMessage.message_id, # type: ignore
 			msg.id,
@@ -260,7 +289,20 @@ class VKMiddlewareAPI(MiddlewareAPI):
 			await self.editMessageIn(MSGTEXT + "ㅤㅤㅤ<i>изменено</i>", res.telegramDialogueID, res.telegramMID)
 
 	async def onChatTypingState(self, typing_object):
+		IS_TYPING = typing_object.object[0] == vkbottle.UserEventType.DIALOG_TYPING_STATE
+		IS_AUDIO = typing_object.object[0] == vkbottle.UserEventType.CHAT_VOICE_MESSAGE_STATES
+		IS_FILE = typing_object.object[0] == vkbottle.UserEventType.FILE_UPLOAD_STATE
+		IS_PHOTO = typing_object.object[0] == vkbottle.UserEventType.PHOTO_UPLOAD_STATE
+		IS_VIDEO = typing_object.object[0] == vkbottle.UserEventType.VIDEO_UPLOAD_STATE
 		CHAT_ID = typing_object.object[1]
+
+		telegramString = {
+			vkbottle.UserEventType.DIALOG_TYPING_STATE: "typing",
+			vkbottle.UserEventType.CHAT_VOICE_MESSAGE_STATES: "record_voice",
+			vkbottle.UserEventType.FILE_UPLOAD_STATE: "upload_document",
+			vkbottle.UserEventType.PHOTO_UPLOAD_STATE: "upload_photo",
+			vkbottle.UserEventType.VIDEO_UPLOAD_STATE: "upload_video",
+		}[typing_object.object[0]]
 
 		# Узнаём, диалог ли это:
 		dialogue = await self.user.getDialogueGroupByServiceDialogueID(CHAT_ID)
@@ -268,7 +310,7 @@ class VKMiddlewareAPI(MiddlewareAPI):
 			return False
 
 		# В ином случае, начинаем "печатать":
-		await self.startChatActionStateIn(dialogue.group.id, "typing")
+		await self.startChatActionStateIn(dialogue.group.id, telegramString) # type: ignore
 
 	async def disconnectService(self, disconnect_type: int = AccountDisconnectType.INITIATED_BY_USER, send_service_messages: bool = True) -> None:
 		"""

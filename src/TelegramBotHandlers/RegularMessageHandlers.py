@@ -119,15 +119,25 @@ async def RegularMessageHandlers(msg: MessageType):
 
 				MEDIA_GROUPS[msg.media_group_id].append(msg.photo[-1])
 		else:
-			attachments.append(await Utils.File(await msg.photo[-1].download(destination_file=BytesIO())).parse())
+			await user.vkMAPI.startChatActionStateOut(dialogue.serviceDialogueID, "photo")
+
+			attachments.append(await Utils.File(
+				await msg.photo[-1].download(destination_file=BytesIO())
+			).parse())
 	elif msg.sticker:
-		attachments.append(
-			Utils.File(await msg.sticker.download(destination_file=io.BytesIO()), file_type="sticker")
-		)
+		await user.vkMAPI.startChatActionStateOut(dialogue.serviceDialogueID, "photo")
+
+		attachments.append(Utils.File(
+			await msg.sticker.download(destination_file=io.BytesIO()
+		), file_type="sticker"))
 	elif msg.voice:
-		attachments.append(
-			Utils.File(await msg.voice.download(destination_file=io.BytesIO()), file_type="voice")
-		)
+		await user.vkMAPI.startChatActionStateOut(dialogue.serviceDialogueID, "audiomessage")
+
+		attachments.append(Utils.File(
+			await msg.voice.download(destination_file=io.BytesIO()
+		), file_type="voice"))
+	else:
+		await user.vkMAPI.startChatActionStateOut(dialogue.serviceDialogueID, "typing")
 
 	# Отправляем сообщение в ВК:
 	if shouldSendMessage:
@@ -138,7 +148,8 @@ async def RegularMessageHandlers(msg: MessageType):
 				or msg.caption,
 				dialogue.serviceDialogueID,
 				reply_message_id,
-				attachments
+				attachments,
+				start_typing=False
 			),
 			msg.chat.id,
 			dialogue.serviceDialogueID,
