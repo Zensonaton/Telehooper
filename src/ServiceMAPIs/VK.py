@@ -212,8 +212,15 @@ class VKMiddlewareAPI(MiddlewareAPI):
 
 				fileAttachments.append(Utils.File(URL))
 
+		# Reply сообщения:
+		replyMessageID = None
+		if msg.reply_message:
+			res = self.getMessageDataByServiceMID(msg.reply_message.id or 0)
+			if res:
+				replyMessageID = res.telegramMID
+
 		self.saveMessageID(
-			(await self.sendMessageIn(msg.text, dialogue.group.id, fileAttachments, return_only_first_element=True)).message_id, # type: ignore
+			(await self.sendMessageIn(text=msg.text, chat_id=dialogue.group.id, attachments=fileAttachments, reply_to=replyMessageID, return_only_first_element=True)).message_id, # type: ignore
 			msg.id,
 			dialogue.group.id,
 			msg.chat_id,

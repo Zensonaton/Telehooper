@@ -142,7 +142,7 @@ class MiddlewareAPI:
 
 		pass
 
-	async def sendMessageIn(self, message: str, chat_id: int, attachments: None | List[Utils.File] = None, allow_sending_temp_messages: bool = True, return_only_first_element: bool = False) -> aiogram.types.Message | List[aiogram.types.Message]:
+	async def sendMessageIn(self, text: str, chat_id: int | str, attachments: None | List[Utils.File] = None, reply_to: int | str | None = None, allow_sending_temp_messages: bool = True, return_only_first_element: bool = False) -> aiogram.types.Message | List[aiogram.types.Message]:
 		"""
 		Отправляет сообщение в Telegram.
 		"""
@@ -157,14 +157,15 @@ class MiddlewareAPI:
 			else:
 				return variable
 
-		# Фикс:
+		# Фиксы:
 		if attachments is None:
 			attachments = []
+		reply_to = reply_to if reply_to is None else int(reply_to)
 
 		# Проверяем, есть ли у нас вложения, которые стоит отправить:
 		if len(attachments) > 0:
 			tempMediaGroup = aiogram.types.MediaGroup()
-			loadingCaption = "<i>Весь контент появится здесь после загрузки, подожди...</i>\n\n" + message
+			loadingCaption = "<i>Весь контент появится здесь после загрузки, подожди...</i>\n\n" + text
 
 			# Если мы можем отправить временные сообщения, то отправляем их:
 			if allow_sending_temp_messages and len(attachments) > 1:
@@ -192,7 +193,7 @@ class MiddlewareAPI:
 						tempMediaGroup.attach(aiogram.types.InputMediaPhoto(aiogram.types.InputFile("downloadImage.png"), loadingCaption if index == 0 else None))
 
 				# Отправляем файлы с временными сообщениями, которые мы заменим реальными вложениями.
-				tempMessages = await self.user.TGUser.bot.send_media_group(chat_id, tempMediaGroup)
+				tempMessages = await self.user.TGUser.bot.send_media_group(chat_id, tempMediaGroup, reply_to_message_id=reply_to)
 
 				# Если же у нас таковой нет, то мы сохраняем ID временной фотки в ДБ:
 				if not fileID:
@@ -214,7 +215,7 @@ class MiddlewareAPI:
 					# Заменяем старый временный файл на новый:
 					await tempMessages[index].edit_media(
 						aiogram.types.InputMedia(
-							media=attachment.aiofile, caption=message if index == 0 else None
+							media=attachment.aiofile, caption=text if index == 0 else None
 						)
 					)
 
@@ -229,13 +230,13 @@ class MiddlewareAPI:
 					if not attachment.ready:
 						await attachment.parse()
 
-					tempMediaGroup.attach(aiogram.types.InputMedia(media=attachment.aiofile, caption=message if index == 0 else None))
+					tempMediaGroup.attach(aiogram.types.InputMedia(media=attachment.aiofile, caption=text if index == 0 else None))
 
 				# И после добавления в MediaGroup, отправляем сообщение:
-				return _return(await self.user.TGUser.bot.send_media_group(chat_id, tempMediaGroup))
+				return _return(await self.user.TGUser.bot.send_media_group(chat_id, tempMediaGroup, reply_to_message_id=reply_to))
 
 		# У нас нет никакой группы вложений, поэтому мы просто отправим сообщение:
-		return _return(await self.user.TGUser.bot.send_message(chat_id, message))
+		return _return(await self.user.TGUser.bot.send_message(chat_id, text, reply_to_message_id=reply_to))
 
 	async def sendMessageOut(self, message: str) -> None:
 		"""
@@ -337,12 +338,12 @@ class MiddlewareAPI:
 		})
 
 	def getMessageIDByTelegramMID(self, telegram_message_id: int | str) -> None | Tuple[int, int, int, int]:
-		"""Достаёт ID сообщения сервиса по ID сообщения Telegram. В случае успеха выводит Tuple с значениями: `telegram_message_id`, `service_message_id`, `telegram_chat_id`, `service_chat_id`."""
+		"""Достаёт ID сообщения сервиса по ID сообщения Telegram. В случае успеха выводит класс с значениями: `telegram_message_id`, `service_message_id`, `telegram_chat_id`, `service_chat_id`."""
 
 		pass
 
 	def getMessageDataByServiceMID(self, service_message_id: int | str) -> None | Tuple[int, int, int, int]:
-		"""Достаёт ID сообщения Telegram по ID сообщения сервиса. В случае успеха выводит Tuple с значениями: `telegram_message_id`, `service_message_id`, `telegram_chat_id`, `service_chat_id`."""
+		"""Достаёт ID сообщения Telegram по ID сообщения сервиса. В случае успеха выводит класс с значениями: `telegram_message_id`, `service_message_id`, `telegram_chat_id`, `service_chat_id`."""
 
 		pass
 
