@@ -237,6 +237,11 @@ class VKMiddlewareAPI(MiddlewareAPI):
 				URL: str = vkAttachment.photo.sizes[-5].url # type: ignore
 
 				fileAttachments.append(Utils.File(URL))
+			elif TYPE == "audio_message":
+				# Голосовое сообщение.
+				URL: str = vkAttachment.audio_message.link_ogg # type: ignore
+
+				fileAttachments.append(Utils.File(URL, "voice"))
 
 		# Reply сообщения:
 		replyMessageID = None

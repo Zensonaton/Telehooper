@@ -232,10 +232,26 @@ class MiddlewareAPI:
 					if not attachment.ready:
 						await attachment.parse()
 
-					tempMediaGroup.attach(aiogram.types.InputMedia(media=attachment.aiofile, caption=text if index == 0 else None))
+					# MEDIA_TYPE = {
+					# 	"voice": "",
+					# 	"": "animation",
+					# 	"file": "document",
+					# 	"music": "audio",
+					# 	"photo": "photo",
+					# 	"video": "video"
+					# }
+					MEDIA_TYPES = ["photo", "video", "document", "animation"]
+
+					if attachment.type in MEDIA_TYPES:
+						tempMediaGroup.attach(aiogram.types.InputMedia(media=attachment.aiofile, caption=text if index == 0 else None))
+					elif attachment.type == "voice":
+						return _return(await self.user.TGUser.bot.send_voice(chat_id, attachment.aiofile, reply_to_message_id=reply_to, ))
+
+
 
 				# И после добавления в MediaGroup, отправляем сообщение:
 				await self.startChatActionStateIn(chat_id, "upload_photo")
+
 				return _return(await self.user.TGUser.bot.send_media_group(chat_id, tempMediaGroup, reply_to_message_id=reply_to))
 
 		# У нас нет никакой группы вложений, поэтому мы просто отправим сообщение:
