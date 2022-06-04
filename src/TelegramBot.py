@@ -82,8 +82,9 @@ class Telehooper:
 		"""
 
 		# Импортируем все Handler'ы как модули:
-		from TelegramBotHandlers import (GroupEvents, RegularMessageHandlers, Self,
-		                                 Start, This, VKLogin, Debug, Help)
+		from TelegramBotHandlers import (Debug, GroupEvents, Help,
+		                                 RegularMessageHandlers, Self, Start, This,
+		                                 VKLogin)
 
 		# А теперь добавляем их в бота:
 		importHandlers([Start, VKLogin, GroupEvents, OtherCallbackQueryHandlers, This, Self, RegularMessageHandlers, Debug, Help], self, is_multibot=False)

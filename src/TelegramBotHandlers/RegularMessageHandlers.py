@@ -3,16 +3,16 @@
 """Обработчик для команды `RegularMessageHandlers`."""
 
 import asyncio
-from io import BytesIO
 import io
 import logging
+from io import BytesIO
 from typing import List
 
+import Utils
 from aiogram import Bot, Dispatcher
 from aiogram.types import Message as MessageType
 from MiddlewareAPI import TelehooperUser
 from TelegramBot import DialogueGroup, Telehooper
-import Utils
 
 Bot: 	Telehooper 	= None # type: ignore
 TGBot: 	Bot 		= None # type: ignore

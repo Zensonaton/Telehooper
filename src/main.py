@@ -12,15 +12,12 @@ import os
 
 import aiogram
 import dotenv
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 import Consts
 import MiddlewareAPI
 import TelegramBot as TGBot
 import Utils
 from Consts import AccountDisconnectType
-from Consts import InlineButtonCallbacks as CButtons
-from Consts import MAPIServiceType
 from DB import getDefaultCollection
 
 # Логирование.

@@ -1,11 +1,11 @@
 # coding: utf-8
 
-from telethon.tl.functions.channels import CreateChannelRequest
-from telethon.tl.functions.channels import InviteToChannelRequest
-from telethon.tl.functions.messages import EditChatAdminRequest
-import telethon
-import dotenv
 import os
+
+import dotenv
+import telethon
+from telethon.tl.functions.channels import (CreateChannelRequest,
+                                            InviteToChannelRequest)
 
 # Грузим .env файл:
 dotenv.load_dotenv()
@@ -20,17 +20,17 @@ async def job(client: telethon.TelegramClient) -> None:
 	await client.edit_admin(
 		chatid,
 		os.environ["RECIEVER"],
-		
-		change_info = True, 
-		post_messages = True, 
-		edit_messages = True, 
-		delete_messages = True, 
-		ban_users = True, 
-		invite_users = True, 
-		pin_messages = True, 
-		add_admins = True, 
-		manage_call = True, 
-		anonymous = False, 
+
+		change_info = True,
+		post_messages = True,
+		edit_messages = True,
+		delete_messages = True,
+		ban_users = True,
+		invite_users = True,
+		pin_messages = True,
+		add_admins = True,
+		manage_call = True,
+		anonymous = False,
 		is_admin = True
 	)
 
@@ -38,5 +38,3 @@ async def job(client: telethon.TelegramClient) -> None:
 
 with telethon.TelegramClient("user", int(os.environ["API_ID"]), os.environ["API_HASH"]) as client:
 	client.loop.run_until_complete(job(client))
-
-

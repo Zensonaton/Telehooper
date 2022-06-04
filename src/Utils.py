@@ -1,13 +1,13 @@
 # coding: utf-8
 
-from aiogram.types import InputFile
-from typing import Literal
-import aiohttp
-import random
-import re
 import io
 import os
+import random
+import re
+from typing import Literal
 
+import aiohttp
+from aiogram.types import InputFile
 
 
 def parseStrAsBoolean(value: str | bool) -> bool:

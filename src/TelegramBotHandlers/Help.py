@@ -3,11 +3,9 @@
 """Обработчик для команды `Help`."""
 
 import logging
-from typing import TYPE_CHECKING
 
 from aiogram import Bot, Dispatcher
 from aiogram.types import Message as MessageType
-
 from TelegramBot import Telehooper
 
 Bot: 	Telehooper 	= None # type: ignore

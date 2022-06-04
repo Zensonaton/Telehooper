@@ -3,9 +3,7 @@
 """Обработчик для команды `Self`."""
 
 import logging
-from Exceptions import CommandAllowedOnlyInPrivateChats
 
-import MiddlewareAPI
 from aiogram import Bot, Dispatcher
 from aiogram.types import (CallbackQuery, InlineKeyboardButton,
                            InlineKeyboardMarkup)
@@ -13,7 +11,7 @@ from aiogram.types import Message as MessageType
 from Consts import VK_OAUTH_URL, AccountDisconnectType
 from Consts import CommandThrottleNames as CThrottle
 from Consts import InlineButtonCallbacks as CButtons
-from Consts import MAPIServiceType
+from Exceptions import CommandAllowedOnlyInPrivateChats
 from TelegramBot import Telehooper
 
 Bot: 	Telehooper 	= None # type: ignore

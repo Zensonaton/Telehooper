@@ -7,17 +7,17 @@ import io
 import logging
 from typing import Tuple
 
-from aiogram import Bot, Dispatcher
 import aiogram
-from aiogram.types import (CallbackQuery, InlineKeyboardButton,
-                           InlineKeyboardMarkup, Chat, User)
-from aiogram.types import Message as MessageType
 import aiohttp
+from aiogram import Bot, Dispatcher
+from aiogram.types import (CallbackQuery, Chat, InlineKeyboardButton,
+                           InlineKeyboardMarkup)
+from aiogram.types import Message as MessageType
+from aiogram.types import User
 from Consts import CommandThrottleNames as CThrottle
 from Consts import InlineButtonCallbacks as CButton
 from DB import getDefaultCollection
-from Exceptions import (CommandAllowedOnlyInBotDialogue,
-                        CommandAllowedOnlyInGroup)
+from Exceptions import CommandAllowedOnlyInGroup
 from MiddlewareAPI import TelehooperUser
 from TelegramBot import DialogueGroup, Telehooper
 

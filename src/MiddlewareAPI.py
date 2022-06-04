@@ -6,26 +6,14 @@
 from __future__ import annotations
 
 import asyncio
-import datetime
-import io
 import logging
-import os
-from typing import TYPE_CHECKING, Any, Iterable, List, Literal, Optional, Tuple
+from typing import TYPE_CHECKING, List, Literal, Tuple
 
 import aiogram
-import vkbottle
-import vkbottle_types
-import vkbottle_types.responses.account
-import vkbottle_types.responses.users
-from vkbottle.user import Message
-from vkbottle_types.responses.groups import GroupsGroupFull
-from vkbottle_types.responses.messages import MessagesConversationWithMessage
-from vkbottle_types.responses.users import UsersUserFull
 
 import Utils
 from Consts import AccountDisconnectType
 from DB import getDefaultCollection
-import aiohttp
 
 if TYPE_CHECKING:
 	from ServiceMAPIs.VK import VKAccount, VKMiddlewareAPI
@@ -232,14 +220,6 @@ class MiddlewareAPI:
 					if not attachment.ready:
 						await attachment.parse()
 
-					# MEDIA_TYPE = {
-					# 	"voice": "",
-					# 	"": "animation",
-					# 	"file": "document",
-					# 	"music": "audio",
-					# 	"photo": "photo",
-					# 	"video": "video"
-					# }
 					MEDIA_TYPES = ["photo", "video", "document", "animation"]
 
 					if attachment.type in MEDIA_TYPES:

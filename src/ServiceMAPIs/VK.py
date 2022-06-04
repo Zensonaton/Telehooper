@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import asyncio
 import datetime
-import io
 import logging
 import os
-from typing import TYPE_CHECKING, Any, List, Literal, Optional, Tuple
+from typing import TYPE_CHECKING, Any, List, Literal, Optional
 
 import aiogram
+import Utils
 import vkbottle
 import vkbottle_types
 import vkbottle_types.responses.users
@@ -21,9 +21,6 @@ from vkbottle.user import Message
 from vkbottle_types.responses.groups import GroupsGroupFull
 from vkbottle_types.responses.messages import MessagesConversationWithMessage
 from vkbottle_types.responses.users import UsersUserFull
-import Utils
-import PIL
-from PIL import Image
 
 logger = logging.getLogger("VKMAPI") # TODO: Заменить этот logger на логгер внутри класса.
 
@@ -242,6 +239,11 @@ class VKMiddlewareAPI(MiddlewareAPI):
 				URL: str = vkAttachment.audio_message.link_ogg # type: ignore
 
 				fileAttachments.append(Utils.File(URL, "voice"))
+			elif TYPE == "sticker":
+				# Стикер.
+				URL: str = vkAttachment.sticker.animation_url or vkAttachment.sticker.images[-1].url # type: ignore
+
+				fileAttachments.append(Utils.File(URL, "sticker"))
 
 		# Reply сообщения:
 		replyMessageID = None
