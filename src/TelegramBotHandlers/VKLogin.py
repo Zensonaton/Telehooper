@@ -17,9 +17,9 @@ from Consts import InlineButtonCallbacks as CButtons
 from ServiceMAPIs.VK import VKAccount
 from TelegramBot import Telehooper
 
-Bot: 	Telehooper 	= None # type: ignore
-TGBot: 	Bot 		= None # type: ignore
-DP: 	Dispatcher 	= None # type: ignore
+TelehooperBot: 	Telehooper 	= None # type: ignore
+TGBot: 			Bot 		= None # type: ignore
+DP: 			Dispatcher 	= None # type: ignore
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +60,7 @@ async def VKLogin(msg: MessageType) -> None:
 		return
 
 	# Получаем объект пользователя:
-	user = await Bot.getBotUser(msg.from_user.id)
+	user = await TelehooperBot.getBotUser(msg.from_user.id)
 
 	# Отправляем сообщения-статус:
 	await msg.answer(
@@ -112,7 +112,7 @@ async def VKTokenMessageHandler(msg: MessageType) -> MessageType:
 		return await msg.answer("<b>Что-то пошло не так 😕\n\n</b>Похоже, что ссылка, которую ты отправил — неполная.\n<b>Попробуй снова!</b>")
 
 	# Получаем объект пользователя:
-	user = await Bot.getBotUser(msg.from_user.id)
+	user = await TelehooperBot.getBotUser(msg.from_user.id)
 
 	# Отправляем сообщения-статус:
 	await msg.answer(

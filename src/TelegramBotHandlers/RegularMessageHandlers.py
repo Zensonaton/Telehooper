@@ -14,9 +14,9 @@ from aiogram.types import Message as MessageType
 from MiddlewareAPI import TelehooperUser
 from TelegramBot import DialogueGroup, Telehooper
 
-Bot: 	Telehooper 	= None # type: ignore
-TGBot: 	Bot 		= None # type: ignore
-DP: 	Dispatcher 	= None # type: ignore
+TelehooperBot: 	Telehooper 	= None # type: ignore
+TGBot: 			Bot 		= None # type: ignore
+DP: 			Dispatcher 	= None # type: ignore
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +49,7 @@ async def shouldBeHandled(msg: MessageType):
 	"""
 
 	# Получаем объект пользователя:
-	user = await Bot.getBotUser(msg.from_user.id)
+	user = await TelehooperBot.getBotUser(msg.from_user.id)
 
 	# Проверяем, подключён ли у него ВК:
 	if not user.isVKConnected:
@@ -89,6 +89,8 @@ async def checkMediaGroup(media_group_id: str, sleep: float = 0.5) -> List[Utils
 async def RegularMessageHandlers(msg: MessageType):
 	dialogue: DialogueGroup = msg._dialogue # type: ignore
 	user: TelehooperUser = msg._user # type: ignore
+
+	res = TelehooperBot.getLatestMessageID(msg.chat.id)
 
 	# Получаем сообщение из ДБ:
 	reply_message_id = None

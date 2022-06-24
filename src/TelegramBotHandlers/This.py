@@ -21,9 +21,9 @@ from Exceptions import CommandAllowedOnlyInGroup
 from MiddlewareAPI import TelehooperUser
 from TelegramBot import DialogueGroup, Telehooper
 
-Bot: 	Telehooper 	= None # type: ignore
-TGBot: 	Bot 		= None # type: ignore
-DP: 	Dispatcher 	= None # type: ignore
+TelehooperBot: 	Telehooper 	= None # type: ignore
+TGBot: 			Bot 		= None # type: ignore
+DP: 			Dispatcher 	= None # type: ignore
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +53,7 @@ async def This(msg: MessageType):
 
 	await DP.throttle(CThrottle.THIS_DIALOGUE, rate=2, user_id=msg.from_user.id)
 
-	user = await Bot.getBotUser(msg.from_user.id)
+	user = await TelehooperBot.getBotUser(msg.from_user.id)
 	dialogue = await user.getDialogueGroupByTelegramGroup(msg.chat.id)
 
 	# Если в диалоге:
@@ -239,7 +239,7 @@ async def ConvertGroupToDialogueCallback(query: CallbackQuery) -> None:
 	dialogueListMessage = await query.message.answer(f"{_text}⏳ Пожалуйста, подожди, пока я загружаю список диалогов <b>ВКонтакте</b>...", disable_web_page_preview=True, reply_markup=keyboard)
 
 	# Грузим чаты ВК. Получаем объект пользователя:
-	user = await Bot.getBotUser(query.from_user.id)
+	user = await TelehooperBot.getBotUser(query.from_user.id)
 
 	# Получаем список всех диалогов:
 	user_convos = await user.vkAccount.retrieveDialoguesList()
@@ -279,7 +279,7 @@ async def VKDialogueSelector(query: CallbackQuery) -> bool:
 	# TODO: Сделать проверку, вдруг такой чат уже был подключён к диалогу. Если да, то отключить предыдущий чат (сделать пустым).
 
 	# Получаем информацию:
-	user = await Bot.getBotUser(query.from_user.id)
+	user = await TelehooperBot.getBotUser(query.from_user.id)
 
 	# Проверяем, не является ли группа диалогом:
 	if await user.getDialogueGroupByTelegramGroup(query.message.chat.id):
@@ -290,7 +290,7 @@ async def VKDialogueSelector(query: CallbackQuery) -> bool:
 		return await query.answer("Произошла ошибка, выполни команду снова.")
 
 	# Добавляем диалог-группу в базу:
-	Bot.addDialogueGroup(
+	TelehooperBot.addDialogueGroup(
 		DialogueGroup(query.message.chat, VK_ID)
 	)
 

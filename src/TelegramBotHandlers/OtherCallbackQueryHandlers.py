@@ -15,9 +15,9 @@ from Consts import InlineButtonCallbacks as CButton
 if TYPE_CHECKING:
 	from TelegramBot import Telehooper
 
-Bot: 	Telehooper 	= None # type: ignore
-TGBot: 	Bot 		= None # type: ignore
-DP: 	Dispatcher 	= None # type: ignore
+TelehooperBot: 	Telehooper 	= None # type: ignore
+TGBot: 			Bot 		= None # type: ignore
+DP: 			Dispatcher 	= None # type: ignore
 
 logger = logging.getLogger(__name__)
 

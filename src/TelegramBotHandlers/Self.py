@@ -14,9 +14,9 @@ from Consts import InlineButtonCallbacks as CButtons
 from Exceptions import CommandAllowedOnlyInPrivateChats
 from TelegramBot import Telehooper
 
-Bot: 	Telehooper 	= None # type: ignore
-TGBot: 	Bot 		= None # type: ignore
-DP: 	Dispatcher 	= None # type: ignore
+TelehooperBot: 	Telehooper 	= None # type: ignore
+TGBot: 			Bot 		= None # type: ignore
+DP: 			Dispatcher 	= None # type: ignore
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +47,7 @@ async def Self(msg: MessageType):
 
 async def SelfMessage(msg: MessageType, edit_message_instead: bool = False, user_id: int | None = None):
 	# Получаем объект пользователя:
-	user = await Bot.getBotUser(user_id or msg.from_user.id)
+	user = await TelehooperBot.getBotUser(user_id or msg.from_user.id)
 
 	# Если же у нас не подключён ВК, то показываем сообщения об этом:
 	if not user.isVKConnected:
@@ -75,7 +75,7 @@ async def SelfMessage(msg: MessageType, edit_message_instead: bool = False, user
 
 async def SelfCallbackHandler(query: CallbackQuery):
 	# Получаем объект пользователя:
-	user = await Bot.getBotUser(query.from_user.id)
+	user = await TelehooperBot.getBotUser(query.from_user.id)
 
 	if query.data == CButtons.CommandActions.DISCONNECT_SERVICE:
 		if not user.isVKConnected:
