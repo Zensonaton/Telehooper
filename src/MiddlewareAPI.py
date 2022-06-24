@@ -343,6 +343,9 @@ class MiddlewareAPI:
 			}
 		})
 
+		# Сохраняем ID последнего сообщения.
+		self.bot.saveLatestMessageID(telegram_dialogue_id, telegram_message_id, service_message_id)
+
 	def getMessageIDByTelegramMID(self, telegram_message_id: int | str) -> None | Tuple[int, int, int, int]:
 		"""Достаёт ID сообщения сервиса по ID сообщения Telegram. В случае успеха выводит класс с значениями: `telegram_message_id`, `service_message_id`, `telegram_chat_id`, `service_chat_id`."""
 

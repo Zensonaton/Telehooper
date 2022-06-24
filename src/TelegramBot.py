@@ -147,6 +147,8 @@ class Telehooper:
 					"ID": group.serviceDialogueID,
 					"TelegramGroupID": group.group.id,
 					"AddDate": datetime.datetime.now(),
+					"LatestMessageID": None,
+					"LatestServiceMessageID": None
 					# TODO: "PinnedMessageID": group.pinnedMessageID
 				}
 			}
@@ -219,6 +221,35 @@ class Telehooper:
 				return group
 
 		return None
+
+	def saveLatestMessageID(self, dialogue_telegram_id: int | str, telegram_message_id: int | str, service_message_id: int | str) -> None:
+		"""
+		Сохраняет в ДБ ID последнего сообщения в диалоге.
+		"""
+
+		DB = getDefaultCollection()
+		DB.update_one({"_id": "_global"}, {
+			"$set": {
+				"ServiceDialogues.VK.$[element].LatestMessageID": telegram_message_id,
+				"ServiceDialogues.VK.$[element].LatestServiceMessageID": service_message_id
+			}
+		}, array_filters = [{"element.TelegramGroupID": dialogue_telegram_id}])
+
+	def getLatestMessageID(self, dialogue_telegram_id: int | str) -> Tuple[int, int] | None:
+		"""
+		Возвращает ID последнего сообщения в диалоге.
+		"""
+
+		# TODO
+		# DB = getDefaultCollection()
+		# # res = DB.find_one({"_id": "_global", "ServiceDialogues.VK.$[element].TelegramGroupID": dialogue_telegram_id}, array_filters=[{"element.TelegramGroupID": dialogue_telegram_id}])
+		# res = DB.find_one({"_id": "_global", "ServiceDialogues.VK.TelegramGroupID": dialogue_telegram_id}, {"ServiceDialogues.VK.LatestServiceMessageID": 1, "ServiceDialogues.VK.LatestMessageID": 1, "ServiceDialogues.VK.TelegramGroupID": 1})
+
+		# if res:
+		# 	return res["ServiceDialogues"]["VK"][0]["LatestMessageID"], res["ServiceDialogues"]["VK"][0]["LatestServiceMessageID"]
+
+		# return None
+
 
 	def __str__(self) -> str:
 		return f"<TelehooperBot id{self.TGBot.id}>"
