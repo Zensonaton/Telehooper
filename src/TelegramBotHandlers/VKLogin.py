@@ -108,8 +108,6 @@ async def VKTokenMessageHandler(msg: MessageType) -> MessageType:
 	await msg.delete()
 
 	vkToken = Utils.extractAccessTokenFromFullURL(msg.text)
-	if len(vkToken) != 85:
-		return await msg.answer("<b>Что-то пошло не так 😕\n\n</b>Похоже, что ссылка, которую ты отправил — неполная.\n<b>Попробуй снова!</b>")
 
 	# Получаем объект пользователя:
 	user = await TelehooperBot.getBotUser(msg.from_user.id)
