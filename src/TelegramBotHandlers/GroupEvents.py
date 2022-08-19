@@ -20,11 +20,11 @@ def _setupCHandler(bot: Telehooper) -> None:
 	Инициализирует команду `GroupEvents`.
 	"""
 
-	global Bot, TGBot, DP
+	global TelehooperBot, TGBot, DP
 
-	Bot = bot
-	TGBot = Bot.TGBot
-	DP = Bot.DP
+	TelehooperBot = bot
+	TGBot = TelehooperBot.TGBot
+	DP = TelehooperBot.DP
 
 	DP.register_chat_join_request_handler(GroupJoinHandler)
 	DP.register_message_handler(GroupJoinHandler, content_types=["new_chat_members", "group_chat_created", "supergroup_chat_created"])

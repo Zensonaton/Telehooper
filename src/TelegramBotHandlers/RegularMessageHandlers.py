@@ -32,11 +32,11 @@ def _setupCHandler(bot: Telehooper) -> None:
 	Инициализирует команду `RegularMessageHandlers`.
 	"""
 
-	global Bot, TGBot, DP
+	global TelehooperBot, TGBot, DP
 
-	Bot = bot
-	TGBot = Bot.TGBot
-	DP = Bot.DP
+	TelehooperBot = bot
+	TGBot = TelehooperBot.TGBot
+	DP = TelehooperBot.DP
 
 	# "text", "audio", "document", "photo", "sticker", "video", "video_note", "voice", "location", "contact", "new_chat_members", "left_chat_member", "new_chat_title", "new_chat_photo", "delete_chat_photo", "group_chat_created", "supergroup_chat_created", "channel_chat_created", "migrate_to_chat_id", "migrate_from_chat_id", "pinned_message",
 

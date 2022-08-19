@@ -26,11 +26,11 @@ def _setupCHandler(bot: Telehooper) -> None:
 	Инициализирует команду `Self`.
 	"""
 
-	global Bot, TGBot, DP
+	global TelehooperBot, TGBot, DP
 
-	Bot = bot
-	TGBot = Bot.TGBot
-	DP = Bot.DP
+	TelehooperBot = bot
+	TGBot = TelehooperBot.TGBot
+	DP = TelehooperBot.DP
 
 	DP.register_message_handler(Self, commands=["self", "me", "myself", "profile", "service", "services"])
 	DP.register_callback_query_handler(SelfCallbackHandler, lambda query: query.data in [CButtons.CommandActions.DISCONNECT_SERVICE, CButtons.CommandMenus.VK_LOGIN_VKID, CButtons.CommandMenus.VK_LOGIN_PASSWORD, CButtons.CommandCallers.SELF])

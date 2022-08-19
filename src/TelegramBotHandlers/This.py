@@ -33,11 +33,11 @@ def _setupCHandler(bot: Telehooper) -> None:
 	Инициализирует команду `This`.
 	"""
 
-	global Bot, TGBot, DP
+	global TelehooperBot, TGBot, DP
 
-	Bot = bot
-	TGBot = Bot.TGBot
-	DP = Bot.DP
+	TelehooperBot = bot
+	TGBot = TelehooperBot.TGBot
+	DP = TelehooperBot.DP
 
 	DP.register_message_handler(This, commands=["this", "thischat", "chat", "dialogue"])
 	DP.register_callback_query_handler(ThisCallbackHandler, lambda query: query.data == CButton.CommandCallers.THIS)

@@ -29,11 +29,11 @@ def _setupCHandler(bot: Telehooper) -> None:
 	Инициализирует команду `VKLogin`.
 	"""
 
-	global Bot, TGBot, DP
+	global TelehooperBot, TGBot, DP
 
-	Bot = bot
-	TGBot = Bot.TGBot
-	DP = Bot.DP
+	TelehooperBot = bot
+	TGBot = TelehooperBot.TGBot
+	DP = TelehooperBot.DP
 
 	DP.register_message_handler(VKLogin, commands=["vklogin"])
 	DP.register_message_handler(VKTokenMessageHandler, lambda msg: msg.text.startswith("https://oauth.vk.com/blank.html#access_token="))

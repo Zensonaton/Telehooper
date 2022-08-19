@@ -20,11 +20,11 @@ def _setupCHandler(bot: Telehooper) -> None:
 	Инициализирует команду `Start`.
 	"""
 
-	global Bot, TGBot, DP
+	global TelehooperBot, TGBot, DP
 
-	Bot = bot
-	TGBot = Bot.TGBot
-	DP = Bot.DP
+	TelehooperBot = bot
+	TGBot = TelehooperBot.TGBot
+	DP = TelehooperBot.DP
 
 	DP.register_message_handler(Start, commands=["start"])
 

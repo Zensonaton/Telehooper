@@ -27,11 +27,11 @@ def _setupCHandler(bot: Telehooper) -> None:
 	Инициализирует Handler.
 	"""
 
-	global Bot, TGBot, DP
+	global TelehooperBot, TGBot, DP
 
-	Bot = bot
-	TGBot = Bot.TGBot
-	DP = Bot.DP
+	TelehooperBot = bot
+	TGBot = TelehooperBot.TGBot
+	DP = TelehooperBot.DP
 
 	DP.register_callback_query_handler(CancelDeleteCurMessageCallbackHandler, lambda query: query.data in [CButton.CancelAction.CANCEL_EDIT_MESSAGE, CButton.CancelAction.CANCEL_DELETE_MESSAGE, CButton.CancelAction.CANCEL_HIDE_BUTTONS])
 	DP.register_callback_query_handler(DoNothingCallback, lambda query: query.data == CButton.DO_NOTHING)
