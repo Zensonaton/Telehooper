@@ -82,9 +82,6 @@ class Telehooper:
 		"""
 
 		# Импортируем все Handler'ы как модули:
-		# from TelegramBotHandlers import (Debug, GroupEvents, Help,
-		#                                  RegularMessageHandlers, Self, Start, This,
-		#                                  VKLogin)
 		from TelegramBotHandlers.commands import (
 			Debug, Help, Self, Start, This, VKLogin
 		)
@@ -160,7 +157,7 @@ class Telehooper:
 					}
 				}
 			},
-			
+
 			upsert=True
 		)
 
