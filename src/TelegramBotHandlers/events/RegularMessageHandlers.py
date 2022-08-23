@@ -11,7 +11,6 @@ from typing import List
 import Utils
 from aiogram import Bot, Dispatcher
 from aiogram.types import Message as MessageType
-from MiddlewareAPI import TelehooperUser
 from TelegramBot import DialogueGroup, Telehooper
 
 TelehooperBot: 	Telehooper 	= None # type: ignore
