@@ -15,6 +15,7 @@ from Consts import CommandThrottleNames as CThrottle
 from Consts import InlineButtonCallbacks as CButtons
 # from ServiceMAPIs.VK import VKAccount
 from TelegramBot import Telehooper
+from main import HOOPER
 
 TelehooperBot: 	Telehooper 	= None # type: ignore
 TGBot: 			Bot 		= None # type: ignore
@@ -44,7 +45,6 @@ async def VKLogin(msg: MessageType) -> None:
 
 	args = (msg.get_args() or "").split(" ")
 
-	# TODO: пасхалка
 	await msg.delete()
 
 	# Проверяем количество аргументов:
@@ -56,6 +56,7 @@ async def VKLogin(msg: MessageType) -> None:
 	# Забавная пасхалка:
 	if args == ["paveldurovv", "tgisbetter"]:
 		await msg.answer("<b>Что-то пошло не так 😅</b>\n\nТы не очень похож на Павла Дурова.")
+
 		return
 
 	# Получаем объект пользователя:
@@ -72,10 +73,6 @@ async def VKLogin(msg: MessageType) -> None:
 	# if user.isVKConnected:
 	# 	await user.vkMAPI.disconnectService(AccountDisconnectType.SILENT, True)
 
-
-	# vkAccount: MiddlewareAPI.VKAccount
-	return 
-
 	try:
 		# Авторизуемся в ВК через логин+пароль:
 		vkToken = await vkbottle.UserAuth(
@@ -87,7 +84,7 @@ async def VKLogin(msg: MessageType) -> None:
 		)
 
 		# Подключаем страницу ВК:
-		vkAccount = await user.connectVKAccount(vkToken, True)
+		vkAccount = await HOOPER.vkAPI.connect(user, vkToken) # type: ignore
 
 	except:
 		# Что-то пошло не так, и мы не сумели авторизоваться.
@@ -99,10 +96,11 @@ async def VKLogin(msg: MessageType) -> None:
 		await msg.answer("<b>Что-то пошло не так 😕\n\n</b>Я не сумел авторизоваться в твой аккаунт ВКонтакте. Возможные причины:\n    <b>•</b> Пароль и/ли логин неверен. 🔐\n    <b>•</b> К твоей странице подключена неподдерживаемая ботом двухэтапная аутентификация (2FA). 🔑\n    <b>•</b> Бот столкнулся с проверкой CAPTCHA. 🤖🔫\n\nПопробуй снова! Если снова не выйдет, то воспользуйся авторизацией через VK ID, ведь с ней намного меньше проблем.\n\n\n⚙️ Попробуй авторизоваться снова используя команду /vklogin, либо же авторизуйся через VK ID:", reply_markup=keyboard)
 	else:
 		# Всё ок, мы успешно авторизовались!
+		pass
 
-		await successConnectionMessage(msg, vkAccount)
+		# await successConnectionMessage(msg, vkAccount)
 
-async def VKTokenMessageHandler(msg: MessageType) -> MessageType:
+async def VKTokenMessageHandler(msg: MessageType):
 	await DP.throttle(CThrottle.VK_LOGIN_VKID, rate=1, chat_id=msg.chat.id)
 
 	await msg.delete()
@@ -124,13 +122,14 @@ async def VKTokenMessageHandler(msg: MessageType) -> MessageType:
 	# 	await user.vkMAPI.disconnectService(AccountDisconnectType.SILENT, True)
 
 	# Подключаем аккаунт к боту:
-	vkAccount = await user.connectVKAccount(vkToken, False)
+	# vkAccount = await user.connectVKAccount(vkToken, False)
+	vkAccount = await HOOPER.vkAPI.connect(user, vkToken) # type: ignore
 
 	# Отправляем различные сообщения о успешном подключении аккаунта:
 	# await vkAccount.postAuthInit()
 
-	# Отправляем сообщения о успехе в самом Telegram, пользователю:
-	return await successConnectionMessage(msg, vkAccount)
+	# Отправляем сообщения о успехе в самом Telegra    m, пользователю:
+	# return await successConnectionMessage(msg, vkAccount)
 
 async def successConnectionMessage(msg: MessageType, vkAccount) -> MessageType:
 	return await msg.answer(f"<b>Подключение аккаунта 🔗\n\n</b>С радостью заявляю, что я сумел успешно подключиться к твоему аккаунту <b>ВКонтакте</b>!\nРад тебя видеть, <b>{vkAccount.vkFullUser.first_name} {vkAccount.vkFullUser.last_name}</b>! 🙃👍\n\nТеперь, после подключения страницы ВКонтакте тебе нужно создать отдельную группу под каждый нужный тебе диалог ВКонтакте. Подробный гайд есть в команде /help.\nУправлять подключённой страницей ты можешь используя команду /self.")

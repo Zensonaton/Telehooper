@@ -9,6 +9,7 @@ import datetime
 import logging
 import os
 from typing import List, Optional, Tuple
+import vkbottle
 
 import aiogram
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
@@ -39,10 +40,10 @@ class Telehooper:
 	telehooperbotUsers: List[TelehooperUser]
 	dialogueGroupsList: List[DialogueGroup]
 
-	vk_api: VKTelehooperAPI | None
+	vkAPI: VKTelehooperAPI | None
 
 
-	def __init__(self, telegram_bot_token: str, telegram_bot_parse_mode = aiogram.types.ParseMode.HTML, storage: Optional[MemoryStorage] = None, vk_api: Optional[VKTelehooperAPI] = None) -> None: # type: ignore
+	def __init__(self, telegram_bot_token: str, telegram_bot_parse_mode = aiogram.types.ParseMode.HTML, storage: Optional[MemoryStorage] = None) -> None: # type: ignore
 		self.token = telegram_bot_token
 		self.parse_mode = telegram_bot_parse_mode  # type: ignore
 
@@ -55,8 +56,6 @@ class Telehooper:
 			self.storage = MemoryStorage()
 		else:
 			self.storage = storage
-
-		self.vk_api = vk_api
 
 
 	def initTelegramBot(self) -> Tuple[aiogram.Bot, aiogram.Dispatcher]:
@@ -390,9 +389,8 @@ class TelehooperUser:
 	TGUser: aiogram.types.User
 	bot: Telehooper
 
-	# vkAccount: VKAccount
-	# vkMAPI: "VKMiddlewareAPI"
-	# isVKConnected: bool
+	vkAPI: vkbottle.API
+
 
 	def __init__(self, bot: Telehooper, user: aiogram.types.User) -> None:
 		self.TGUser = user
@@ -414,30 +412,8 @@ class TelehooperUser:
 			# Аккаунт ВК подключён.
 
 			# Подключаем ВК:
-			await self.connectVKAccount(res["Services"]["VK"]["Token"], res["Services"]["VK"]["IsAuthViaPassword"])
-
-	async def connectVKAccount(self, token: str, auth_via_password: bool, connect_longpoll: bool = True):
-		"""
-		Подключает новый аккаунт ВК.
-		"""
-
-		# Я ненавижу Python.
-		# from ServiceMAPIs.VK import VKAccount, VKMiddlewareAPI
-
-		# Авторизуемся в ВК:
-		# self.vkAccount = VKAccount(token, self, auth_via_password)
-		# await self.vkAccount.initUserInfo()
-
-		# await asyncio.sleep(0) # Спим 0 секунд, что бы последующий код не запускался до завершения кода выше.
-
-		# self.vkMAPI = VKMiddlewareAPI(self, self.bot)
-
-		# self.isVKConnected = True
-
-		# if connect_longpoll:
-		# 	self.vkMAPI.runPolling()
-
-		# return self.vkAccount
+			# await self.connectVKAccount(res["Services"]["VK"]["Token"], res["Services"]["VK"]["IsAuthViaPassword"])
+			pass
 
 	async def getDialogueGroupByTelegramGroup(self, telegram_group: aiogram.types.Chat | int) -> DialogueGroup | None:
 		"""

@@ -49,8 +49,7 @@ SKIP_UPDATES = Utils.parseStrAsBoolean(os.environ.get("SKIP_TELEGRAM_UPDATES", T
 
 # Создаём Telegram-бота:
 HOOPER = TGBot.Telehooper(
-	TELEGRAM_BOT_TOKEN,
-	vk_api=VKTelehooperAPI()
+	TELEGRAM_BOT_TOKEN
 )
 HOOPER.initTelegramBot()
 
@@ -61,7 +60,7 @@ async def onBotStart(dp: aiogram.Dispatcher) -> None:
 	"""
 	Функция, запускающаяся ПОСЛЕ запуска Telegram-бота.
 	"""
-	
+
 	# Добавляем поля в ДБ:
 	DB = getDefaultCollection()
 
@@ -82,6 +81,9 @@ async def onBotStart(dp: aiogram.Dispatcher) -> None:
 
 	# Производим восстановление всех сессий:
 	logger.info("Бот запущен успешно! Пытаюсь авторизовать всех пользователей подключённых сервисов...")
+
+	# Подключаем сервисы как API:
+	HOOPER.vkAPI = VKTelehooperAPI(HOOPER)
 
 	# Извлекаем из ДБ список всех активных сессий ВК:
 	# for doc in DB.find({"Services.VK.Auth": True}):
