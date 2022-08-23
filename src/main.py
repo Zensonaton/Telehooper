@@ -14,6 +14,7 @@ import aiogram
 import dotenv
 
 import Consts
+from ServiceMAPIs.VK_new import VKTelehooperAPI
 import TelegramBot as TGBot
 import Utils
 from Consts import AccountDisconnectType
@@ -47,7 +48,10 @@ TELEGRAM_BOT_TOKEN = os.environ["TOKEN"]
 SKIP_UPDATES = Utils.parseStrAsBoolean(os.environ.get("SKIP_TELEGRAM_UPDATES", True))
 
 # Создаём Telegram-бота:
-HOOPER = TGBot.Telehooper(TELEGRAM_BOT_TOKEN)
+HOOPER = TGBot.Telehooper(
+	TELEGRAM_BOT_TOKEN,
+	vk_api=VKTelehooperAPI()
+)
 HOOPER.initTelegramBot()
 
 # Подключаемся к ДБ:
@@ -57,9 +61,7 @@ async def onBotStart(dp: aiogram.Dispatcher) -> None:
 	"""
 	Функция, запускающаяся ПОСЛЕ запуска Telegram-бота.
 	"""
-
-	# TODO: Эта функция кажется некрасивой, стоит переписать её!
-
+	
 	# Добавляем поля в ДБ:
 	DB = getDefaultCollection()
 

@@ -16,6 +16,7 @@ from aiogram.contrib.fsm_storage.memory import MemoryStorage
 import Exceptions
 from Consts import MAPIServiceType
 from DB import getDefaultCollection
+from ServiceMAPIs.VK_new import VKTelehooperAPI
 # from ServiceMAPIs.VK import VKAccount
 from TelegramBotHandlers import OtherCallbackQueryHandlers
 
@@ -38,8 +39,10 @@ class Telehooper:
 	telehooperbotUsers: List[TelehooperUser]
 	dialogueGroupsList: List[DialogueGroup]
 
+	vk_api: VKTelehooperAPI | None
 
-	def __init__(self, telegram_bot_token: str, telegram_bot_parse_mode = aiogram.types.ParseMode.HTML, storage: Optional[MemoryStorage] = None) -> None: # type: ignore
+
+	def __init__(self, telegram_bot_token: str, telegram_bot_parse_mode = aiogram.types.ParseMode.HTML, storage: Optional[MemoryStorage] = None, vk_api: Optional[VKTelehooperAPI] = None) -> None: # type: ignore
 		self.token = telegram_bot_token
 		self.parse_mode = telegram_bot_parse_mode  # type: ignore
 
@@ -52,6 +55,8 @@ class Telehooper:
 			self.storage = MemoryStorage()
 		else:
 			self.storage = storage
+
+		self.vk_api = vk_api
 
 
 	def initTelegramBot(self) -> Tuple[aiogram.Bot, aiogram.Dispatcher]:

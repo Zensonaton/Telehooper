@@ -1,6 +1,6 @@
 # coding: utf-8
 
-from Base import baseTelehooperAPI
+from .Base import baseTelehooperAPI
 
 class VKTelehooperAPI(baseTelehooperAPI):
 	"""
