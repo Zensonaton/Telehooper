@@ -82,14 +82,21 @@ class Telehooper:
 		"""
 
 		# Импортируем все Handler'ы как модули:
-		from TelegramBotHandlers import (Debug, GroupEvents, Help,
-		                                 RegularMessageHandlers, Self, Start, This,
-		                                 VKLogin)
+		# from TelegramBotHandlers import (Debug, GroupEvents, Help,
+		#                                  RegularMessageHandlers, Self, Start, This,
+		#                                  VKLogin)
+		from TelegramBotHandlers.commands import (
+			Debug, Help, Self, Start, This, VKLogin
+		)
+		from TelegramBotHandlers.events import (
+			GroupEvents, RegularMessageHandlers
+		)
+		from TelegramBotHandlers import (
+			OtherCallbackQueryHandlers
+		)
 
 		# А теперь добавляем их в бота:
 		importHandlers([Start, VKLogin, GroupEvents, OtherCallbackQueryHandlers, This, Self, RegularMessageHandlers, Debug, Help], self, is_multibot=False)
-		# TODO: Что-то сделать с этим срамом. Это ужасно.
-
 
 		# Отдельно добавляю Error Handler:
 		self.DP.errors_handler()(global_error_handler)
@@ -140,20 +147,21 @@ class Telehooper:
 		DB = getDefaultCollection()
 
 		DB.update_one({
-			"_id": "_global"
-		}, {
-			"$push": {
-				"ServiceDialogues.VK": {
-					"ID": group.serviceDialogueID,
-					"TelegramGroupID": group.group.id,
-					"AddDate": datetime.datetime.now(),
-					"LatestMessageID": None,
-					"LatestServiceMessageID": None
-					# TODO: "PinnedMessageID": group.pinnedMessageID
+				"_id": "_global"
+			}, {
+				"$push": {
+					"ServiceDialogues.VK": {
+						"ID": group.serviceDialogueID,
+						"TelegramGroupID": group.group.id,
+						"AddDate": datetime.datetime.now(),
+						"LatestMessageID": None,
+						"LatestServiceMessageID": None
+						# TODO: "PinnedMessageID": group.pinnedMessageID
+					}
 				}
-			}
-		},
-		upsert=True
+			},
+			
+			upsert=True
 		)
 
 		return self.dialogueGroupsList
