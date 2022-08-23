@@ -315,8 +315,8 @@ class Minibot:
 		Инициализирует все handler'ы для Мультибота.
 		"""
 
-		from TelegramMultibotHandlers import DMMessage, Test
-		importHandlers([Test, DMMessage], self, is_multibot=True, mainBot=self.MainBot)
+		from TelegramMultibotHandlers import DMMessage
+		importHandlers([DMMessage], self, is_multibot=True, mainBot=self.MainBot)
 
 		self.DP.errors_handler()(global_error_handler)
 
