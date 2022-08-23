@@ -3,6 +3,7 @@
 # Код для логики Telegram-бота.
 
 from __future__ import annotations
+import asyncio
 
 import datetime
 import logging
@@ -15,7 +16,7 @@ from aiogram.contrib.fsm_storage.memory import MemoryStorage
 import Exceptions
 from Consts import MAPIServiceType
 from DB import getDefaultCollection
-from MiddlewareAPI import TelehooperUser
+# from ServiceMAPIs.VK import VKAccount
 from TelegramBotHandlers import OtherCallbackQueryHandlers
 
 logger = logging.getLogger(__name__)
@@ -382,3 +383,77 @@ def importHandlers(handlers, bot: Telehooper | Minibot, mainBot: Optional[Teleho
 		logger.debug(f"Инициализирован обработчик команды \"{MESSAGE_HANDLERS_IMPORTED_FILENAMES[index]}\".")
 
 	logger.debug(f"Все handler'ы были загружены успешно!")
+
+class TelehooperUser:
+	"""
+	Класс, отображающий пользователя бота Telehooper: тут будут все подключённые сервисы.
+	"""
+
+	TGUser: aiogram.types.User
+	bot: Telehooper
+
+	# vkAccount: VKAccount
+	# vkMAPI: "VKMiddlewareAPI"
+	# isVKConnected: bool
+
+	def __init__(self, bot: Telehooper, user: aiogram.types.User) -> None:
+		self.TGUser = user
+		self.bot = bot
+		# self.vkAccount = None # type: ignore
+		# self.vkMAPI = None # type: ignore
+		self.isVKConnected = False
+
+
+	async def restoreFromDB(self) -> None:
+		"""
+		Восстанавливает данные, а так же подключенные сервисы из ДБ.
+		"""
+
+		DB = getDefaultCollection()
+
+		res = DB.find_one({"_id": self.TGUser.id})
+		if res and res["Services"]["VK"]["Auth"]:
+			# Аккаунт ВК подключён.
+
+			# Подключаем ВК:
+			await self.connectVKAccount(res["Services"]["VK"]["Token"], res["Services"]["VK"]["IsAuthViaPassword"])
+
+	async def connectVKAccount(self, token: str, auth_via_password: bool, connect_longpoll: bool = True):
+		"""
+		Подключает новый аккаунт ВК.
+		"""
+
+		# Я ненавижу Python.
+		# from ServiceMAPIs.VK import VKAccount, VKMiddlewareAPI
+
+		# Авторизуемся в ВК:
+		# self.vkAccount = VKAccount(token, self, auth_via_password)
+		# await self.vkAccount.initUserInfo()
+
+		# await asyncio.sleep(0) # Спим 0 секунд, что бы последующий код не запускался до завершения кода выше.
+
+		# self.vkMAPI = VKMiddlewareAPI(self, self.bot)
+
+		# self.isVKConnected = True
+
+		# if connect_longpoll:
+		# 	self.vkMAPI.runPolling()
+
+		# return self.vkAccount
+
+	async def getDialogueGroupByTelegramGroup(self, telegram_group: aiogram.types.Chat | int) -> DialogueGroup | None:
+		"""
+		Возвращает диалог-группу по ID группы Telegram, либо же `None`, если ничего не было найдено.
+		"""
+
+		return await self.bot.getDialogueGroupByTelegramGroup(telegram_group)
+
+	async def getDialogueGroupByServiceDialogueID(self, service_dialogue_id: int) -> DialogueGroup | None:
+		"""
+		Возвращает диалог-группу по ID группы Telegram, либо же `None`, если ничего не было найдено.
+		"""
+
+		return await self.bot.getDialogueGroupByServiceDialogueID(service_dialogue_id)
+
+	def __str__(self) -> str:
+		return f"<TelehooperUser id:{self.TGUser.id}>"

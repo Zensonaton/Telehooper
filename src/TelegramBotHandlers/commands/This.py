@@ -18,8 +18,7 @@ from Consts import CommandThrottleNames as CThrottle
 from Consts import InlineButtonCallbacks as CButton
 from DB import getDefaultCollection
 from Exceptions import CommandAllowedOnlyInGroup
-from MiddlewareAPI import TelehooperUser
-from TelegramBot import DialogueGroup, Telehooper
+from TelegramBot import DialogueGroup, Telehooper, TelehooperUser
 
 TelehooperBot: 	Telehooper 	= None # type: ignore
 TGBot: 			Bot 		= None # type: ignore
@@ -242,7 +241,7 @@ async def ConvertGroupToDialogueCallback(query: CallbackQuery) -> None:
 	user = await TelehooperBot.getBotUser(query.from_user.id)
 
 	# Получаем список всех диалогов:
-	user_convos = await user.vkAccount.retrieveDialoguesList()
+	# user_convos = await user.vkAccount.retrieveDialoguesList()
 
 	# Для эмодзи перед названием диалога:
 	prefixEmojiDict = {
@@ -253,7 +252,8 @@ async def ConvertGroupToDialogueCallback(query: CallbackQuery) -> None:
 	}
 
 	keyboard = InlineKeyboardMarkup()
-	for index, convo in enumerate(user_convos):
+	# for index, convo in enumerate(user_convos):
+	for index, convo in enumerate([]):
 		if index > 12:
 			# Если что-то пойдет не так, и юзер слишком уж общительный, и
 			# имеет больше чем 12 человек в своих диалогах, то
@@ -284,6 +284,8 @@ async def VKDialogueSelector(query: CallbackQuery) -> bool:
 	# Проверяем, не является ли группа диалогом:
 	if await user.getDialogueGroupByTelegramGroup(query.message.chat.id):
 		return await query.answer("Эта группа уже является диалогом.")
+
+	return False
 
 	dialogue = user.vkAccount.getDialogueByID(VK_ID)
 	if not dialogue:

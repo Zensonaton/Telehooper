@@ -15,7 +15,7 @@ import vkbottle_types
 import vkbottle_types.responses.users
 from Consts import AccountDisconnectType
 from DB import getDefaultCollection
-from MiddlewareAPI import MappedMessage, MiddlewareAPI, TelehooperUser
+# from MiddlewareAPI import MappedMessage, MiddlewareAPI, TelehooperUser
 from Utils import generateVKRandomID, getFirstAvailableValueFromClass
 from vkbottle.user import Message
 from vkbottle_types.responses.groups import GroupsGroupFull

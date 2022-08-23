@@ -5,7 +5,6 @@
 import logging
 
 import Consts
-import MiddlewareAPI
 import Utils
 import vkbottle
 from aiogram import Bot, Dispatcher
@@ -14,7 +13,7 @@ from aiogram.types import Message as MessageType
 from Consts import AccountDisconnectType
 from Consts import CommandThrottleNames as CThrottle
 from Consts import InlineButtonCallbacks as CButtons
-from ServiceMAPIs.VK import VKAccount
+# from ServiceMAPIs.VK import VKAccount
 from TelegramBot import Telehooper
 
 TelehooperBot: 	Telehooper 	= None # type: ignore
@@ -70,11 +69,12 @@ async def VKLogin(msg: MessageType) -> None:
 	)
 
 	# Мы не можем позволить пользователю подключить сразу 2 страницы ВКонтакте:
-	if user.isVKConnected:
-		await user.vkMAPI.disconnectService(AccountDisconnectType.SILENT, True)
+	# if user.isVKConnected:
+	# 	await user.vkMAPI.disconnectService(AccountDisconnectType.SILENT, True)
 
 
-	vkAccount: MiddlewareAPI.VKAccount
+	# vkAccount: MiddlewareAPI.VKAccount
+	return 
 
 	try:
 		# Авторизуемся в ВК через логин+пароль:
@@ -120,19 +120,19 @@ async def VKTokenMessageHandler(msg: MessageType) -> MessageType:
 	)
 
 	# Мы не можем позволить пользователю подключить сразу 2 страницы ВКонтакте:
-	if user.isVKConnected:
-		await user.vkMAPI.disconnectService(AccountDisconnectType.SILENT, True)
+	# if user.isVKConnected:
+	# 	await user.vkMAPI.disconnectService(AccountDisconnectType.SILENT, True)
 
 	# Подключаем аккаунт к боту:
 	vkAccount = await user.connectVKAccount(vkToken, False)
 
 	# Отправляем различные сообщения о успешном подключении аккаунта:
-	await vkAccount.postAuthInit()
+	# await vkAccount.postAuthInit()
 
 	# Отправляем сообщения о успехе в самом Telegram, пользователю:
 	return await successConnectionMessage(msg, vkAccount)
 
-async def successConnectionMessage(msg: MessageType, vkAccount: VKAccount) -> MessageType:
+async def successConnectionMessage(msg: MessageType, vkAccount) -> MessageType:
 	return await msg.answer(f"<b>Подключение аккаунта 🔗\n\n</b>С радостью заявляю, что я сумел успешно подключиться к твоему аккаунту <b>ВКонтакте</b>!\nРад тебя видеть, <b>{vkAccount.vkFullUser.first_name} {vkAccount.vkFullUser.last_name}</b>! 🙃👍\n\nТеперь, после подключения страницы ВКонтакте тебе нужно создать отдельную группу под каждый нужный тебе диалог ВКонтакте. Подробный гайд есть в команде /help.\nУправлять подключённой страницей ты можешь используя команду /self.")
 
 async def VKTokenURLMessageHandler(msg: MessageType) -> MessageType:

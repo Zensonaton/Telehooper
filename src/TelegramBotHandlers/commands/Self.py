@@ -81,7 +81,8 @@ async def SelfCallbackHandler(query: CallbackQuery):
 		if not user.isVKConnected:
 			await query.answer("Что-то пошло не так.")
 		else:
-			await user.vkMAPI.disconnectService(AccountDisconnectType.INITIATED_BY_USER, True)
+			# await user.vkMAPI.disconnectService(AccountDisconnectType.INITIATED_BY_USER, True)
+			pass
 	elif query.data == CButtons.CommandCallers.SELF:
 		await SelfMessage(query.message, True, query.from_user.id)
 	elif query.data == CButtons.CommandMenus.VK_LOGIN_VKID:

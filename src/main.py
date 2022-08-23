@@ -14,7 +14,6 @@ import aiogram
 import dotenv
 
 import Consts
-import MiddlewareAPI
 import TelegramBot as TGBot
 import Utils
 from Consts import AccountDisconnectType
@@ -83,25 +82,25 @@ async def onBotStart(dp: aiogram.Dispatcher) -> None:
 	logger.info("Бот запущен успешно! Пытаюсь авторизовать всех пользователей подключённых сервисов...")
 
 	# Извлекаем из ДБ список всех активных сессий ВК:
-	for doc in DB.find({"Services.VK.Auth": True}):
-		# TODO: Использовать asyncio.ensure_future(), что бы авторизация была быстрой.
+	# for doc in DB.find({"Services.VK.Auth": True}):
+	# 	# TODO: Использовать asyncio.ensure_future(), что бы авторизация была быстрой.
 
-		if doc["Services"]["VK"]["Auth"]:
-			logger.debug(f"Обнаружен авторизованный в ВК пользователь с TID {doc['_id']}, авторизовываю...")
+	# 	if doc["Services"]["VK"]["Auth"]:
+	# 		logger.debug(f"Обнаружен авторизованный в ВК пользователь с TID {doc['_id']}, авторизовываю...")
 
-			user: MiddlewareAPI.TelehooperUser = None # type: ignore
+	# 		user: MiddlewareAPI.TelehooperUser = None # type: ignore
 
-			try:
-				# Авторизуемся, и после авторизации обязательно запускаем Polling для получения новых сообщений.
+	# 		try:
+	# 			# Авторизуемся, и после авторизации обязательно запускаем Polling для получения новых сообщений.
 
-				user = await HOOPER.getBotUser(int(doc["_id"]))
-			except Exception as error:
-				logger.warning(f"Ошибка авторизации пользователя с TID {doc['_id']}: {error}")
+	# 			user = await HOOPER.getBotUser(int(doc["_id"]))
+	# 		except Exception as error:
+	# 			logger.warning(f"Ошибка авторизации пользователя с TID {doc['_id']}: {error}")
 
-				if user and user.vkMAPI:
-					await user.vkMAPI.disconnectService(AccountDisconnectType.ERRORED, False)
+	# 			if user and user.vkMAPI:
+	# 				await user.vkMAPI.disconnectService(AccountDisconnectType.ERRORED, False)
 
-				await HOOPER.TGBot.send_message(int(doc['_id']), "<b>Аккаунт был отключён от Telehooper</b> ⚠️\n\nПосле собственной перезагрузки, я не сумел переподключиться к аккаунту ВКонтакте. Если бот был отключён от ВКонтакте специально, например, путём отключения всех приложений/сессий в настройках безопасности, то волноваться незачем. В ином случае, ты можешь снова переподключить аккаунт, воспользовавшись командою /self.")
+	# 			await HOOPER.TGBot.send_message(int(doc['_id']), "<b>Аккаунт был отключён от Telehooper</b> ⚠️\n\nПосле собственной перезагрузки, я не сумел переподключиться к аккаунту ВКонтакте. Если бот был отключён от ВКонтакте специально, например, путём отключения всех приложений/сессий в настройках безопасности, то волноваться незачем. В ином случае, ты можешь снова переподключить аккаунт, воспользовавшись командою /self.")
 
 	# Авторизуем всех остальных 'миниботов' для функции мультибота:
 	helperbots = os.environ.get("HELPER_BOTS", "[]")
