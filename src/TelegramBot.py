@@ -375,13 +375,6 @@ def importHandlers(handlers, bot: Telehooper | Minibot, mainBot: Optional[Teleho
 	# Загружаем команды.
 	logger.debug(f"Было импортировано {len(MESSAGE_HANDLERS_IMPORTED)} handler'ов, загружаю их...")
 
-	# Предупреждение, если был найден .py файл, но он не был импортирован выше:
-	files_found = [i for i in os.listdir("src/" + ("TelegramMultibotHandlers" if is_multibot else "TelegramBotHandlers")) if i.endswith(".py") and not i == "__init__.py"]
-	files_not_imported = [i for i in files_found if i not in MESSAGE_HANDLERS_IMPORTED_FILENAMES]
-
-	if files_not_imported:
-		logger.warning(f"Был обнаружен файл \"{(', '.join(files_not_imported))}\" в папке с handler'ами, и он не был загружен в программу, поскольку импорт не был выполнен в коде файла TelegramBot.py!")
-
 	for index, messageHandler in enumerate(MESSAGE_HANDLERS_IMPORTED):
 		messageHandler._setupCHandler(bot)
 
