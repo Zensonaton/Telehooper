@@ -4,21 +4,18 @@
 
 import asyncio
 import io
-import logging
 from io import BytesIO
 from typing import List
 
 import Utils
 from aiogram import Bot, Dispatcher
 from aiogram.types import Message as MessageType
+from loguru import logger
 from TelegramBot import DialogueGroup, Telehooper
 
 TelehooperBot: 	Telehooper 	= None # type: ignore
 TGBot: 			Bot 		= None # type: ignore
 DP: 			Dispatcher 	= None # type: ignore
-
-logger = logging.getLogger(__name__)
-
 
 
 # TODO: Перенести этот Handler в папку ServiceMAPIs.

@@ -4,7 +4,6 @@
 
 from __future__ import annotations
 
-import logging
 from typing import TYPE_CHECKING
 
 import Consts
@@ -15,6 +14,7 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.types import Message as MessageType
 from Consts import CommandThrottleNames as CThrottle
 from Consts import InlineButtonCallbacks as CButtons
+from loguru import logger
 
 if TYPE_CHECKING:
 	from TelegramBot import Telehooper
@@ -22,8 +22,6 @@ if TYPE_CHECKING:
 TelehooperBot: 	"Telehooper" 	= None # type: ignore
 TGBot: 			Bot 		= None # type: ignore
 DP: 			Dispatcher 	= None # type: ignore
-
-logger = logging.getLogger(__name__)
 
 
 def _setupCHandler(bot: "Telehooper") -> None:

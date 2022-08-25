@@ -4,25 +4,20 @@
 
 from __future__ import annotations
 
-import asyncio
 import datetime
-import logging
-import os
 from typing import Any, List, Optional, Tuple
 
 import aiogram
 import vkbottle
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
+from loguru import logger
 from vkbottle_types.responses.account import AccountUserSettings
 
 import Exceptions
 from Consts import MAPIServiceType
 from DB import getDefaultCollection
 from ServiceMAPIs.VK_new import VKTelehooperAPI
-# from ServiceMAPIs.VK import VKAccount
-from TelegramBotHandlers import OtherCallbackQueryHandlers
 
-logger = logging.getLogger(__name__)
 
 class Telehooper:
 	"""

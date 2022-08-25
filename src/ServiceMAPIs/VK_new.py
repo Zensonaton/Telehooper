@@ -3,20 +3,18 @@
 from __future__ import annotations
 
 import datetime
-import logging
 import os
 from typing import TYPE_CHECKING
 
 import Utils
 import vkbottle
 from DB import getDefaultCollection
+from loguru import logger
 
 from .Base import baseTelehooperAPI
 
 if TYPE_CHECKING:
 	from TelegramBot import Telehooper, TelehooperUser
-
-logger = logging.getLogger(__name__)
 
 class VKTelehooperAPI(baseTelehooperAPI):
 	"""

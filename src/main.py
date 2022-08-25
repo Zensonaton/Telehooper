@@ -6,32 +6,24 @@ from __future__ import annotations
 
 import asyncio
 import json
-import logging
-import logging.handlers
 import os
+import sys
 
 import aiogram
 import dotenv
+from loguru import logger
 
 import Consts
-from ServiceMAPIs.VK_new import VKTelehooperAPI
 import TelegramBot as TGBot
 import Utils
-from Consts import AccountDisconnectType
 from DB import getDefaultCollection
+from ServiceMAPIs.VK_new import VKTelehooperAPI
 
 # Логирование.
-logger = logging.getLogger(__name__)
 os.makedirs("Logs", exist_ok=True)
-logging.basicConfig(
-	level=logging.INFO,
-	format="[%(levelname)-8s %(asctime)s at %(funcName)s]: %(message)s",
-	datefmt="%d.%m.%Y %H:%M:%S",
-	handlers=[
-		logging.handlers.RotatingFileHandler("Logs/TGBot.log", maxBytes=10485760, backupCount=0),
-		logging.StreamHandler()
-	]
-)
+logger.remove()
+logger.add("Logs/TGBot.log", catch=True)
+logger.add(sys.stdout, colorize=True, backtrace=True, diagnose=True, catch=True)
 
 # Загружаем .env файл.
 dotenv.load_dotenv()
@@ -108,7 +100,7 @@ async def onBotStart(dp: aiogram.Dispatcher) -> None:
 	# Авторизуем всех остальных 'миниботов' для функции мультибота:
 	helperbots = os.environ.get("HELPER_BOTS", "[]")
 
-	logging.getLogger("aiogram.dispatcher.dispatcher").disabled = True
+	# logging.getLogger("aiogram.dispatcher.dispatcher").disabled = True
 	try:
 		helperbots = json.loads(helperbots)
 	except Exception as error:

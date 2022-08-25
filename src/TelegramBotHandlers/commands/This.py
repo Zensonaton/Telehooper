@@ -4,7 +4,6 @@
 
 import asyncio
 import io
-import logging
 from typing import Tuple
 
 import aiogram
@@ -18,13 +17,12 @@ from Consts import CommandThrottleNames as CThrottle
 from Consts import InlineButtonCallbacks as CButton
 from DB import getDefaultCollection
 from Exceptions import CommandAllowedOnlyInGroup
+from loguru import logger
 from TelegramBot import DialogueGroup, Telehooper, TelehooperUser
 
 TelehooperBot: 	Telehooper 	= None # type: ignore
 TGBot: 			Bot 		= None # type: ignore
 DP: 			Dispatcher 	= None # type: ignore
-
-logger = logging.getLogger(__name__)
 
 
 def _setupCHandler(bot: Telehooper) -> None:

@@ -2,23 +2,20 @@
 
 """Обработчик для команды `Self`."""
 
-import logging
-
 from aiogram import Bot, Dispatcher
 from aiogram.types import (CallbackQuery, InlineKeyboardButton,
                            InlineKeyboardMarkup)
 from aiogram.types import Message as MessageType
-from Consts import VK_OAUTH_URL, AccountDisconnectType
+from Consts import VK_OAUTH_URL
 from Consts import CommandThrottleNames as CThrottle
 from Consts import InlineButtonCallbacks as CButtons
 from Exceptions import CommandAllowedOnlyInPrivateChats
 from TelegramBot import Telehooper
+from loguru import logger
 
 TelehooperBot: 	Telehooper 	= None # type: ignore
 TGBot: 			Bot 		= None # type: ignore
 DP: 			Dispatcher 	= None # type: ignore
-
-logger = logging.getLogger(__name__)
 
 
 def _setupCHandler(bot: Telehooper) -> None:
