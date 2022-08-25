@@ -38,7 +38,7 @@ class officialVKAppCreds:
 
 class InlineButtonCallbacks:
 	class CommandCallers:
-		SELF = "command_self"
+		ME = "command_self"
 		THIS = "command_this"
 		CONVERT = "command_convert_to_dialogue"
 
