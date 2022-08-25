@@ -2,7 +2,10 @@
 
 """Обработчик для команды `VKLogin`."""
 
+from __future__ import annotations
+
 import logging
+from typing import TYPE_CHECKING
 
 import Consts
 import Utils
@@ -10,21 +13,20 @@ import vkbottle
 from aiogram import Bot, Dispatcher
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.types import Message as MessageType
-from Consts import AccountDisconnectType
 from Consts import CommandThrottleNames as CThrottle
 from Consts import InlineButtonCallbacks as CButtons
-# from ServiceMAPIs.VK import VKAccount
-from TelegramBot import Telehooper
-from main import HOOPER
 
-TelehooperBot: 	Telehooper 	= None # type: ignore
+if TYPE_CHECKING:
+	from TelegramBot import Telehooper
+
+TelehooperBot: 	"Telehooper" 	= None # type: ignore
 TGBot: 			Bot 		= None # type: ignore
 DP: 			Dispatcher 	= None # type: ignore
 
 logger = logging.getLogger(__name__)
 
 
-def _setupCHandler(bot: Telehooper) -> None:
+def _setupCHandler(bot: "Telehooper") -> None:
 	"""
 	Инициализирует команду `VKLogin`.
 	"""
@@ -84,7 +86,7 @@ async def VKLogin(msg: MessageType) -> None:
 		)
 
 		# Подключаем страницу ВК:
-		vkAccount = await HOOPER.vkAPI.connect(user, vkToken) # type: ignore
+		vkAccount = await TelehooperBot.vkAPI.connect(user, vkToken, True, True) # type: ignore
 
 	except:
 		# Что-то пошло не так, и мы не сумели авторизоваться.
@@ -123,7 +125,7 @@ async def VKTokenMessageHandler(msg: MessageType):
 
 	# Подключаем аккаунт к боту:
 	# vkAccount = await user.connectVKAccount(vkToken, False)
-	vkAccount = await HOOPER.vkAPI.connect(user, vkToken) # type: ignore
+	vkAccount = await TelehooperBot.vkAPI.connect(user, vkToken, False, True) # type: ignore
 
 	# Отправляем различные сообщения о успешном подключении аккаунта:
 	# await vkAccount.postAuthInit()

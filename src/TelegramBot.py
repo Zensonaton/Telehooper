@@ -3,16 +3,17 @@
 # Код для логики Telegram-бота.
 
 from __future__ import annotations
-import asyncio
 
+import asyncio
 import datetime
 import logging
 import os
-from typing import List, Optional, Tuple
-import vkbottle
+from typing import Any, List, Optional, Tuple
 
 import aiogram
+import vkbottle
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
+from vkbottle_types.responses.account import AccountUserSettings
 
 import Exceptions
 from Consts import MAPIServiceType
@@ -87,15 +88,10 @@ class Telehooper:
 		"""
 
 		# Импортируем все Handler'ы как модули:
-		from TelegramBotHandlers.commands import (
-			Debug, Help, Self, Start, This, VKLogin
-		)
-		from TelegramBotHandlers.events import (
-			GroupEvents, RegularMessageHandlers
-		)
-		from TelegramBotHandlers import (
-			OtherCallbackQueryHandlers
-		)
+		from TelegramBotHandlers import OtherCallbackQueryHandlers
+		from TelegramBotHandlers.commands import (Debug, Help, Self, Start, This,
+		                                          VKLogin)
+		from TelegramBotHandlers.events import GroupEvents, RegularMessageHandlers
 
 		# А теперь добавляем их в бота:
 		importHandlers([Start, VKLogin, GroupEvents, OtherCallbackQueryHandlers, This, Self, RegularMessageHandlers, Debug, Help], self, is_multibot=False)
@@ -359,7 +355,7 @@ async def global_error_handler(update: aiogram.types.Update, exception) -> bool:
 	else:
 		logger.exception(exception)
 
-		await update.bot.send_message(update.callback_query.message.chat.id, f"<b>Что-то пошло не так 😕\n\n</b>У бота произошла внутренняя ошибка: \n<code>{exception}\n</code>Попробуй позже. Если ошибка повторяется, сделай баг репорт в <a href=\"https://github.com/Zensonaton/Telehooper/issues\">Issue</a> проекта.")
+		await update.bot.send_message(update.message.chat.id, f"<b>Что-то пошло не так 😕\n\n</b>У бота произошла внутренняя ошибка:\n<code>{exception}\n</code>\n\nℹ️ Попробуй позже. Если ошибка повторяется, сделай баг репорт в <a href=\"https://github.com/Zensonaton/Telehooper/issues\">Issue</a> проекта.")
 
 	return True
 
@@ -391,6 +387,8 @@ class TelehooperUser:
 
 	vkAPI: vkbottle.API
 
+	APIstorage: TelehooperAPIStorage
+
 
 	def __init__(self, bot: Telehooper, user: aiogram.types.User) -> None:
 		self.TGUser = user
@@ -398,6 +396,7 @@ class TelehooperUser:
 		# self.vkAccount = None # type: ignore
 		# self.vkMAPI = None # type: ignore
 		self.isVKConnected = False
+		self.APIstorage = TelehooperAPIStorage()
 
 
 	async def restoreFromDB(self) -> None:
@@ -431,3 +430,21 @@ class TelehooperUser:
 
 	def __str__(self) -> str:
 		return f"<TelehooperUser id:{self.TGUser.id}>"
+
+class TelehooperAPIStorage:
+	"""
+	Класс для хранения некоторой важной для сервисов информации.
+	"""
+
+	vk: VKAPIStorage
+
+	def __init__(self) -> None:
+		self.vk = VKAPIStorage()
+
+class VKAPIStorage:
+	"""
+	Класс для хранения важной для VK API информации.
+	"""
+
+	accountInfo: AccountUserSettings | None
+	fullUserInfo: Any | None

@@ -18,7 +18,6 @@ class baseTelehooperAPI:
 
 	available: bool
 	serviceCodename: str
-	serviceName: str
 
 	telehooper_bot: "Telehooper"
 

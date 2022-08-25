@@ -61,8 +61,7 @@ async def onBotStart(dp: aiogram.Dispatcher) -> None:
 	Функция, запускающаяся ПОСЛЕ запуска Telegram-бота.
 	"""
 
-	# Добавляем поля в ДБ:
-	DB = getDefaultCollection()
+	global DB, HOOPER
 
 	if DB.find_one({"_id": "_global"}) is None:
 		DB.update_one({
