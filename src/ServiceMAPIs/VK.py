@@ -1,16 +1,19 @@
 # coding: utf-8
 
 from __future__ import annotations
+import asyncio
 
 import datetime
 import os
+from asyncio import Task
 from typing import TYPE_CHECKING
-from Consts import AccountDisconnectType
 
 import Utils
 import vkbottle
+from Consts import AccountDisconnectType
 from DB import getDefaultCollection
 from loguru import logger
+from vkbottle.tools.dev.mini_types.base.message import BaseMessageMin
 
 from .Base import baseTelehooperAPI
 
@@ -58,6 +61,10 @@ class VKTelehooperAPI(baseTelehooperAPI):
 		user.APIstorage.vk.accountInfo = accountInfo
 		user.APIstorage.vk.fullUserInfo = fullUserInfo
 		user.vkAPI = vkAccountAPI
+		user.vkUser = vkbottle.User(token)
+
+		# Запускаем longpoll:
+		await self.runPolling(user)
 
 		# Вызываем метод API бота:
 		if call_onSuccessfulConnection_method:
@@ -67,8 +74,70 @@ class VKTelehooperAPI(baseTelehooperAPI):
 		await super().disconnect(user)
 
 		print("Должен был произойти дисконнект юзера, юху!")
+		self.stopPolling(user)
 
+	async def onNewMessage(self, user: "TelehooperUser", msg: BaseMessageMin):
+		await super().onNewMessage(user)
 
+		print("new message", msg.text)
+
+	async def runPolling(self, user: "TelehooperUser") -> Task:
+		"""
+		Запускает Polling для получения сообщений.
+		"""
+
+		if user.APIstorage.vk.pollingTask:
+			# Polling уже запущен, не делаем ничего.
+
+			logger.warning(f"Была выполнена попытка повторного запуска polling'а у пользователя с TID {user.TGUser.id}")
+
+			return user.APIstorage.vk.pollingTask
+
+		@user.vkUser.on.message()
+		async def _onMessage(msg: BaseMessageMin):
+			"""
+			Вызывается при получении нового сообщения.
+			"""
+
+			await self.onNewMessage(user, msg)
+
+		@user.vkUser.error_handler.register_error_handler(vkbottle.VKAPIError[5])
+		async def _errorHandler(error: vkbottle.VKAPIError):
+			"""
+			Вызывается при отзыве разрешений у VK me / Kate Mobile.
+			"""
+
+			# Отправляем различные сообщения о отключённом боте:
+			await self.disconnect(user, AccountDisconnectType.EXTERNAL)
+			
+		# user.vkUser.on.raw_event(vkbottle.UserEventType.MESSAGE_EDIT)(self.onMessageEdit) # type: ignore
+		# user.vkUser.on.raw_event(vkbottle.UserEventType.DIALOG_TYPING_STATE)(self.onChatTypingState) # type: ignore
+		# user.vkUser.on.raw_event(vkbottle.UserEventType.CHAT_TYPING_STATE)(self.onChatTypingState) # type: ignore
+		# user.vkUser.on.raw_event(vkbottle.UserEventType.CHAT_VOICE_MESSAGE_STATES)(self.onChatTypingState) # type: ignore
+		# user.vkUser.on.raw_event(vkbottle.UserEventType.FILE_UPLOAD_STATE)(self.onChatTypingState) # type: ignore
+		# user.vkUser.on.raw_event(vkbottle.UserEventType.VIDEO_UPLOAD_STATE)(self.onChatTypingState) # type: ignore
+		# user.vkUser.on.raw_event(vkbottle.UserEventType.PHOTO_UPLOAD_STATE)(self.onChatTypingState) # type: ignore
+
+		# Создаём Polling-задачу:
+		user.APIstorage.vk.pollingTask = asyncio.create_task(user.vkUser.run_polling(), name=f"VK Polling, id{user.APIstorage.vk.accountInfo.id}") # type: ignore
+
+		return user.APIstorage.vk.pollingTask
+
+	def stopPolling(self, user: "TelehooperUser") -> None:
+		"""
+		Останавливает Polling.
+		"""
+
+		if not user.APIstorage.vk.pollingTask:
+			return
+
+		# Отключаем Task, используя следующий метод:
+		# task.cancel() использовать нельзя из-за бага библиотеки vkbottle.
+		#
+		# https://github.com/vkbottle/vkbottle/issues/504
+		# user.vkUser.polling.stop = True # type: ignore (переменной нет в vkbottle_types)
+
+		user.APIstorage.vk.pollingTask.cancel() # type: ignore
 
 	async def _sendSuccessfulConnectionMessage(self, user: "TelehooperUser", connect_via_password: bool = False):
 		space = "&#12288;" # Символ пробела, который не удаляется при отправке сообщения ВКонтакте.

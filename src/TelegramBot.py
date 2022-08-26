@@ -3,6 +3,7 @@
 # Код для логики Telegram-бота.
 
 from __future__ import annotations
+from asyncio import Task
 
 import datetime
 from typing import Any, List, Optional, Tuple
@@ -381,6 +382,7 @@ class TelehooperUser:
 	bot: Telehooper
 
 	vkAPI: vkbottle.API
+	vkUser: vkbottle.User
 
 	APIstorage: TelehooperAPIStorage
 
@@ -388,8 +390,6 @@ class TelehooperUser:
 	def __init__(self, bot: Telehooper, user: aiogram.types.User) -> None:
 		self.TGUser = user
 		self.bot = bot
-		# self.vkAccount = None # type: ignore
-		# self.vkMAPI = None # type: ignore
 		self.isVKConnected = False
 		self.APIstorage = TelehooperAPIStorage()
 
@@ -441,5 +441,7 @@ class VKAPIStorage:
 	Класс для хранения важной для VK API информации.
 	"""
 
-	accountInfo: AccountUserSettings | None
-	fullUserInfo: Any | None
+	accountInfo: AccountUserSettings | None = None
+	fullUserInfo: Any | None = None # FIXME: Удалить это поле?
+	pollingTask: Task | None = None
+
