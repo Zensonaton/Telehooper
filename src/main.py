@@ -17,7 +17,7 @@ import Consts
 import TelegramBot as TGBot
 import Utils
 from DB import getDefaultCollection
-from ServiceMAPIs.VK_new import VKTelehooperAPI
+from ServiceMAPIs.VK import VKTelehooperAPI
 from Consts import AccountDisconnectType
 
 # Логирование.

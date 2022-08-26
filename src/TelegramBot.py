@@ -16,7 +16,7 @@ from vkbottle_types.responses.account import AccountUserSettings
 import Exceptions
 from Consts import MAPIServiceType
 from DB import getDefaultCollection
-from ServiceMAPIs.VK_new import VKTelehooperAPI
+from ServiceMAPIs.VK import VKTelehooperAPI
 
 
 class Telehooper:
