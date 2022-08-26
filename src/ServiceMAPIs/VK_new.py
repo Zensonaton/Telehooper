@@ -5,6 +5,7 @@ from __future__ import annotations
 import datetime
 import os
 from typing import TYPE_CHECKING
+from Consts import AccountDisconnectType
 
 import Utils
 import vkbottle
@@ -28,8 +29,25 @@ class VKTelehooperAPI(baseTelehooperAPI):
 		self.serviceCodename = "vk"
 
 	async def connect(self, user: "TelehooperUser", token: str, connect_via_password: bool = False, send_connection_message: bool = False):
-		# Пытаемся подключиться к странице ВК.
+		await super().connect(user)
 
+		# Пытаемся подключиться к странице ВК:
+		await self.reconnect(user, token, False)
+
+		# Отправляем сообщения о успешном присоединении:
+		if send_connection_message:
+			await self._sendSuccessfulConnectionMessage(user, connect_via_password)
+
+		# Сохраняем инфу в ДБ:
+		await self._saveConnectedUserToDB(user, token, connect_via_password)
+
+		# Вызываем метод API бота:
+		await self.onSuccessfulConnection(user)
+
+	async def reconnect(self, user: "TelehooperUser", token: str, call_onSuccessfulConnection_method: bool = True):
+		await super().reconnect(user)
+
+		# Пытаемся подключиться к странице ВК:
 		vkAccountAPI = vkbottle.API(token)
 
 		accountInfo = await vkAccountAPI.account.get_profile_info()
@@ -41,12 +59,16 @@ class VKTelehooperAPI(baseTelehooperAPI):
 		user.APIstorage.vk.fullUserInfo = fullUserInfo
 		user.vkAPI = vkAccountAPI
 
-		# Отправляем сообщения о успешном присоединении:
-		if send_connection_message:
-			await self._sendSuccessfulConnectionMessage(user, connect_via_password)
+		# Вызываем метод API бота:
+		if call_onSuccessfulConnection_method:
+			await self.onSuccessfulConnection(user)
 
-		# Сохраняем инфу в ДБ:
-		await self._saveConnectedUserToDB(user, token, connect_via_password)
+	async def disconnect(self, user: "TelehooperUser", reason: int = AccountDisconnectType.INITIATED_BY_USER):
+		await super().disconnect(user)
+
+		print("Должен был произойти дисконнект юзера, юху!")
+
+
 
 	async def _sendSuccessfulConnectionMessage(self, user: "TelehooperUser", connect_via_password: bool = False):
 		space = "&#12288;" # Символ пробела, который не удаляется при отправке сообщения ВКонтакте.
@@ -117,7 +139,6 @@ class VKTelehooperAPI(baseTelehooperAPI):
 
 			upsert=True
 		)
-
 
 	async def _getDefaultDownloadingImage(self, user: "TelehooperUser") -> None | str:
 		"""

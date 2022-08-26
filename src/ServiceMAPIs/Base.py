@@ -29,61 +29,78 @@ class baseTelehooperAPI:
 		Вызывается при получении нового сообщения.
 		"""
 
-		raise Exception("Not implemented yet")
+		self._checkAvailability()
 
 	async def onNewIncomingMessage(self, user: "TelehooperUser"):
 		"""
 		Вызывается при получении нового входящего сообщения.
 		"""
 
-		raise Exception("Not implemented yet")
+		self._checkAvailability()
 
 	async def onNewOutcomingMessage(self, user: "TelehooperUser"):
 		"""
 		Вызывается при получении нового исходящего сообщения.
 		"""
 
-		raise Exception("Not implemented yet")
+		self._checkAvailability()
 
 	async def onMessageEdit(self, user: "TelehooperUser"):
 		"""
 		Вызывается при редактировании сообщения.
 		"""
 
-		raise Exception("Not implemented yet")
+		self._checkAvailability()
 
 	async def onSuccessfulConnection(self, user: "TelehooperUser"):
 		"""
 		Вызывается при успешном подключении сервиса.
 		"""
 
-		raise Exception("Not implemented yet")
+		self._checkAvailability()
 
 	async def onConnectionError(self, user: "TelehooperUser"):
 		"""
 		Вызывается в случае какой-либо ошибки. Например, если аккаунт был отключён со стороны сервиса.
 		"""
 
-		raise Exception("Not implemented yet")
+		self._checkAvailability()
 
 	async def onDisconnect(self, user: "TelehooperUser"):
 		"""
 		Вызывается в случае отключения сервиса.
 		"""
 
-		raise Exception("Not implemented yet")
+		self._checkAvailability()
+
+	async def reconnect(self, user: "TelehooperUser"):
+		"""
+		Вызывается для переподключения (восстановления сессии). Почти тоже самое что и `connect()`, но этот метод 'тише', поскольку ничего не отправляет пользователю.
+		"""
+
+		self._checkAvailability()
 
 	async def connect(self, user: "TelehooperUser"):
 		"""
 		Подключает аккаунт сервиса к боту.
 		"""
 
-		raise Exception("Not implemented yet")
+		self._checkAvailability()
 
 	async def disconnect(self, user: "TelehooperUser"):
 		"""
 		Отключает аккаунт сервиса от бота.
 		"""
 
-		raise Exception("Not implemented yet")
+		self._checkAvailability()
+
+	def _checkAvailability(self):
+		"""
+		Проверяет, доступен ли сервис. Если нет, то вызывает `Exception`.
+		"""
+
+		if not self.available:
+			raise Exception("This service is not available yet")
+
+
 
