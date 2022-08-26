@@ -30,11 +30,6 @@ def _setupCHandler(bot: Telehooper) -> None:
 async def GroupJoinHandler(msg: MessageType) -> None:
 	bot_id = (await TGBot.get_me()).id
 
-	if msg.content_type != "new_chat_members":
-		# Не событие о добавлении кого-либо в группу.
-
-		return
-
 	if ([i for i in msg.new_chat_members if i.id == bot_id]):
 		# Добавили текущего бота в беседу.
 
