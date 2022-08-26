@@ -6,12 +6,15 @@
 
 from typing import TYPE_CHECKING
 
+import aiogram
+
+from Consts import MAPIServiceType
 
 if TYPE_CHECKING:
-	from TelegramBot import TelehooperUser, Telehooper
+	from TelegramBot import Telehooper, TelehooperUser
 
 
-class baseTelehooperAPI:
+class BaseTelehooperAPI:
 	"""
 	Базовый API для сервисов бота.
 	"""
@@ -102,5 +105,20 @@ class baseTelehooperAPI:
 		if not self.available:
 			raise Exception("This service is not available yet")
 
+class DialogueGroup:
+	"""
+	Класс, отображающий объект группы-диалога в Telegram.
+	"""
+
+	group: aiogram.types.Chat
+	serviceType: int
+	serviceDialogueID: int
 
 
+	def __init__(self, group: aiogram.types.Chat, service_dialogue_id: int) -> None:
+		self.group = group
+		self.serviceType = MAPIServiceType.VK
+		self.serviceDialogueID = service_dialogue_id
+
+	def __str__(self) -> str:
+		return f"<DialogueGroup serviceID:{self.serviceType} ID:{self.serviceDialogueID}>"

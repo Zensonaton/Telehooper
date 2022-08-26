@@ -15,12 +15,12 @@ from DB import getDefaultCollection
 from loguru import logger
 from vkbottle.tools.dev.mini_types.base.message import BaseMessageMin
 
-from .Base import baseTelehooperAPI
+from .Base import BaseTelehooperAPI
 
 if TYPE_CHECKING:
 	from TelegramBot import Telehooper, TelehooperUser
 
-class VKTelehooperAPI(baseTelehooperAPI):
+class VKTelehooperAPI(BaseTelehooperAPI):
 	"""
 	API для работы над ВКонтакте.
 	"""

@@ -15,11 +15,10 @@ from loguru import logger
 from vkbottle_types.responses.account import AccountUserSettings
 
 import Exceptions
-from Consts import MAPIServiceType
 from DB import getDefaultCollection
+from ServiceMAPIs.Base import DialogueGroup
 from ServiceMAPIs.VK import VKTelehooperAPI
 from TelegramBotHandlers.commands import MD
-
 
 class Telehooper:
 	"""
@@ -356,24 +355,6 @@ class Minibot:
 		self.MainBot.importHandlers([DMMessage], self, is_multibot=True, mainBot=self.MainBot)
 
 		self.DP.errors_handler()(self.MainBot.global_error_handler)
-
-class DialogueGroup:
-	"""
-	Класс, отображающий объект группы-диалога в Telegram.
-	"""
-
-	group: aiogram.types.Chat
-	serviceType: int
-	serviceDialogueID: int
-
-
-	def __init__(self, group: aiogram.types.Chat, service_dialogue_id: int) -> None:
-		self.group = group
-		self.serviceType = MAPIServiceType.VK
-		self.serviceDialogueID = service_dialogue_id
-
-	def __str__(self) -> str:
-		return f"<DialogueGroup serviceID:{self.serviceType} ID:{self.serviceDialogueID}>"
 
 class TelehooperUser:
 	"""
