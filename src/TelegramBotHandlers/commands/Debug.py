@@ -1,20 +1,24 @@
 # coding: utf-8
 
-# TODO: Удалить этот Handler.
-
 """Обработчик для команды `Debug`."""
 
-from aiogram import Bot, Dispatcher
+import asyncio
+from typing import TYPE_CHECKING
+
+import aiogram
+from aiogram import Dispatcher
 from aiogram.types import Message as MessageType
 from loguru import logger
-from TelegramBot import Telehooper
 
-TelehooperBot: 	Telehooper 	= None # type: ignore
-TGBot: 			Bot 		= None # type: ignore
-DP: 			Dispatcher 	= None # type: ignore
+if TYPE_CHECKING:
+	from TelegramBot import Telehooper
+
+Bot: 	"Telehooper" 	= None # type: ignore
+TGBot:	aiogram.Bot = None # type: ignore
+DP: 	Dispatcher 	= None # type: ignore
 
 
-def _setupCHandler(bot: Telehooper) -> None:
+def _setupCHandler(bot: "Telehooper") -> None:
 	"""
 	Инициализирует команду `Debug`.
 	"""
@@ -25,16 +29,12 @@ def _setupCHandler(bot: Telehooper) -> None:
 	TGBot = TelehooperBot.TGBot
 	DP = TelehooperBot.DP
 
-	DP.register_message_handler(Debug, commands=["debug"])
+	DP.register_message_handler(Debug, commands=["Debug"])
 
 
 async def Debug(msg: MessageType) -> None:
-	newline = "\n"
-	newlinestr = "\\n"
+	msg = await msg.answer("test")
 
-	text = msg.html_text
-	if msg.reply_to_message:
-		text = msg.reply_to_message.html_text
-
-
-	await msg.answer(f"<code>{text.replace('<', '&lt;').replace(newline, newlinestr)}</code>")
+	for i in range(25):
+		await msg.edit_text(str(i + 1))
+		await asyncio.sleep(0.1)

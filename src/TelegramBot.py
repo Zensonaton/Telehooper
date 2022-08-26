@@ -18,6 +18,7 @@ import Exceptions
 from Consts import MAPIServiceType
 from DB import getDefaultCollection
 from ServiceMAPIs.VK import VKTelehooperAPI
+from TelegramBotHandlers.commands import MD
 
 
 class Telehooper:
@@ -85,12 +86,12 @@ class Telehooper:
 
 		# Импортируем все Handler'ы как модули:
 		from TelegramBotHandlers import OtherCallbackQueryHandlers
-		from TelegramBotHandlers.commands import (Debug, Help, Self, Start, This,
-		                                          VKLogin)
+		from TelegramBotHandlers.commands import (Help, Self, Start, This,
+		                                          VKLogin, Debug)
 		from TelegramBotHandlers.events import GroupEvents, RegularMessageHandlers
 
 		# А теперь добавляем их в бота:
-		importHandlers([Start, VKLogin, GroupEvents, OtherCallbackQueryHandlers, This, Self, RegularMessageHandlers, Debug, Help], self, is_multibot=False)
+		importHandlers([Start, VKLogin, GroupEvents, OtherCallbackQueryHandlers, This, Self, RegularMessageHandlers, MD, Help, Debug], self, is_multibot=False)
 
 		# Отдельно добавляю Error Handler:
 		self.DP.errors_handler()(global_error_handler)
