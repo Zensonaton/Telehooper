@@ -40,7 +40,6 @@ class Telehooper:
 
 	vkAPI: VKTelehooperAPI | None
 
-
 	def __init__(self, telegram_bot_token: str, telegram_bot_parse_mode = aiogram.types.ParseMode.HTML, storage: Optional[MemoryStorage] = None) -> None: # type: ignore
 		self.token = telegram_bot_token
 		self.parse_mode = telegram_bot_parse_mode  # type: ignore
@@ -389,7 +388,6 @@ class TelehooperUser:
 
 	APIstorage: TelehooperAPIStorage
 
-
 	def __init__(self, bot: Telehooper, user: aiogram.types.User) -> None:
 		self.TGUser = user
 		self.bot = bot
@@ -434,17 +432,17 @@ class TelehooperAPIStorage:
 	Класс для хранения некоторой важной для сервисов информации.
 	"""
 
+	class VKAPIStorage:
+		"""
+		Класс для хранения важной для VK API информации.
+		"""
+
+		accountInfo: AccountUserSettings | None = None
+		fullUserInfo: Any | None = None # FIXME: Удалить это поле?
+		pollingTask: Task | None = None
+
 	vk: VKAPIStorage
 
 	def __init__(self) -> None:
-		self.vk = VKAPIStorage()
-
-class VKAPIStorage:
-	"""
-	Класс для хранения важной для VK API информации.
-	"""
-
-	accountInfo: AccountUserSettings | None = None
-	fullUserInfo: Any | None = None # FIXME: Удалить это поле?
-	pollingTask: Task | None = None
+		self.vk = self.VKAPIStorage()
 
