@@ -91,10 +91,10 @@ class Telehooper:
 		from TelegramBotHandlers.events import GroupEvents, RegularMessageHandlers
 
 		# А теперь добавляем их в бота:
-		importHandlers([Start, VKLogin, GroupEvents, OtherCallbackQueryHandlers, This, Self, RegularMessageHandlers, MD, Help, Debug], self, is_multibot=False)
+		self.importHandlers([Start, VKLogin, GroupEvents, OtherCallbackQueryHandlers, This, Self, RegularMessageHandlers, MD, Help, Debug], self, is_multibot=False)
 
 		# Отдельно добавляю Error Handler:
-		self.DP.errors_handler()(global_error_handler)
+		self.DP.errors_handler()(self.global_error_handler)
 
 	def addMinibot(self, minibot: Minibot):
 		"""
@@ -256,6 +256,43 @@ class Telehooper:
 
 		# return None
 
+	def importHandlers(self, handlers, bot: Telehooper | Minibot, mainBot: Optional[Telehooper] = None, is_multibot: bool = False) -> None:
+		"""
+		Загружает (импортирует?) все Handler'ы в бота.
+		"""
+
+		MESSAGE_HANDLERS_IMPORTED_FILENAMES = [i.__name__.split(".")[-1] + ".py" for i in handlers]
+
+		# Загружаем команды.
+		logger.debug(f"Было импортировано {len(handlers)} handler'ов, загружаю их...")
+
+		for index, messageHandler in enumerate(handlers):
+			messageHandler._setupCHandler(bot)
+
+			logger.debug(f"Инициализирован обработчик команды \"{handlers[index]}\".")
+
+		logger.debug(f"Все handler'ы были загружены успешно!")
+
+	async def global_error_handler(self, update: aiogram.types.Update, exception) -> bool:
+		"""
+		Глобальный обработчик ВСЕХ ошибок у бота.
+		"""
+
+		if isinstance(exception, aiogram.utils.exceptions.Throttled):
+			await update.message.answer("⏳ Превышен лимит количества запросов использования команды. Попробуй позже.")
+		elif isinstance(exception, Exceptions.CommandAllowedOnlyInGroup):
+			await update.message.answer("⚠️ Данную команду можно использовать только в Telegram-группах.")
+		elif isinstance(exception, Exceptions.CommandAllowedOnlyInPrivateChats):
+			await update.message.answer(f"⚠️ Данную команду можно использовать только {(await update.bot.get_me()).get_mention('в личном диалоге с ботом', as_html=True)}.")
+		elif isinstance(exception, Exceptions.CommandAllowedOnlyInBotDialogue):
+			await update.message.answer("⚠️ Данную команду можно использовать только в диалоге подключённого сервиса.\n\n⚙️ Используй команду /help, что бы узнать, как создать диалог сервиса.")
+		else:
+			logger.exception(exception)
+
+			await update.bot.send_message(update.message.chat.id, f"<b>Что-то пошло не так 😕\n\n</b>У бота произошла внутренняя ошибка:\n<code>{exception}\n</code>\n\nℹ️ Попробуй позже. Если ошибка повторяется, сделай баг репорт в <a href=\"https://github.com/Zensonaton/Telehooper/issues\">Issue</a> проекта.")
+
+		return True
+
 
 	def __str__(self) -> str:
 		return f"<TelehooperBot id{self.TGBot.id}>"
@@ -317,9 +354,9 @@ class Minibot:
 		"""
 
 		from TelegramMultibotHandlers import DMMessage
-		importHandlers([DMMessage], self, is_multibot=True, mainBot=self.MainBot)
+		self.MainBot.importHandlers([DMMessage], self, is_multibot=True, mainBot=self.MainBot)
 
-		self.DP.errors_handler()(global_error_handler)
+		self.DP.errors_handler()(self.MainBot.global_error_handler)
 
 class DialogueGroup:
 	"""
@@ -338,44 +375,6 @@ class DialogueGroup:
 
 	def __str__(self) -> str:
 		return f"<DialogueGroup serviceID:{self.serviceType} ID:{self.serviceDialogueID}>"
-
-async def global_error_handler(update: aiogram.types.Update, exception) -> bool:
-	"""
-	Глобальный обработчик ВСЕХ ошибок у бота.
-	"""
-
-	if isinstance(exception, aiogram.utils.exceptions.Throttled):
-		await update.message.answer("⏳ Превышен лимит количества запросов использования команды. Попробуй позже.")
-	elif isinstance(exception, Exceptions.CommandAllowedOnlyInGroup):
-		await update.message.answer("⚠️ Данную команду можно использовать только в Telegram-группах.")
-	elif isinstance(exception, Exceptions.CommandAllowedOnlyInPrivateChats):
-		await update.message.answer(f"⚠️ Данную команду можно использовать только {(await update.bot.get_me()).get_mention('в личном диалоге с ботом', as_html=True)}.")
-	elif isinstance(exception, Exceptions.CommandAllowedOnlyInBotDialogue):
-		await update.message.answer("⚠️ Данную команду можно использовать только в диалоге подключённого сервиса.\n\n⚙️ Используй команду /help, что бы узнать, как создать диалог сервиса.")
-	else:
-		logger.exception(exception)
-
-		await update.bot.send_message(update.message.chat.id, f"<b>Что-то пошло не так 😕\n\n</b>У бота произошла внутренняя ошибка:\n<code>{exception}\n</code>\n\nℹ️ Попробуй позже. Если ошибка повторяется, сделай баг репорт в <a href=\"https://github.com/Zensonaton/Telehooper/issues\">Issue</a> проекта.")
-
-	return True
-
-def importHandlers(handlers, bot: Telehooper | Minibot, mainBot: Optional[Telehooper] = None, is_multibot: bool = False) -> None:
-	"""
-	Загружает (импортирует?) все Handler'ы в бота.
-	"""
-
-	MESSAGE_HANDLERS_IMPORTED = handlers
-	MESSAGE_HANDLERS_IMPORTED_FILENAMES = [i.__name__.split(".")[-1] + ".py" for i in MESSAGE_HANDLERS_IMPORTED]
-
-	# Загружаем команды.
-	logger.debug(f"Было импортировано {len(MESSAGE_HANDLERS_IMPORTED)} handler'ов, загружаю их...")
-
-	for index, messageHandler in enumerate(MESSAGE_HANDLERS_IMPORTED):
-		messageHandler._setupCHandler(bot)
-
-		logger.debug(f"Инициализирован обработчик команды \"{MESSAGE_HANDLERS_IMPORTED_FILENAMES[index]}\".")
-
-	logger.debug(f"Все handler'ы были загружены успешно!")
 
 class TelehooperUser:
 	"""
