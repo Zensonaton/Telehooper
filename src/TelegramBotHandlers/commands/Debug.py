@@ -33,8 +33,5 @@ def _setupCHandler(bot: "Telehooper") -> None:
 
 
 async def Debug(msg: MessageType) -> None:
-	msg = await msg.answer("test")
-
-	for i in range(25):
-		await msg.edit_text(str(i + 1))
-		await asyncio.sleep(0.1)
+	await asyncio.sleep(5)
+	await (await msg.answer("test")).delete()
