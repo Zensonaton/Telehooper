@@ -172,27 +172,30 @@ class Telehooper:
 		res = DB.find_one({
 			"_id": "_global"
 		})
-		if res:
-			old_dialogueList = self.dialogueGroupsList.copy()
 
-			newList = []
-			for dialogue in res["ServiceDialogues"]["VK"]:
-				# Ищем группу в кэше:
-				for oldDialogue in old_dialogueList:
-					if oldDialogue.serviceDialogueID == dialogue["ID"]:
-						newList.append(oldDialogue)
-						break
-				else:
-					# Если группы нет в кэше, то создаём новую:
-					newDialogue = DialogueGroup(
-						await self.TGBot.get_chat(dialogue["TelegramGroupID"]),
-						dialogue["ID"]
-					)
-					newList.append(newDialogue)
+		if not res:
+			return []
 
-			# Каждый диалог, находящийся в переменной, добавляем:
-			self.dialogueGroupsList = []
-			self.dialogueGroupsList.extend(newList)
+		old_dialogueList = self.dialogueGroupsList.copy()
+
+		newList = []
+		for dialogue in res["ServiceDialogues"]["VK"]:
+			# Ищем группу в кэше:
+			for oldDialogue in old_dialogueList:
+				if oldDialogue.serviceDialogueID == dialogue["ID"]:
+					newList.append(oldDialogue)
+					break
+			else:
+				# Если группы нет в кэше, то создаём новую:
+				newDialogue = DialogueGroup(
+					await self.TGBot.get_chat(dialogue["TelegramGroupID"]),
+					dialogue["ID"]
+				)
+				newList.append(newDialogue)
+
+		# Каждый диалог, находящийся в переменной, добавляем:
+		self.dialogueGroupsList = []
+		self.dialogueGroupsList.extend(newList)
 
 		return self.dialogueGroupsList
 
