@@ -161,7 +161,6 @@ async def RegularMessageHandlers(msg: MessageType):
 				dialogue.serviceDialogueID,
 				reply_message_id,
 				attachments,
-				self_destruct_seconds=15,
 				start_chat_activities=False
 			),
 			msg.chat.id,

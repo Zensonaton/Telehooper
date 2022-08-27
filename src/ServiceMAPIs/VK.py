@@ -4,18 +4,23 @@ from __future__ import annotations
 
 import asyncio
 import datetime
+import io
 import os
 from asyncio import Task
 from typing import TYPE_CHECKING, Any, List, Literal, cast, overload
-from vkbottle.user import Message
 
 import aiogram
+import aiohttp
+import cv2
 import Utils
 import vkbottle
 from Consts import AccountDisconnectType
 from DB import getDefaultCollection
 from loguru import logger
+from PIL import Image, ImageDraw, ImageFont
 from vkbottle.tools.dev.mini_types.base.message import BaseMessageMin
+from vkbottle.user import Message
+from vkbottle_types.objects import MessagesGraffiti
 from vkbottle_types.responses.groups import GroupsGroupFull
 from vkbottle_types.responses.messages import MessagesConversationWithMessage
 from vkbottle_types.responses.users import UsersUserFull
@@ -538,17 +543,43 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 				# Окончательно загружаем файл на сервера ВК:
 				uploadedAttachment: str
 				uploadRes: str | None = None
-				if file.type == "photo" or file.type == "sticker":
+				if file.type == "photo":
 					await _chatAction("photo")
 					uploadRes = await vkbottle.PhotoMessageUploader(user.vkAPI).upload(file.bytes) # type: ignore
 				elif file.type == "voice":
 					await _chatAction("audiomessage")
 					uploadRes = await vkbottle.VoiceMessageUploader(user.vkAPI).upload(title="voice message title?", file_source=file.bytes) # type: ignore
-				elif False:
-					# Спасибо ВК что ограничили доступ к отправки граффити <3
+				elif file.type == "sticker":
+					await _chatAction("photo")
+					
+					# Следующий код необходим для обхода запрета ВК для отправки графити:
+					# https://vk.com/wall-1_395554
 
-					uploadRes = await vkbottle.GraffitiUploader(user.vkAPI).upload(title="стикер", file_source=open("downloadImage.png", "rb").read()) # type: ignore
+					# Отредактируем размер стикера:
+					img = Image.open(io.BytesIO(file.bytes))
+					img = img.resize((128, 128))
+					img_bytes = io.BytesIO()
+					img.save(img_bytes, format='PNG')
+					img_bytes = img_bytes.getvalue()
+					# del img
 
+					uploadUrl = (await vkbottle.DocUploader(user.vkAPI).get_server(type="graffiti"))["upload_url"]
+					async with aiohttp.ClientSession() as session:
+						data = aiohttp.FormData()
+						data.add_field(
+							"file", img_bytes, 
+							filename="graffiti.png", 
+							content_type="image/png"
+						)
+
+						async with session.post(uploadUrl, data=data) as response:
+							response = await response.json()
+
+							res = cast(MessagesGraffiti, (await user.vkAPI.docs.save((response)["file"])).graffiti)
+							uploadRes = f"doc{res.owner_id}_{res.id}"
+						
+				else:
+					raise Exception(f"Неподдерживаемый тип: {file.type}")
 
 				assert uploadRes is not None, "uploadRes is None"
 
@@ -590,10 +621,12 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 				silent=silent
 			)
 
-	async def editMessage(self, user: "TelehooperUser", message: str, chat_id: int, message_id: int):
+			return res
+
+	async def editMessage(self, user: "TelehooperUser", message: str, chat_id: int, message_id: int, attachments: str = ""):
 		await super().editMessage(user)
 
-		return await user.vkAPI.messages.edit(peer_id=chat_id, message_id=message_id, message=message)
+		return await user.vkAPI.messages.edit(peer_id=chat_id, message_id=message_id, message=message, attachment=attachments)
 
 	async def deleteMessage(self, user: "TelehooperUser", chat_id: int, message_id: int, delete_for_everyone: bool = False):
 		await super().deleteMessage(user)
