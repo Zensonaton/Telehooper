@@ -7,7 +7,7 @@ from asyncio import Task
 import asyncio
 
 import datetime
-from typing import Any, List, Optional, Tuple
+from typing import Any, List, Literal, Optional, Tuple, cast
 
 import aiogram
 import vkbottle
@@ -40,9 +40,9 @@ class Telehooper:
 
 	vkAPI: VKTelehooperAPI | None
 
-	def __init__(self, telegram_bot_token: str, telegram_bot_parse_mode = aiogram.types.ParseMode.HTML, storage: Optional[MemoryStorage] = None) -> None: # type: ignore
+	def __init__(self, telegram_bot_token: str, telegram_bot_parse_mode = aiogram.types.ParseMode.HTML, storage: Optional[MemoryStorage] = None) -> None:
 		self.token = telegram_bot_token
-		self.parse_mode = telegram_bot_parse_mode  # type: ignore
+		self.parse_mode = telegram_bot_parse_mode # type: ignore
 
 		self.miniBots = []
 
@@ -227,36 +227,6 @@ class Telehooper:
 
 		return None
 
-	def saveLatestMessageID(self, dialogue_telegram_id: int | str, telegram_message_id: int | str, service_message_id: int | str) -> None:
-		"""
-		Сохраняет в ДБ ID последнего сообщения в диалоге.
-		"""
-
-		DB = getDefaultCollection()
-		DB.update_one({"_id": "_global"}, {
-			"$set": {
-				"ServiceDialogues.VK.$[element].LatestMessageID": telegram_message_id,
-				"ServiceDialogues.VK.$[element].LatestServiceMessageID": service_message_id
-			}
-		}, array_filters = [{"element.TelegramGroupID": dialogue_telegram_id}])
-
-	def getLatestMessageID(self, dialogue_telegram_id: int | str) -> Tuple[int, int] | None:
-		"""
-		Возвращает ID последнего сообщения в диалоге.
-		"""
-
-		# TODO
-		# DB = getDefaultCollection()
-		# # res = DB.find_one({"_id": "_global", "ServiceDialogues.VK.$[element].TelegramGroupID": dialogue_telegram_id}, array_filters=[{"element.TelegramGroupID": dialogue_telegram_id}])
-		# res = DB.find_one({"_id": "_global", "ServiceDialogues.VK.TelegramGroupID": dialogue_telegram_id}, {"ServiceDialogues.VK.LatestServiceMessageID": 1, "ServiceDialogues.VK.LatestMessageID": 1, "ServiceDialogues.VK.TelegramGroupID": 1})
-
-		# if res:
-		# 	return res["ServiceDialogues"]["VK"][0]["LatestMessageID"], res["ServiceDialogues"]["VK"][0]["LatestServiceMessageID"]
-
-		# return None
-
-		pass
-
 	def importHandlers(self, handlers, bot: Telehooper | Minibot, mainBot: Optional[Telehooper] = None, is_multibot: bool = False) -> None:
 		"""
 		Загружает (импортирует?) все Handler'ы в бота.
@@ -294,7 +264,7 @@ class Telehooper:
 
 		return True
 
-	async def send_message(self, user: TelehooperUser, text: str | None, chat_id: int | None = None, attachments: list | None = [], reply_to: int | None = None, allow_sending_temp_messages: bool = True, return_only_first_element: bool = True):
+	async def sendMessage(self, user: TelehooperUser, text: str | None, chat_id: int | None = None, attachments: list | None = [], reply_to: int | None = None, allow_sending_temp_messages: bool = True, return_only_first_element: bool = True):
 		"""
 		Отправляет сообщение в Telegram.
 		"""
@@ -320,6 +290,8 @@ class Telehooper:
 			chat_id = user.TGUser.id
 
 		reply_to = reply_to if reply_to is None else int(reply_to)
+
+		self.vkAPI = cast(VKTelehooperAPI, self.vkAPI)
 
 		# Проверяем, есть ли у нас вложения, которые стоит отправить:
 		if len(attachments) > 0:
@@ -366,7 +338,7 @@ class Telehooper:
 				# Я специально редактирую всё с конца, что бы не трогать лишний раз caption
 				# самого первого сообщения.
 				for index, attachment in reversed(list(enumerate(attachments))):
-					# await self.startChatActionStateIn(chat_id, "upload_photo")
+					await self.vkAPI.startDialogueActivity(user, chat_id, "photo")
 
 					# Загружаем файл, если он не был загружен:
 					if not attachment.ready:
@@ -400,13 +372,33 @@ class Telehooper:
 
 
 				# И после добавления в MediaGroup, отправляем сообщение:
-				# await self.startChatActionStateIn(chat_id, "upload_photo")
+				await self.vkAPI.startDialogueActivity(user, chat_id, "photo")
 
 				return _return(await self.TGBot.send_media_group(chat_id, tempMediaGroup, reply_to_message_id=reply_to))
 
 		# У нас нет никакой группы вложений, поэтому мы просто отправим сообщение:
 		return _return(await self.TGBot.send_message(chat_id, text, reply_to_message_id=reply_to))
 
+	async def editMessage(self, user: TelehooperUser, text: str | None, chat_id: int, message_id: str | int, attachments: list | None = []):
+		"""
+		Редактирует сообщение в Telegram.
+		"""
+
+		if text is None:
+			text = ""
+
+		if message_id is str:
+			message_id = int(message_id)
+		message_id = cast(int, message_id)
+
+		if attachments is None:
+			attachments = []
+
+		# await self.TGBot.edit_message_text(f"{text}      <i>✏️ изменено...</i>", chat_id, message_id)
+		await self.TGBot.edit_message_text(f"{text}      <i>(ред.)</i>", chat_id, message_id)
+
+	async def startDialogueActivity(self, chat_id: int, activity_type: Literal["typing", "upload_photo", "record_video", "upload_video", "record_voice", "upload_voice", "upload_document", "choose_sticker", "find_location", "record_video_note", "upload_video_note"] = "typing"):
+		await self.TGBot.send_chat_action(chat_id, action=activity_type)
 
 
 	def __str__(self) -> str:

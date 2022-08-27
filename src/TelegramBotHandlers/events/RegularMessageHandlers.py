@@ -5,7 +5,8 @@
 import asyncio
 import io
 from io import BytesIO
-from typing import List
+from typing import TYPE_CHECKING, List, cast
+from ServiceMAPIs.VK import VKTelehooperAPI
 
 import Utils
 from aiogram import Bot, Dispatcher
@@ -16,6 +17,9 @@ from TelegramBot import DialogueGroup, Telehooper
 TelehooperBot: 	Telehooper 	= None # type: ignore
 TGBot: 			Bot 		= None # type: ignore
 DP: 			Dispatcher 	= None # type: ignore
+
+if TYPE_CHECKING:
+	from TelegramBot import TelehooperUser
 
 
 # TODO: Перенести этот Handler в папку ServiceMAPIs.
@@ -85,13 +89,12 @@ async def checkMediaGroup(media_group_id: str, sleep: float = 0.5) -> List[Utils
 async def RegularMessageHandlers(msg: MessageType):
 	dialogue: DialogueGroup = msg._dialogue # type: ignore
 	user: TelehooperUser = msg._user # type: ignore
-
-	res = TelehooperBot.getLatestMessageID(msg.chat.id)
+	TelehooperBot.vkAPI = cast(VKTelehooperAPI, TelehooperBot.vkAPI)
 
 	# Получаем сообщение из ДБ:
 	reply_message_id = None
 	if msg.reply_to_message:
-		reply_message_id = user.vkMAPI.getMessageIDByTelegramMID(msg.reply_to_message.message_id)
+		reply_message_id = TelehooperBot.vkAPI.getMessageDataByTelegramMID(user, msg.reply_to_message.message_id)
 		if reply_message_id:
 			reply_message_id = reply_message_id.serviceMID
 
@@ -117,37 +120,48 @@ async def RegularMessageHandlers(msg: MessageType):
 
 				MEDIA_GROUPS[msg.media_group_id].append(msg.photo[-1])
 		else:
-			await user.vkMAPI.startChatActionStateOut(dialogue.serviceDialogueID, "photo")
+			# await TelehooperBot.vkAPI.startChatActionStateOut(dialogue.serviceDialogueID, "photo")
 
-			attachments.append(await Utils.File(
-				await msg.photo[-1].download(destination_file=BytesIO())
-			).parse())
+			attachments.append(
+				await Utils.File(
+					await msg.photo[-1].download(destination_file=BytesIO())
+				).parse()
+			)
 	elif msg.sticker:
-		await user.vkMAPI.startChatActionStateOut(dialogue.serviceDialogueID, "photo")
+		# await TelehooperBot.vkAPI.startChatActionStateOut(dialogue.serviceDialogueID, "photo")
 
-		attachments.append(Utils.File(
-			await msg.sticker.download(destination_file=io.BytesIO()
-		), file_type="sticker"))
+		attachments.append(
+			Utils.File(
+				await msg.sticker.download(destination_file=io.BytesIO()),
+				file_type="sticker"
+			)
+		)
 	elif msg.voice:
-		await user.vkMAPI.startChatActionStateOut(dialogue.serviceDialogueID, "audiomessage")
+		# await TelehooperBot.vkAPI.startChatActionStateOut(dialogue.serviceDialogueID, "audiomessage")
 
-		attachments.append(Utils.File(
-			await msg.voice.download(destination_file=io.BytesIO()
-		), file_type="voice"))
+		attachments.append(
+			Utils.File(
+				await msg.voice.download(destination_file=io.BytesIO()), 
+				file_type="voice"
+			)
+		)
 	else:
-		await user.vkMAPI.startChatActionStateOut(dialogue.serviceDialogueID, "typing")
+		# await TelehooperBot.vkAPI.startChatActionStateOut(dialogue.serviceDialogueID, "typing")
+		pass
 
-	# Отправляем сообщение в ВК:
+	# Отправляем сообщение в ВК, сохраняя его в базе:
 	if shouldSendMessage:
-		user.vkMAPI.saveMessageID(
+		TelehooperBot.vkAPI.saveMessageID(
+			user,
 			msg.message_id,
-			await user.vkMAPI.sendMessageOut(
+			await TelehooperBot.vkAPI.sendMessage(
+				user,
 				msg.text
 				or msg.caption,
 				dialogue.serviceDialogueID,
 				reply_message_id,
 				attachments,
-				start_typing=False
+				start_chat_activities=False
 			),
 			msg.chat.id,
 			dialogue.serviceDialogueID,
@@ -157,12 +171,33 @@ async def RegularMessageHandlers(msg: MessageType):
 async def RegularMessageEditHandler(msg: MessageType):
 	dialogue: DialogueGroup = msg._dialogue # type: ignore
 	user: TelehooperUser = msg._user # type: ignore
+	TelehooperBot.vkAPI = cast(VKTelehooperAPI, TelehooperBot.vkAPI)
 
-	# Редактируем сообщение в ВК.
-	# Получаем ID сообщения в ВК через ID сообщения Telegram:
-	messageID = user.vkMAPI.getMessageIDByTelegramMID(msg.message_id)
-	if messageID:
-		messageID = messageID.serviceMID
+	# Получаем ID сообщения в ВК через ID сообщения Telegram,
+	# что бы его отредактировать в ВК.
+	messageID = TelehooperBot.vkAPI.getMessageDataByTelegramMID(user, msg.message_id)
 
-	if messageID:
-		await user.vkMAPI.editMessageOut(msg.text, dialogue.serviceDialogueID, messageID)
+	if not messageID:
+		return
+
+	await TelehooperBot.vkAPI.editMessage(user, msg.text, dialogue.serviceDialogueID, messageID.serviceMID)
+
+# async def RegularMessageDeleteHandler(msg: MessageType):
+# 	dialogue: DialogueGroup = msg._dialogue # type: ignore
+# 	user: TelehooperUser = msg._user # type: ignore
+# 	TelehooperBot.vkAPI = cast(VKTelehooperAPI, TelehooperBot.vkAPI)
+
+# 	# Получаем ID сообщения в ВК через ID сообщения Telegram,
+# 	# что бы его удалить в ВК.
+# 	messageID = TelehooperBot.vkAPI.getMessageIDByTelegramMID(user, msg.message_id)
+
+# 	if not messageID:
+# 		return
+
+# 	if messageID:
+# 		# Удаляем сообщение. Удаляю я его для всех, поскольку
+# 		# если бот получит это событие, то это значит, что
+# 		# сообщение было гарантировано удалено для всех пользователей. 
+# 		await TelehooperBot.vkAPI.deleteMessage(user, dialogue.serviceDialogueID, messageID.serviceMID, True)
+
+# 	# TODO: Удалить запись с базы бота.

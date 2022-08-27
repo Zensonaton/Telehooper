@@ -4,9 +4,10 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import Consts
+from ServiceMAPIs.VK import VKTelehooperAPI
 import Utils
 import vkbottle
 from aiogram import Bot, Dispatcher
@@ -42,6 +43,7 @@ def _setupCHandler(bot: "Telehooper") -> None:
 
 async def VKLogin(msg: MessageType) -> None:
 	await DP.throttle(CThrottle.VK_LOGIN, rate=1, chat_id=msg.chat.id)
+	TelehooperBot.vkAPI = cast("VKTelehooperAPI", TelehooperBot.vkAPI)
 
 	args = (msg.get_args() or "").split(" ")
 
@@ -84,7 +86,7 @@ async def VKLogin(msg: MessageType) -> None:
 		)
 
 		# Подключаем страницу ВК:
-		vkAccount = await TelehooperBot.vkAPI.connect(user, vkToken, True, True) # type: ignore
+		vkAccount = await TelehooperBot.vkAPI.connect(user, vkToken, True, True)
 
 	except:
 		# Что-то пошло не так, и мы не сумели авторизоваться.

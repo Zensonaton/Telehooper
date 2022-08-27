@@ -6,7 +6,7 @@ import asyncio
 import datetime
 import os
 from asyncio import Task
-from typing import TYPE_CHECKING, Any, List, Literal
+from typing import TYPE_CHECKING, Any, List, Literal, cast, overload
 from vkbottle.user import Message
 
 import aiogram
@@ -20,7 +20,7 @@ from vkbottle_types.responses.groups import GroupsGroupFull
 from vkbottle_types.responses.messages import MessagesConversationWithMessage
 from vkbottle_types.responses.users import UsersUserFull
 
-from .Base import BaseTelehooperAPI
+from .Base import BaseTelehooperAPI, MappedMessage
 
 if TYPE_CHECKING:
 	from TelegramBot import Telehooper, TelehooperUser
@@ -71,6 +71,9 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 		# Запускаем longpoll:
 		await self.runPolling(user)
 
+		# Сохраняем то, что у пользователя подключён ВК:
+		user.isVKConnected = True
+
 		# Вызываем метод API бота:
 		if call_onSuccessfulConnection_method:
 			await self.onSuccessfulConnection(user)
@@ -80,6 +83,10 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 
 		print("Должен был произойти дисконнект юзера, юху!")
 		self.stopPolling(user)
+
+		user.isVKConnected = False
+
+		await self.onDisconnect(user)
 
 	async def runPolling(self, user: "TelehooperUser") -> Task:
 		"""
@@ -110,13 +117,37 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 			# Отправляем различные сообщения о отключённом боте:
 			await self.disconnect(user, AccountDisconnectType.EXTERNAL)
 			
-		# user.vkUser.on.raw_event(vkbottle.UserEventType.MESSAGE_EDIT)(self.onMessageEdit) # type: ignore
-		# user.vkUser.on.raw_event(vkbottle.UserEventType.DIALOG_TYPING_STATE)(self.onChatTypingState) # type: ignore
-		# user.vkUser.on.raw_event(vkbottle.UserEventType.CHAT_TYPING_STATE)(self.onChatTypingState) # type: ignore
-		# user.vkUser.on.raw_event(vkbottle.UserEventType.CHAT_VOICE_MESSAGE_STATES)(self.onChatTypingState) # type: ignore
-		# user.vkUser.on.raw_event(vkbottle.UserEventType.FILE_UPLOAD_STATE)(self.onChatTypingState) # type: ignore
-		# user.vkUser.on.raw_event(vkbottle.UserEventType.VIDEO_UPLOAD_STATE)(self.onChatTypingState) # type: ignore
-		# user.vkUser.on.raw_event(vkbottle.UserEventType.PHOTO_UPLOAD_STATE)(self.onChatTypingState) # type: ignore
+		@user.vkUser.on.raw_event(vkbottle.UserEventType.MESSAGE_EDIT) # type: ignore
+		async def _onMessageEdit(msg):
+			await self.onMessageEdit(user, msg)
+
+		@user.vkUser.on.raw_event(vkbottle.UserEventType.DIALOG_TYPING_STATE) # type: ignore
+		async def _onDialogTypingState(msg):
+			# Dialog - чат с человеком.
+
+			await self.onDialogueActivity(user, msg.object[1], "typing")
+
+		@user.vkUser.on.raw_event(vkbottle.UserEventType.CHAT_TYPING_STATE) # type: ignore
+		async def _onChatTypingState(msg):
+			# Chat - чат с беседой.
+
+			await self.onDialogueActivity(user, msg.object[1], "typing")
+
+		@user.vkUser.on.raw_event(vkbottle.UserEventType.CHAT_VOICE_MESSAGE_STATES) # type: ignore
+		async def _onChatVoiceMessageState(msg):
+			await self.onDialogueActivity(user, msg.object[1], "voice")
+
+		@user.vkUser.on.raw_event(vkbottle.UserEventType.FILE_UPLOAD_STATE) # type: ignore
+		async def _onChatFileUploadState(msg):
+			await self.onDialogueActivity(user, msg.object[1], "file")
+
+		@user.vkUser.on.raw_event(vkbottle.UserEventType.VIDEO_UPLOAD_STATE) # type: ignore
+		async def _onChatVideoUploadState(msg):
+			await self.onDialogueActivity(user, msg.object[1], "video")
+
+		@user.vkUser.on.raw_event(vkbottle.UserEventType.PHOTO_UPLOAD_STATE) # type: ignore
+		async def _onChatPhotoUploadState(msg):
+			await self.onDialogueActivity(user, msg.object[1], "photo")
 
 		# Создаём Polling-задачу:
 		user.APIstorage.vk.pollingTask = asyncio.create_task(user.vkUser.run_polling(), name=f"VK Polling, id{user.APIstorage.vk.accountInfo.id}") # type: ignore
@@ -132,6 +163,13 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 			return
 
 		user.APIstorage.vk.pollingTask.cancel() # type: ignore
+
+	def saveMessageID(self, user: "TelehooperUser", telegram_message_id: int | str, vk_message_id: int | str, telegram_dialogue_id: int | str, vk_dialogue_id: int | str, is_sent_via_telegram: bool) -> None:
+		super().saveMessageID(user, "VK", telegram_message_id, vk_message_id, telegram_dialogue_id, vk_dialogue_id, is_sent_via_telegram)
+
+		# Сохраняем ID последнего сообщения.
+		self.telehooper_bot.vkAPI = cast("VKTelehooperAPI", self.telehooper_bot.vkAPI)
+		self.telehooper_bot.vkAPI.saveLatestMessageID(user, "VK", telegram_dialogue_id, telegram_message_id, vk_message_id)
 
 	async def retrieveDialoguesList(self, user: "TelehooperUser") -> List[VKDialogue]:
 		"""
@@ -162,7 +200,7 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 
 	def getDialogueByID(self, user: "TelehooperUser", dialogue_id: int) -> VKDialogue | None:
 		"""
-		Возвращает диалог по его ID.
+		Возвращает диалог ВК по его ID. Используется во время преобразования группы в диалог-группу.
 		"""
 
 		if not user.APIstorage.vk.dialogues:
@@ -206,31 +244,8 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 
 		return 0
 
-	def saveMessageID(self, user: "TelehooperUser", telegram_message_id: int | str, service_message_id: int | str, telegram_dialogue_id: int | str, service_dialogue_id: int | str, sent_via_telegram: bool) -> None:
-		"""Сохраняет ID сообщения в базу."""
-
-		# Сохраняем ID сообщения в ДБ:
-		DB = getDefaultCollection()
-		DB.update_one({"_id": user.TGUser.id}, {
-			"$push": {
-				"Services.VK.ServiceToTelegramMIDs": {
-					"TelegramMID": str(telegram_message_id),
-					"ServiceMID": str(service_message_id),
-					"TelegramDialogueID": str(telegram_dialogue_id),
-					"ServiceDialogueID": str(service_dialogue_id),
-					"ViaTelegram": sent_via_telegram
-				}
-			}
-		})
-
-		# Сохраняем ID последнего сообщения.
-		self.telehooper_bot.saveLatestMessageID(telegram_dialogue_id, telegram_message_id, service_message_id)
-
 	async def onNewMessage(self, user: "TelehooperUser", msg: Message):
 		await super().onNewMessage(user)
-
-		FROM_USER = msg.peer_id < 2000000000
-		FROM_CONVO = msg.peer_id >= 2000000000
 
 		if user.APIstorage.vk.fullUserInfo is None:
 			# Полная информация о пользователе ещё не была получена.
@@ -253,16 +268,22 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 
 			return
 
-		if msg.out:
-			# Мы получили сообщение, отправленное самим пользователем, игнорируем.
-
-			return
-
 		if abs(msg.peer_id) == int(os.environ.get("VKBOT_NOTIFIER_ID", 0)):
 			# Мы получили сообщение от группы Telehooper, игнорируем.
 
 			return
 			# TODO
+
+		if msg.out:
+			await self.onNewOutcomingMessage(user, msg)
+		else:
+			await self.onNewIncomingMessage(user, msg)
+
+	async def onNewIncomingMessage(self, user: "TelehooperUser", msg: Message):
+		await super().onNewIncomingMessage(user)
+
+		FROM_USER = msg.peer_id < 2000000000
+		FROM_CONVO = msg.peer_id >= 2000000000
 
 		# Если у пользователя есть группа-диалог, то сообщение будет отправлено именно туда:
 		dialogue = await self.telehooper_bot.getDialogueGroupByServiceDialogueID(msg.peer_id)
@@ -294,13 +315,11 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 				fileAttachments.append(Utils.File(URL, "sticker"))
 
 		# Ответ на сообщение:
-		# TODO
 		replyMessageID = None
 		if msg.reply_message:
-			# res = self.telehooper_bot.getMessageDataByServiceMID(msg.reply_message.id or 0)
-			# if res:
-			# 	replyMessageID = res.telegramMID
-			pass
+			res = self.getMessageDataByServiceMID(user, msg.reply_message.id or 0)
+			if res:
+				replyMessageID = res.telegramMID
 
 		# Если сообщение из беседы, то добавляем имя:
 		msgPrefix = ""
@@ -312,22 +331,70 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 			pass
 
 		# Отправляем сообщение и сохраняем в ДБ:
-		telegramMessage = await self.telehooper_bot.send_message(
+		telegramMessage = cast(aiogram.types.Message, await self.telehooper_bot.sendMessage(
 			user=user,
 			text=msgPrefix + (msg.text or "<i>ошибка: пустой текст у сообщения. возможно, в сообщении неподдерживаемый тип?</i>"),
 			chat_id=dialogue.group.id,
 			attachments=fileAttachments,
 			reply_to=replyMessageID,
 			return_only_first_element=True
-		)
+		))
 
-		self.telehooper_bot.save(
-			telegramMessage.message_id, # type: ignore
+		self.telehooper_bot.vkAPI = cast("VKTelehooperAPI", self.telehooper_bot.vkAPI)
+		self.telehooper_bot.vkAPI.saveMessageID(
+			user,
+			telegramMessage.message_id,
 			msg.id,
 			dialogue.group.id,
 			msg.chat_id,
 			False
 		)
+
+	async def onNewOutcomingMessage(self, user: "TelehooperUser", msg: Message):
+		await super().onNewOutcomingMessage(user)
+
+	async def onMessageEdit(self, user: "TelehooperUser", msg):
+		await super().onMessageEdit(user)
+
+		# Получаем ID сообщения в Telegram:
+
+		MSGID = msg.object[1]
+		MSGTEXT = msg.object[6]
+		MSGCHATID = msg.object[3]
+
+		res = self.getMessageDataByServiceMID(user, MSGID)
+		if not res:
+			return
+
+		# Сообщение найдено, проверяем, кто его отправил.
+		# Если было получено с Telegram, то не редактируем.
+		if res.sentViaTelegram:
+			return
+
+		# В ином случае, редактируем:
+		# await self.editMessage(user, MSGTEXT + "ㅤㅤㅤ<i>изменено</i>", res.telegramDialogueID, res.telegramMID)
+		await self.telehooper_bot.editMessage(user, MSGTEXT, res.telegramDialogueID, res.telegramMID)
+
+	async def onDialogueActivity(self, user: "TelehooperUser", chat_id: int, activity_type: Literal["voice", "file", "photo", "typing", "video"] = "typing"):
+		await super().onDialogueActivity(user)
+
+		# Ищем диалог в Telegram:
+		res = await self.getDialogueGroupByServiceDialogueID(chat_id)
+		if not res:
+			return
+
+		telegram_activiy = {
+			"typing": "typing",
+			"photo": "upload_photo", 
+			"video": "record_video", 
+			"voice": "record_voice", 
+			"file": "upload_document", 
+			"video": "record_video_note", 
+		}
+
+		activity = telegram_activiy.get(activity_type, "typing")
+
+		await self.telehooper_bot.startDialogueActivity(res.group.id, activity) # type: ignore
 
 	async def _sendSuccessfulConnectionMessage(self, user: "TelehooperUser", connect_via_password: bool = False):
 		space = "&#12288;" # Символ пробела, который не удаляется при отправке сообщения ВКонтакте.
@@ -417,6 +484,126 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 			DB.update_one({"_id": user.TGUser.id}, {"$set": {"Services.VK.DownloadImage": vkService["DownloadImage"]}})
 
 		return vkService["DownloadImage"]
+
+	async def startDialogueActivity(self, user: "TelehooperUser", chat_id: int | str, action: Literal["audiomessage", "file", "photo", "typing", "video"]):
+		await super().startDialogueActivity(user)
+
+		await user.vkAPI.messages.set_activity(int(chat_id), action)
+
+	async def sendMessage(self, user: "TelehooperUser", message: str, chat_id: int, msg_id_to_reply: int | None = None, attachmentsFile: Utils.File | List[Utils.File] | None = None, allow_creating_temp_message: bool = True, start_chat_activities: bool = True):
+		await super().sendMessage(user)
+
+		async def _chatAction(action: Literal["audiomessage", "file", "photo", "typing", "video"] = "typing"):
+			"""
+			Выполняет действие в чати по типу печати.
+			"""
+
+			if start_chat_activities:
+				await self.startDialogueActivity(user, chat_id, action)
+
+		attachmentStr: List[str] = []
+
+		# Небольшой багфикс:
+		if message is None:
+			message = ""
+
+		tempMessageID: None | int = None
+		if attachmentsFile:
+			# Я не хотел делать отдельный кейс когда переменная не является листом, поэтому:
+			if not isinstance(attachmentsFile, list):
+				attachmentsFile = [attachmentsFile]
+
+			# Проверяем, если у нас >= 2 вложений, то мы должны отправить временное
+			# сообщение, и потом в него добавить вложения.
+			if allow_creating_temp_message and len(attachmentsFile) >= 2:
+				tempPhotoAttachment = await self._getDefaultDownloadingImage(user)
+				assert tempPhotoAttachment is not None, "Не удалось получить временное изображение для вложений."
+
+				tempMessageID = await user.vkAPI.messages.send(
+					peer_id=chat_id, 
+					random_id=Utils.generateVKRandomID(), 
+					message=f"{message}\n\n(пожалуйста, дождись загрузки всех {len(attachmentsFile)} вложений, они появятся в этом сообщении.)", 
+					reply_to=msg_id_to_reply, 
+					attachment=(tempPhotoAttachment + ",") * len(attachmentsFile)
+				)
+
+			for index, file in enumerate(attachmentsFile):
+				# attachment является типом Utils.File, но иногда он бывает не готовым к использованию,
+				# т.е., он не имеет поля bytes, к примеру. Поэтому я сделаю дополнительную проверку:
+				if not file.ready:
+					await file.parse()
+
+				assert file.bytes is not None, "attachment.bytes is None"
+
+				# Окончательно загружаем файл на сервера ВК:
+				uploadedAttachment: str
+				uploadRes: str | None = None
+				if file.type == "photo" or file.type == "sticker":
+					await _chatAction("photo")
+					uploadRes = await vkbottle.PhotoMessageUploader(user.vkAPI).upload(file.bytes) # type: ignore
+				elif file.type == "voice":
+					await _chatAction("audiomessage")
+					uploadRes = await vkbottle.VoiceMessageUploader(user.vkAPI).upload(title="voice message title?", file_source=file.bytes) # type: ignore
+				elif False:
+					# Спасибо ВК что ограничили доступ к отправки граффити <3
+
+					uploadRes = await vkbottle.GraffitiUploader(user.vkAPI).upload(title="стикер", file_source=open("downloadImage.png", "rb").read()) # type: ignore
+
+
+				assert uploadRes is not None, "uploadRes is None"
+
+				uploadedAttachment = uploadRes
+				del uploadRes
+
+				# Добавляем строку вида "photo123_456" в массив:
+				attachmentStr.append(uploadedAttachment)
+
+
+				# Через каждый второй файл делаем sleep:
+				if index % 2 == 1:
+					await asyncio.sleep(0.5)
+		else:
+			# У нас нет никаких вложений:
+			await _chatAction("typing")
+
+		# Если у нас было создано временное сообщение с изображениями, то мы должны
+		# его отредактировать, что бы вставить загруженные файлы.
+		if allow_creating_temp_message and tempMessageID:
+			await user.vkAPI.messages.edit(
+				peer_id=chat_id, 
+				message=message, 
+				message_id=tempMessageID, 
+				attachment=",".join(attachmentStr)
+			)
+
+			return tempMessageID
+		else:
+			# В ином случае, просто отправляем готовое сообщение
+			# со всеми вложениями.
+
+			return await user.vkAPI.messages.send(
+				peer_id=chat_id, 
+				random_id=Utils.generateVKRandomID(), 
+				message=message, 
+				reply_to=msg_id_to_reply, 
+				attachment=",".join(attachmentStr)
+			)
+
+	async def editMessage(self, user: "TelehooperUser", message: str, chat_id: int, message_id: int):
+		await super().editMessage(user)
+
+		return await user.vkAPI.messages.edit(peer_id=chat_id, message_id=message_id, message=message)
+
+	async def deleteMessage(self, user: "TelehooperUser", chat_id: int, message_id: int, delete_for_everyone: bool = False):
+		await super().deleteMessage(user)
+
+		return await user.vkAPI.messages.delete(peer_id=chat_id, message_id=message_id, delete_for_all=delete_for_everyone)
+
+	def getMessageDataByServiceMID(self, user: "TelehooperUser", service_message_id: int | str) -> None | MappedMessage:
+		return super().getMessageDataByServiceMID(user, "VK", service_message_id)
+
+	def getMessageDataByTelegramMID(self, user: "TelehooperUser", telegram_message_id: int | str) -> None | MappedMessage:
+		return super().getMessageDataByTelegramMID(user, "VK", telegram_message_id)
 
 class VKDialogue:
 	"""
