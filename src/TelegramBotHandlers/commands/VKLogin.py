@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, cast
 
 import Consts
 from ServiceMAPIs.VK import VKTelehooperAPI
+from TelegramBot import TelehooperAPIStorage
 import Utils
 import vkbottle
 from aiogram import Bot, Dispatcher
@@ -18,7 +19,7 @@ from Consts import InlineButtonCallbacks as CButtons
 from loguru import logger
 
 if TYPE_CHECKING:
-	from TelegramBot import Telehooper
+	from TelegramBot import Telehooper, TelehooperUser
 
 TelehooperBot: 	"Telehooper" 	= None # type: ignore
 TGBot: 			Bot 		= None # type: ignore
@@ -127,14 +128,15 @@ async def VKTokenMessageHandler(msg: MessageType):
 	vkAccount = await TelehooperBot.vkAPI.connect(user, vkToken, False, True) # type: ignore
 
 	# Отправляем сообщения о успехе в самом Telegram пользователю:
-	return await successConnectionMessage(msg, vkAccount)
+	return await successConnectionMessage(msg, user)
 
-async def successConnectionMessage(msg: MessageType, vkAccount) -> MessageType:
+async def successConnectionMessage(msg: MessageType, user: "TelehooperUser") -> MessageType:
 	"""
 	Отправляет сообщение в Telegram о успешном подключении аккаунта ВКонтакте.
 	"""
 
-	return await msg.answer(f"<b>Подключение аккаунта 🔗\n\n</b>С радостью заявляю, что я сумел успешно подключиться к твоему аккаунту <b>ВКонтакте</b>!\nРад тебя видеть, <b>{vkAccount.vkFullUser.first_name} {vkAccount.vkFullUser.last_name}</b>! 🙃👍\n\nТеперь, после подключения страницы ВКонтакте тебе нужно создать отдельную группу под каждый нужный тебе диалог ВКонтакте. Подробный гайд есть в команде /help.\nУправлять подключённой страницей ты можешь используя команду /self.")
+	user.APIstorage.vk = cast("TelehooperAPIStorage.VKAPIStorage", user.APIstorage.vk)
+	return await msg.answer(f"<b>Подключение аккаунта 🔗\n\n</b>С радостью заявляю, что я сумел успешно подключиться к твоему аккаунту <b>ВКонтакте</b>!\nРад тебя видеть, <b>{user.APIstorage.vk.accountInfo.first_name} {user.APIstorage.vk.accountInfo.last_name}</b>! 🙃👍\n\nТеперь, после подключения страницы ВКонтакте тебе нужно создать отдельную группу под каждый нужный тебе диалог ВКонтакте. Подробный гайд есть в команде /help.\nУправлять подключённой страницей ты можешь используя команду /self.")
 
 async def VKTokenURLMessageHandler(msg: MessageType) -> MessageType:
 	"""
