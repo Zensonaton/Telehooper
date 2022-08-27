@@ -331,9 +331,8 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 		if FROM_CONVO:
 			# Получаем имя отправителя:
 
-			# sender = await msg.get_user()
-			# msgPrefix = (sender.first_name or "") + " " + (sender.last_name or "") + ": "
-			pass
+			sender = await msg.get_user()
+			msgPrefix = (sender.first_name or "") + " " + (sender.last_name or "") + ": "
 
 		# Отправляем сообщение и сохраняем в ДБ:
 		telegramMessage = cast(aiogram.types.Message, await self.telehooper_bot.sendMessage(
