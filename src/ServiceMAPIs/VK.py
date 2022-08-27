@@ -556,8 +556,26 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 					# https://vk.com/wall-1_395554
 
 					# Отредактируем размер стикера:
-					img = Image.open(io.BytesIO(file.bytes))
-					img = img.resize((128, 128))
+					try:
+						img = Image.open(io.BytesIO(file.bytes))
+					except:
+						raise Exception("Animated stickers aren't supported yet.")
+
+					HEIGHT = img.height
+					WIDTH = img.width
+					
+					HEIGHT_EDITED = int(Utils.clamp(HEIGHT, 32, 128))
+					WIDTH_EDITED = int(WIDTH / (HEIGHT / Utils.clamp(HEIGHT, 32, 128)))
+					# С шириной изображения мы делаем некоторые хитрости, что бы
+					# стикер в некоторых случаях не был сильно растянут, 
+					# или наоборот сжат.
+
+					img = img.resize(
+						(
+							WIDTH_EDITED,
+							HEIGHT_EDITED
+						)
+					)
 					img_bytes = io.BytesIO()
 					img.save(img_bytes, format='PNG')
 					img_bytes = img_bytes.getvalue()

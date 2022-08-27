@@ -120,7 +120,7 @@ async def RegularMessageHandlers(msg: MessageType):
 
 				MEDIA_GROUPS[msg.media_group_id].append(msg.photo[-1])
 		else:
-			# await TelehooperBot.vkAPI.startChatActionStateOut(dialogue.serviceDialogueID, "photo")
+			await TelehooperBot.vkAPI.startDialogueActivity(user, dialogue.serviceDialogueID, "photo")
 
 			attachments.append(
 				await Utils.File(
@@ -128,7 +128,12 @@ async def RegularMessageHandlers(msg: MessageType):
 				).parse()
 			)
 	elif msg.sticker:
-		# await TelehooperBot.vkAPI.startChatActionStateOut(dialogue.serviceDialogueID, "photo")
+		if msg.sticker.is_animated or msg.sticker.is_video:
+			await msg.reply("⚠️ Данный бот не поддерживает <b>анимированные стикеры</b>.\n\nДанное сообщение не будет отправлено.")
+			
+			return
+
+		await TelehooperBot.vkAPI.startDialogueActivity(user, dialogue.serviceDialogueID, "photo")
 
 		attachments.append(
 			Utils.File(
@@ -137,7 +142,7 @@ async def RegularMessageHandlers(msg: MessageType):
 			)
 		)
 	elif msg.voice:
-		# await TelehooperBot.vkAPI.startChatActionStateOut(dialogue.serviceDialogueID, "audiomessage")
+		await TelehooperBot.vkAPI.startDialogueActivity(user, dialogue.serviceDialogueID, "audiomessage")
 
 		attachments.append(
 			Utils.File(
@@ -146,8 +151,7 @@ async def RegularMessageHandlers(msg: MessageType):
 			)
 		)
 	else:
-		# await TelehooperBot.vkAPI.startChatActionStateOut(dialogue.serviceDialogueID, "typing")
-		pass
+		await TelehooperBot.vkAPI.startDialogueActivity(user, dialogue.serviceDialogueID, "typing")
 
 	# Отправляем сообщение в ВК, сохраняя его в базе:
 	if shouldSendMessage:
