@@ -17,7 +17,7 @@ def getDatabase(host: str = "localhost", port: int = 27017, user: str | None = N
 
 	connectionUri = f"mongodb://{host}:{port}"
 	if pwd and user:
-		connectionUri = f"mongodb://{user}:{urllib.parse.quote(pwd)}@{host}:{port}/"
+		connectionUri = f"mongodb://{user}:{urllib.parse.quote(pwd, safe='')}@{host}:{port}/"
 
 	return MongoClient(connectionUri)
 
