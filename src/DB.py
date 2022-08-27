@@ -7,6 +7,7 @@ from __future__ import annotations
 import os
 
 from pymongo.mongo_client import MongoClient
+import urllib.parse 
 
 
 def getDatabase(host: str = "localhost", port: int = 27017, user: str | None = None, pwd: str | None = None) -> MongoClient:
@@ -16,7 +17,7 @@ def getDatabase(host: str = "localhost", port: int = 27017, user: str | None = N
 
 	connectionUri = f"mongodb://{host}:{port}"
 	if pwd and user:
-		connectionUri = f"mongodb://{user}:{pwd}@{host}:{port}/"
+		connectionUri = f"mongodb://{user}:{urllib.parse.quote(pwd)}@{host}:{port}/"
 
 	return MongoClient(connectionUri)
 
