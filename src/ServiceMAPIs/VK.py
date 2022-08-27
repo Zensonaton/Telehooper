@@ -561,7 +561,7 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 					img_bytes = io.BytesIO()
 					img.save(img_bytes, format='PNG')
 					img_bytes = img_bytes.getvalue()
-					# del img
+					del img
 
 					uploadUrl = (await vkbottle.DocUploader(user.vkAPI).get_server(type="graffiti"))["upload_url"]
 					async with aiohttp.ClientSession() as session:
