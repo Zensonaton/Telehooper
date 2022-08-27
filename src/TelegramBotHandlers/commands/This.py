@@ -239,7 +239,7 @@ async def ConvertGroupToDialogueCallback(query: CallbackQuery) -> None:
 	user = await TelehooperBot.getBotUser(query.from_user.id)
 
 	# Получаем список всех диалогов:
-	# user_convos = await user.vkAccount.retrieveDialoguesList()
+	user_convos = await TelehooperBot.vkAPI.retrieveDialoguesList(user) # type: ignore
 
 	# Для эмодзи перед названием диалога:
 	prefixEmojiDict = {
@@ -250,8 +250,7 @@ async def ConvertGroupToDialogueCallback(query: CallbackQuery) -> None:
 	}
 
 	keyboard = InlineKeyboardMarkup()
-	# for index, convo in enumerate(user_convos):
-	for index, convo in enumerate([]):
+	for index, convo in enumerate(user_convos):
 		if index > 12:
 			# Если что-то пойдет не так, и юзер слишком уж общительный, и
 			# имеет больше чем 12 человек в своих диалогах, то
@@ -283,9 +282,7 @@ async def VKDialogueSelector(query: CallbackQuery) -> bool:
 	if await user.getDialogueGroupByTelegramGroup(query.message.chat.id):
 		return await query.answer("Эта группа уже является диалогом.")
 
-	return False
-
-	dialogue = user.vkAccount.getDialogueByID(VK_ID)
+	dialogue = TelehooperBot.vkAPI.getDialogueByID(user, VK_ID) # type: ignore
 	if not dialogue:
 		return await query.answer("Произошла ошибка, выполни команду снова.")
 
@@ -309,9 +306,9 @@ async def VKDialogueSelector(query: CallbackQuery) -> bool:
 	try:
 		pfpURL: str = "https://vk.com/images/camera_400.png"
 		if dialogue.isUser:
-			pfpURL = (await user.vkAccount.vkAPI.users.get(user_ids=[dialogue.absID], fields=["photo_max_orig"]))[0].photo_max_orig # type: ignore
+			pfpURL = (await user.vkAPI.users.get(user_ids=[dialogue.absID], fields=["photo_max_orig"]))[0].photo_max_orig # type: ignore
 		elif dialogue.isGroup:
-			pfpURL = (await user.vkAccount.vkAPI.groups.get_by_id(group_id=dialogue.absID, fields=["photo_max_orig"]))[0].photo_max_orig # type: ignore
+			pfpURL = (await user.vkAPI.groups.get_by_id(group_id=dialogue.absID, fields=["photo_max_orig"]))[0].photo_max_orig # type: ignore
 		else:
 			pfpURL = dialogue.photoURL
 
@@ -363,15 +360,19 @@ async def ConvertDialogueToGroupCallback(query: CallbackQuery):
 
 	# TODO: Удаляем запись в ДБ:
 	DB = getDefaultCollection()
-	DB.update_one({
-		"_id": "_global"
-	}, {
-		"$pull": {
-			"ServiceDialogues.VK": {
-				"TelegramGroupID": query.message.chat.id
+	DB.update_one(
+		{
+			"_id": "_global"
+		}, 
+		
+		{
+			"$pull": {
+				"ServiceDialogues.VK": {
+					"TelegramGroupID": query.message.chat.id
+				}
 			}
 		}
-	})
+	)
 
 	# Меняем сообщение, попутно пряча кнопки.
 	await query.message.edit_text("<b>Группа-диалог 🫂\n\n</b>Данная группа больше <b>не является</b> диалогом. Ты можешь с легкостью преобразовать эту или любую другую группу в диалог, воспользовавшись командой /this.")

@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 from asyncio import Task
+import asyncio
 
 import datetime
 from typing import Any, List, Optional, Tuple
@@ -17,7 +18,7 @@ from vkbottle_types.responses.account import AccountUserSettings
 import Exceptions
 from DB import getDefaultCollection
 from ServiceMAPIs.Base import DialogueGroup
-from ServiceMAPIs.VK import VKTelehooperAPI
+from ServiceMAPIs.VK import VKDialogue, VKTelehooperAPI
 from TelegramBotHandlers.commands import MD
 
 class Telehooper:
@@ -254,6 +255,8 @@ class Telehooper:
 
 		# return None
 
+		pass
+
 	def importHandlers(self, handlers, bot: Telehooper | Minibot, mainBot: Optional[Telehooper] = None, is_multibot: bool = False) -> None:
 		"""
 		Загружает (импортирует?) все Handler'ы в бота.
@@ -290,6 +293,120 @@ class Telehooper:
 			await update.bot.send_message(update.message.chat.id, f"<b>Что-то пошло не так 😕\n\n</b>У бота произошла внутренняя ошибка:\n<code>{exception}\n</code>\n\nℹ️ Попробуй позже. Если ошибка повторяется, сделай баг репорт в <a href=\"https://github.com/Zensonaton/Telehooper/issues\">Issue</a> проекта.")
 
 		return True
+
+	async def send_message(self, user: TelehooperUser, text: str | None, chat_id: int | None = None, attachments: list | None = [], reply_to: int | None = None, allow_sending_temp_messages: bool = True, return_only_first_element: bool = True):
+		"""
+		Отправляет сообщение в Telegram.
+		"""
+
+		def _return(variable):
+			"""
+			Возвращает первый элемент, если это массив, и `return_only_first_element` - True.
+			"""
+
+			if return_only_first_element and isinstance(variable, list):
+				return variable[0]
+			else:
+				return variable
+
+		# Фиксы:
+		if attachments is None:
+			attachments = []
+
+		if text is None:
+			text = ""
+
+		if chat_id is None:
+			chat_id = user.TGUser.id
+
+		reply_to = reply_to if reply_to is None else int(reply_to)
+
+		# Проверяем, есть ли у нас вложения, которые стоит отправить:
+		if len(attachments) > 0:
+			tempMediaGroup = aiogram.types.MediaGroup()
+			loadingCaption = "<i>Весь контент появится здесь после загрузки, подожди...</i>\n\n" + text
+
+			# Если мы можем отправить временные сообщения, то отправляем их:
+			if allow_sending_temp_messages and len(attachments) > 1:
+
+				fileID: str | None = None
+				tempMessages: List[aiogram.types.Message] = []
+				DB = getDefaultCollection()
+
+				# Пытаемся достать fileID временной фотки из ДБ:
+				res = DB.find_one({"_id": "_global"})
+				if res:
+					fileID = res["TempDownloadImageFileID"]
+
+				# Добавляем временные вложения:
+				for index in range(len(attachments)):
+
+					# Проверяем, есть ли у нас в ДБ идентификатор для временного файла. Если да,
+					# то добавляем caption только на первом элементе, в ином случае Telegram
+					# не покажет нам текст сообщения.
+					#
+					# Как бы я не хвалил Telegram, технические решения здесь отвратительны.
+					if fileID:
+						tempMediaGroup.attach(aiogram.types.InputMediaPhoto(fileID, loadingCaption if index == 0 else None))
+					else:
+						tempMediaGroup.attach(aiogram.types.InputMediaPhoto(aiogram.types.InputFile("downloadImage.png"), loadingCaption if index == 0 else None))
+
+				# Отправляем файлы с временными сообщениями, которые мы заменим реальными вложениями.
+				tempMessages = await self.TGBot.send_media_group(chat_id, tempMediaGroup, reply_to_message_id=reply_to)
+
+				# Если же у нас таковой нет, то мы сохраняем ID временной фотки в ДБ:
+				if not fileID:
+					DB.update_one({"_id": "_global"}, {
+						"$set": {
+							"TempDownloadImageFileID": tempMessages[0].photo[-1].file_id
+						}
+					})
+
+				# Теперь нам стоит отредачить сообщение с новыми вложениями.
+				# Я специально редактирую всё с конца, что бы не трогать лишний раз caption
+				# самого первого сообщения.
+				for index, attachment in reversed(list(enumerate(attachments))):
+					# await self.startChatActionStateIn(chat_id, "upload_photo")
+
+					# Загружаем файл, если он не был загружен:
+					if not attachment.ready:
+						await attachment.parse()
+
+					# Заменяем старый временный файл на новый:
+					await tempMessages[index].edit_media(
+						aiogram.types.InputMedia(
+							media=attachment.aiofile, caption=text if index == 0 else None
+						)
+					)
+
+					# Каждый запрос спим, что бы не превысить лимит:
+					await asyncio.sleep(1)
+
+				return _return(tempMessages)
+			else:
+				# Если мы не можем отправить временные сообщения, то добавляем их по одному в MediaGroup:
+
+				for index, attachment in enumerate(attachments):
+					if not attachment.ready:
+						await attachment.parse()
+
+					MEDIA_TYPES = ["photo", "video", "document", "animation"]
+
+					if attachment.type in MEDIA_TYPES:
+						tempMediaGroup.attach(aiogram.types.InputMedia(media=attachment.aiofile, caption=text if index == 0 else None))
+					elif attachment.type == "voice":
+						return _return(await self.TGBot.send_voice(chat_id, attachment.aiofile, reply_to_message_id=reply_to))
+
+
+
+				# И после добавления в MediaGroup, отправляем сообщение:
+				# await self.startChatActionStateIn(chat_id, "upload_photo")
+
+				return _return(await self.TGBot.send_media_group(chat_id, tempMediaGroup, reply_to_message_id=reply_to))
+
+		# У нас нет никакой группы вложений, поэтому мы просто отправим сообщение:
+		return _return(await self.TGBot.send_message(chat_id, text, reply_to_message_id=reply_to))
+
 
 
 	def __str__(self) -> str:
@@ -421,6 +538,7 @@ class TelehooperAPIStorage:
 		accountInfo: AccountUserSettings | None = None
 		fullUserInfo: Any | None = None # FIXME: Удалить это поле?
 		pollingTask: Task | None = None
+		dialogues: List[VKDialogue] | None = None
 
 	vk: VKAPIStorage
 
