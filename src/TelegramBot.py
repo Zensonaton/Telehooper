@@ -412,7 +412,7 @@ class Telehooper:
 			},
 
 			{
-				
+
 			}
 		)
 
@@ -514,6 +514,7 @@ class TelehooperUser:
 
 			# Подключаем ВК:
 			# await self.connectVKAccount(res["Services"]["VK"]["Token"], res["Services"]["VK"]["IsAuthViaPassword"])
+			# TODO?
 			pass
 
 	async def getDialogueGroupByTelegramGroup(self, telegram_group: aiogram.types.Chat | int) -> DialogueGroup | None:
@@ -543,10 +544,10 @@ class TelehooperAPIStorage:
 		Класс для хранения важной для VK API информации.
 		"""
 
-		accountInfo: AccountUserSettings | None = None
-		fullUserInfo: Any | None = None # FIXME: Удалить это поле?
-		pollingTask: Task | None = None
-		dialogues: List[VKDialogue] | None = None
+		accountInfo: AccountUserSettings
+		fullUserInfo: Any # FIXME: Удалить это поле?
+		pollingTask: Task
+		dialogues: List[VKDialogue] = []
 
 	vk: VKAPIStorage
 

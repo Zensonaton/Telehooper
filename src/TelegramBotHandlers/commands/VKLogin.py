@@ -14,7 +14,7 @@ import vkbottle
 from aiogram import Bot, Dispatcher
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.types import Message as MessageType
-from Consts import CommandThrottleNames as CThrottle
+from Consts import AccountDisconnectType, CommandThrottleNames as CThrottle
 from Consts import InlineButtonCallbacks as CButtons
 from loguru import logger
 
@@ -87,8 +87,7 @@ async def VKLogin(msg: MessageType) -> None:
 		)
 
 		# Подключаем страницу ВК:
-		vkAccount = await TelehooperBot.vkAPI.connect(user, vkToken, True, True)
-
+		await TelehooperBot.vkAPI.connect(user, vkToken, True, True)
 	except:
 		# Что-то пошло не так, и мы не сумели авторизоваться.
 
@@ -101,7 +100,7 @@ async def VKLogin(msg: MessageType) -> None:
 		# Всё ок, мы успешно авторизовались!
 		# Отправляем сообщения о успешной авторизации пользователю.
 
-		await successConnectionMessage(msg, vkAccount)
+		await successConnectionMessage(msg, user)
 
 async def VKTokenMessageHandler(msg: MessageType):
 	await DP.throttle(CThrottle.VK_LOGIN_VKID, rate=1, chat_id=msg.chat.id)
@@ -121,8 +120,11 @@ async def VKTokenMessageHandler(msg: MessageType):
 	)
 
 	# Мы не можем позволить пользователю подключить сразу 2 страницы ВКонтакте:
-	# if user.isVKConnected:
-	# 	await user.vkMAPI.disconnectService(AccountDisconnectType.SILENT, True)
+	if user.isVKConnected:
+		TelehooperBot.vkAPI = cast(VKTelehooperAPI, TelehooperBot.vkAPI)
+		await TelehooperBot.vkAPI.disconnect(user, AccountDisconnectType.SILENT)
+
+		return
 
 	# Подключаем аккаунт к боту:
 	vkAccount = await TelehooperBot.vkAPI.connect(user, vkToken, False, True) # type: ignore
@@ -135,6 +137,7 @@ async def successConnectionMessage(msg: MessageType, user: "TelehooperUser") -> 
 	Отправляет сообщение в Telegram о успешном подключении аккаунта ВКонтакте.
 	"""
 
+	user.APIstorage.vk = cast("TelehooperAPIStorage.VKAPIStorage", user.APIstorage.vk)
 	user.APIstorage.vk = cast("TelehooperAPIStorage.VKAPIStorage", user.APIstorage.vk)
 	return await msg.answer(f"<b>Подключение аккаунта 🔗\n\n</b>С радостью заявляю, что я сумел успешно подключиться к твоему аккаунту <b>ВКонтакте</b>!\nРад тебя видеть, <b>{user.APIstorage.vk.accountInfo.first_name} {user.APIstorage.vk.accountInfo.last_name}</b>! 🙃👍\n\nТеперь, после подключения страницы ВКонтакте тебе нужно создать отдельную группу под каждый нужный тебе диалог ВКонтакте. Подробный гайд есть в команде /help.\nУправлять подключённой страницей ты можешь используя команду /self.")
 
