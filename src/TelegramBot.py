@@ -544,9 +544,9 @@ class TelehooperAPIStorage:
 		Класс для хранения важной для VK API информации.
 		"""
 
-		accountInfo: AccountUserSettings
-		fullUserInfo: Any # FIXME: Удалить это поле?
-		pollingTask: Task
+		accountInfo: AccountUserSettings = None # type: ignore
+		fullUserInfo: Any = None # type: ignore # FIXME: Удалить это поле?
+		pollingTask: Task = None # type: ignore
 		dialogues: List[VKDialogue] = []
 
 	vk: VKAPIStorage

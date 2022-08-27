@@ -91,6 +91,46 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 
 		user.isVKConnected = False
 
+		if reason not in [AccountDisconnectType.ERRORED, AccountDisconnectType.SILENT]:
+			# Мы должны отправить сообщения в самом сервисе о отключении:
+			self.telehooper_bot.vkAPI = cast(VKTelehooperAPI, self.telehooper_bot.vkAPI)
+
+			await self.telehooper_bot.vkAPI.sendMessage(
+				user,
+				message="ℹ️ Ваш аккаунт ВКонтакте был успешно отключён от бота «Telehooper».\n\nНадеюсь, что ты в скором времени вернёшься 🥺"
+			)
+
+			await self.telehooper_bot.sendMessage(
+				user,
+				(
+					"<b>Аккаунт был отключён от Telehooper</b> ⚠️\n\nАккаунт <b>«ВКонтакте»</b> был отключён от бота. Действие было произведено <b>внешне</b>, например, путём отзыва всех сессий в <b>настройках безопасности аккаунта</b>."
+					if (reason == AccountDisconnectType.EXTERNAL) else
+					"<b>Аккаунт был отключён от Telehooper</b> ℹ️\n\nАккаунт <b>«ВКонтакте»</b> был успешно отключён от бота. Очень жаль, что так вышло."
+				)
+			)
+
+		# Получаем ДБ:
+		DB = getDefaultCollection()
+
+		# И удаляем запись оттуда:
+		DB.update_one(
+			{
+				"_id": user.TGUser.id
+			},
+
+			{"$set": {
+				"Services.VK.Auth": False,
+				"Services.VK.Token": None,
+				"Services.VK.IsAuthViaPassword": None,
+				"Services.VK.AuthDate": None,
+				"Services.VK.ID": None,
+				"Services.VK.DownloadImage": None,
+				"Services.VK.ServiceToTelegramMIDs": []
+			}},
+			
+			upsert=True
+		)
+
 		await self.onDisconnect(user)
 
 	async def runPolling(self, user: "TelehooperUser") -> Task:
@@ -494,22 +534,26 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 
 		await user.vkAPI.messages.set_activity(int(chat_id), action)
 
-	async def sendMessage(self, user: "TelehooperUser", message: str, chat_id: int, msg_id_to_reply: int | None = None, attachmentsFile: Utils.File | List[Utils.File] | None = None, silent: bool = False, allow_creating_temp_message: bool = True, start_chat_activities: bool = True):
+	async def sendMessage(self, user: "TelehooperUser", message: str, chat_id: int | None = None, msg_id_to_reply: int | None = None, attachmentsFile: Utils.File | List[Utils.File] | None = None, silent: bool = False, allow_creating_temp_message: bool = True, start_chat_activities: bool = True):
 		await super().sendMessage(user)
 
-		async def _chatAction(action: Literal["audiomessage", "file", "photo", "typing", "video"] = "typing"):
+		async def _chatAction(chat_id: int, action: Literal["audiomessage", "file", "photo", "typing", "video"] = "typing"):
 			"""
 			Выполняет действие в чати по типу печати.
 			"""
 
-			if start_chat_activities:
-				await self.startDialogueActivity(user, chat_id, action)
+			if not start_chat_activities:
+				return
+
+			await self.startDialogueActivity(user, chat_id, action)
 
 		attachmentStr: List[str] = []
 
-		# Небольшой багфикс:
 		if message is None:
 			message = ""
+
+		if chat_id is None:
+			chat_id = user.APIstorage.vk.accountInfo.id
 
 		tempMessageID: None | int = None
 		if attachmentsFile:
@@ -543,13 +587,13 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 				uploadedAttachment: str
 				uploadRes: str | None = None
 				if file.type == "photo":
-					await _chatAction("photo")
+					await _chatAction(chat_id, "photo")
 					uploadRes = await vkbottle.PhotoMessageUploader(user.vkAPI).upload(file.bytes) # type: ignore
 				elif file.type == "voice":
-					await _chatAction("audiomessage")
+					await _chatAction(chat_id, "audiomessage")
 					uploadRes = await vkbottle.VoiceMessageUploader(user.vkAPI).upload(title="voice message title?", file_source=file.bytes) # type: ignore
 				elif file.type == "sticker":
-					await _chatAction("photo")
+					await _chatAction(chat_id, "photo")
 					
 					# Следующий код необходим для обхода запрета ВК для отправки графити:
 					# https://vk.com/wall-1_395554
@@ -612,7 +656,7 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 					await asyncio.sleep(0.5)
 		else:
 			# У нас нет никаких вложений:
-			await _chatAction("typing")
+			await _chatAction(chat_id, "typing")
 
 		# Если у нас было создано временное сообщение с изображениями, то мы должны
 		# его отредактировать, что бы вставить загруженные файлы.
