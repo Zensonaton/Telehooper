@@ -65,6 +65,9 @@ async def onBotStart(dp: aiogram.Dispatcher) -> None:
 					"TempDownloadImageFileID": None,
 					"ServiceDialogues": {
 						"VK": []
+					},
+					"ResourceCache": {
+						"VK": []
 					}
 				}
 			},

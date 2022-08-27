@@ -400,6 +400,22 @@ class Telehooper:
 	async def startDialogueActivity(self, chat_id: int, activity_type: Literal["typing", "upload_photo", "record_video", "upload_video", "record_voice", "upload_voice", "upload_document", "choose_sticker", "find_location", "record_video_note", "upload_video_note"] = "typing"):
 		await self.TGBot.send_chat_action(chat_id, action=activity_type)
 
+	async def saveCachedResource(self, service_name: str, resource_input: str, resource_output: str):
+		"""
+		Сохраняет ресурс в кэш. Это необходимо для кэширования, к примеру, стикеров.
+		"""
+
+		DB = getDefaultCollection()
+
+		DB.update_one({
+				"_id": "_global"
+			},
+
+			{
+				
+			}
+		)
+
 
 	def __str__(self) -> str:
 		return f"<TelehooperBot id{self.TGBot.id}>"
@@ -537,3 +553,14 @@ class TelehooperAPIStorage:
 	def __init__(self) -> None:
 		self.vk = self.VKAPIStorage()
 
+class CachedResource:
+	"""
+	Класс, отображающий кэшированный ресурс.
+	"""
+
+	input: str
+	output: str
+
+	def __init__(self, input: str, output: str) -> None:
+		self.input = input
+		self.output = output
