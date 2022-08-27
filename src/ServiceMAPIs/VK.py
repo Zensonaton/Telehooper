@@ -490,7 +490,7 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 
 		await user.vkAPI.messages.set_activity(int(chat_id), action)
 
-	async def sendMessage(self, user: "TelehooperUser", message: str, chat_id: int, msg_id_to_reply: int | None = None, attachmentsFile: Utils.File | List[Utils.File] | None = None, allow_creating_temp_message: bool = True, start_chat_activities: bool = True):
+	async def sendMessage(self, user: "TelehooperUser", message: str, chat_id: int, msg_id_to_reply: int | None = None, attachmentsFile: Utils.File | List[Utils.File] | None = None, silent: bool = False, allow_creating_temp_message: bool = True, start_chat_activities: bool = True):
 		await super().sendMessage(user)
 
 		async def _chatAction(action: Literal["audiomessage", "file", "photo", "typing", "video"] = "typing"):
@@ -586,7 +586,8 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 				random_id=Utils.generateVKRandomID(), 
 				message=message, 
 				reply_to=msg_id_to_reply, 
-				attachment=",".join(attachmentStr)
+				attachment=",".join(attachmentStr),
+				silent=silent
 			)
 
 	async def editMessage(self, user: "TelehooperUser", message: str, chat_id: int, message_id: int):
