@@ -2,14 +2,16 @@
 
 """Обработчик для команды `Self`."""
 
+from typing import cast
 from aiogram import Bot, Dispatcher
 from aiogram.types import (CallbackQuery, InlineKeyboardButton,
                            InlineKeyboardMarkup)
 from aiogram.types import Message as MessageType
-from Consts import VK_OAUTH_URL
+from Consts import VK_OAUTH_URL, AccountDisconnectType
 from Consts import CommandThrottleNames as CThrottle
 from Consts import InlineButtonCallbacks as CButtons
 from Exceptions import CommandAllowedOnlyInPrivateChats
+from ServiceMAPIs.VK import VKTelehooperAPI
 from TelegramBot import Telehooper
 from loguru import logger
 
@@ -78,8 +80,8 @@ async def MeCallbackHandler(query: CallbackQuery):
 		if not user.isVKConnected:
 			await query.answer("Что-то пошло не так.")
 		else:
-			# await user.vkMAPI.disconnectService(AccountDisconnectType.INITIATED_BY_USER, True)
-			pass
+			TelehooperBot.vkAPI = cast(VKTelehooperAPI, TelehooperBot.vkAPI)
+			await TelehooperBot.vkAPI.disconnect(user, AccountDisconnectType.INITIATED_BY_USER)
 	elif query.data == CButtons.CommandCallers.ME:
 		await MeMessage(query.message, True, query.from_user.id)
 	elif query.data == CButtons.CommandMenus.VK_LOGIN_VKID:
