@@ -21,10 +21,12 @@ from ServiceMAPIs.VK import VKTelehooperAPI
 from Consts import AccountDisconnectType
 
 # Логирование.
+IS_DEBUG = False
+
 os.makedirs("Logs", exist_ok=True)
 logger.remove()
-logger.add("Logs/TGBot.log", catch=True)
-logger.add(sys.stdout, colorize=True, backtrace=True, diagnose=True, catch=True)
+logger.add("Logs/TGBot.log", catch=True, level="DEBUG" if IS_DEBUG else "INFO")
+logger.add(sys.stdout, colorize=True, backtrace=IS_DEBUG, diagnose=IS_DEBUG, catch=True, level="DEBUG" if IS_DEBUG else "INFO")
 
 # Загружаем .env файл.
 dotenv.load_dotenv()
