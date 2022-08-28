@@ -86,7 +86,6 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 	async def disconnect(self, user: "TelehooperUser", reason: int = AccountDisconnectType.INITIATED_BY_USER):
 		await super().disconnect(user)
 
-		print("Должен был произойти дисконнект юзера, юху!")
 		self.stopPolling(user)
 
 		user.isVKConnected = False
