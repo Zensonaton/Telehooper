@@ -1,23 +1,22 @@
 # coding: utf-8
 
-# TODO: Удалить этот Handler.
+"""Обработчик для команды `MD`."""
 
-"""Обработчик для команды `Debug`."""
-
-import logging
+from typing import TYPE_CHECKING
 
 from aiogram import Bot, Dispatcher
 from aiogram.types import Message as MessageType
-from TelegramBot import Telehooper
+from loguru import logger
 
-TelehooperBot: 	Telehooper 	= None # type: ignore
-TGBot: 			Bot 		= None # type: ignore
-DP: 			Dispatcher 	= None # type: ignore
+if TYPE_CHECKING:
+	from TelegramBot import Telehooper
 
-logger = logging.getLogger(__name__)
+TelehooperBot: 	"Telehooper" = None # type: ignore
+TGBot: 			Bot 		 = None # type: ignore
+DP: 			Dispatcher 	 = None # type: ignore
 
 
-def _setupCHandler(bot: Telehooper) -> None:
+def _setupCHandler(bot: "Telehooper") -> None:
 	"""
 	Инициализирует команду `Debug`.
 	"""
@@ -28,10 +27,10 @@ def _setupCHandler(bot: Telehooper) -> None:
 	TGBot = TelehooperBot.TGBot
 	DP = TelehooperBot.DP
 
-	DP.register_message_handler(Debug, commands=["debug"])
+	DP.register_message_handler(MD, commands=["md"])
 
 
-async def Debug(msg: MessageType) -> None:
+async def MD(msg: MessageType) -> None:
 	newline = "\n"
 	newlinestr = "\\n"
 

@@ -7,14 +7,19 @@ from __future__ import annotations
 import os
 
 from pymongo.mongo_client import MongoClient
+import urllib.parse 
 
 
-def getDatabase(host: str = "localhost", port: int = 27017) -> MongoClient:
+def getDatabase(host: str = "localhost", port: int = 27017, user: str | None = None, pwd: str | None = None, auth_source: str | None = None) -> MongoClient:
 	"""
 	Пытается подключиться к MongoDB-базе данных.
 	"""
 
-	return MongoClient(host, port)
+	connectionUri = f"mongodb://{host}:{port}"
+	if pwd and user and auth_source:
+		connectionUri = f"mongodb://{user}:{urllib.parse.quote(pwd, safe='')}@{host}:{port}/?authSource={auth_source}"
+
+	return MongoClient(connectionUri)
 
 def getCollection(database: MongoClient, database_name: str, collection: str):
 	"""
@@ -28,7 +33,13 @@ def getDefaultDatabase() -> MongoClient:
 	Пытается автоматически вытащить все данные из .env файла и подключиться к базе данных.
 	"""
 
-	return getDatabase(host=os.environ["MONGODB_HOST"], port=int(os.environ["MONGODB_PORT"]))
+	return getDatabase(
+		host=os.environ["MONGODB_HOST"],
+		port=int(os.environ["MONGODB_PORT"]),
+		user=os.environ["MONGODB_USER"],
+		pwd=os.environ["MONGODB_PWD"],
+		auth_source=os.environ["MONGODB_DBNAME"]
+	)
 
 def getDefaultCollection():
 	"""

@@ -2,29 +2,31 @@
 
 """Обработчик для команды `VKLogin`."""
 
-import logging
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, cast
 
 import Consts
-import MiddlewareAPI
+from ServiceMAPIs.VK import VKTelehooperAPI
+from TelegramBot import TelehooperAPIStorage
 import Utils
 import vkbottle
 from aiogram import Bot, Dispatcher
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.types import Message as MessageType
-from Consts import AccountDisconnectType
-from Consts import CommandThrottleNames as CThrottle
+from Consts import AccountDisconnectType, CommandThrottleNames as CThrottle
 from Consts import InlineButtonCallbacks as CButtons
-from ServiceMAPIs.VK import VKAccount
-from TelegramBot import Telehooper
+from loguru import logger
 
-TelehooperBot: 	Telehooper 	= None # type: ignore
+if TYPE_CHECKING:
+	from TelegramBot import Telehooper, TelehooperUser
+
+TelehooperBot: 	"Telehooper" 	= None # type: ignore
 TGBot: 			Bot 		= None # type: ignore
 DP: 			Dispatcher 	= None # type: ignore
 
-logger = logging.getLogger(__name__)
 
-
-def _setupCHandler(bot: Telehooper) -> None:
+def _setupCHandler(bot: "Telehooper") -> None:
 	"""
 	Инициализирует команду `VKLogin`.
 	"""
@@ -42,10 +44,10 @@ def _setupCHandler(bot: Telehooper) -> None:
 
 async def VKLogin(msg: MessageType) -> None:
 	await DP.throttle(CThrottle.VK_LOGIN, rate=1, chat_id=msg.chat.id)
+	TelehooperBot.vkAPI = cast("VKTelehooperAPI", TelehooperBot.vkAPI)
 
 	args = (msg.get_args() or "").split(" ")
 
-	# TODO: пасхалка
 	await msg.delete()
 
 	# Проверяем количество аргументов:
@@ -57,6 +59,7 @@ async def VKLogin(msg: MessageType) -> None:
 	# Забавная пасхалка:
 	if args == ["paveldurovv", "tgisbetter"]:
 		await msg.answer("<b>Что-то пошло не так 😅</b>\n\nТы не очень похож на Павла Дурова.")
+
 		return
 
 	# Получаем объект пользователя:
@@ -70,11 +73,8 @@ async def VKLogin(msg: MessageType) -> None:
 	)
 
 	# Мы не можем позволить пользователю подключить сразу 2 страницы ВКонтакте:
-	if user.isVKConnected:
-		await user.vkMAPI.disconnectService(AccountDisconnectType.SILENT, True)
-
-
-	vkAccount: MiddlewareAPI.VKAccount
+	# if user.isVKConnected:
+	# 	await user.vkMAPI.disconnectService(AccountDisconnectType.SILENT, True)
 
 	try:
 		# Авторизуемся в ВК через логин+пароль:
@@ -87,8 +87,7 @@ async def VKLogin(msg: MessageType) -> None:
 		)
 
 		# Подключаем страницу ВК:
-		vkAccount = await user.connectVKAccount(vkToken, True)
-
+		await TelehooperBot.vkAPI.connect(user, vkToken, True, True)
 	except:
 		# Что-то пошло не так, и мы не сумели авторизоваться.
 
@@ -99,10 +98,11 @@ async def VKLogin(msg: MessageType) -> None:
 		await msg.answer("<b>Что-то пошло не так 😕\n\n</b>Я не сумел авторизоваться в твой аккаунт ВКонтакте. Возможные причины:\n    <b>•</b> Пароль и/ли логин неверен. 🔐\n    <b>•</b> К твоей странице подключена неподдерживаемая ботом двухэтапная аутентификация (2FA). 🔑\n    <b>•</b> Бот столкнулся с проверкой CAPTCHA. 🤖🔫\n\nПопробуй снова! Если снова не выйдет, то воспользуйся авторизацией через VK ID, ведь с ней намного меньше проблем.\n\n\n⚙️ Попробуй авторизоваться снова используя команду /vklogin, либо же авторизуйся через VK ID:", reply_markup=keyboard)
 	else:
 		# Всё ок, мы успешно авторизовались!
+		# Отправляем сообщения о успешной авторизации пользователю.
 
-		await successConnectionMessage(msg, vkAccount)
+		await successConnectionMessage(msg, user)
 
-async def VKTokenMessageHandler(msg: MessageType) -> MessageType:
+async def VKTokenMessageHandler(msg: MessageType):
 	await DP.throttle(CThrottle.VK_LOGIN_VKID, rate=1, chat_id=msg.chat.id)
 
 	await msg.delete()
@@ -121,19 +121,29 @@ async def VKTokenMessageHandler(msg: MessageType) -> MessageType:
 
 	# Мы не можем позволить пользователю подключить сразу 2 страницы ВКонтакте:
 	if user.isVKConnected:
-		await user.vkMAPI.disconnectService(AccountDisconnectType.SILENT, True)
+		TelehooperBot.vkAPI = cast(VKTelehooperAPI, TelehooperBot.vkAPI)
+		await TelehooperBot.vkAPI.disconnect(user, AccountDisconnectType.SILENT)
+
+		return
 
 	# Подключаем аккаунт к боту:
-	vkAccount = await user.connectVKAccount(vkToken, False)
+	vkAccount = await TelehooperBot.vkAPI.connect(user, vkToken, False, True) # type: ignore
 
-	# Отправляем различные сообщения о успешном подключении аккаунта:
-	await vkAccount.postAuthInit()
+	# Отправляем сообщения о успехе в самом Telegram пользователю:
+	return await successConnectionMessage(msg, user)
 
-	# Отправляем сообщения о успехе в самом Telegram, пользователю:
-	return await successConnectionMessage(msg, vkAccount)
+async def successConnectionMessage(msg: MessageType, user: "TelehooperUser") -> MessageType:
+	"""
+	Отправляет сообщение в Telegram о успешном подключении аккаунта ВКонтакте.
+	"""
 
-async def successConnectionMessage(msg: MessageType, vkAccount: VKAccount) -> MessageType:
-	return await msg.answer(f"<b>Подключение аккаунта 🔗\n\n</b>С радостью заявляю, что я сумел успешно подключиться к твоему аккаунту <b>ВКонтакте</b>!\nРад тебя видеть, <b>{vkAccount.vkFullUser.first_name} {vkAccount.vkFullUser.last_name}</b>! 🙃👍\n\nТеперь, после подключения страницы ВКонтакте тебе нужно создать отдельную группу под каждый нужный тебе диалог ВКонтакте. Подробный гайд есть в команде /help.\nУправлять подключённой страницей ты можешь используя команду /self.")
+	user.APIstorage.vk = cast("TelehooperAPIStorage.VKAPIStorage", user.APIstorage.vk)
+	user.APIstorage.vk = cast("TelehooperAPIStorage.VKAPIStorage", user.APIstorage.vk)
+	return await msg.answer(f"<b>Подключение аккаунта 🔗\n\n</b>С радостью заявляю, что я сумел успешно подключиться к твоему аккаунту <b>ВКонтакте</b>!\nРад тебя видеть, <b>{user.APIstorage.vk.accountInfo.first_name} {user.APIstorage.vk.accountInfo.last_name}</b>! 🙃👍\n\nТеперь, после подключения страницы ВКонтакте тебе нужно создать отдельную группу под каждый нужный тебе диалог ВКонтакте. Подробный гайд есть в команде /help.\nУправлять подключённой страницей ты можешь используя команду /self.")
 
 async def VKTokenURLMessageHandler(msg: MessageType) -> MessageType:
+	"""
+	Отправляет сообщение в Telegram когда пользователь по-ошибке отправляет не тот URL.
+	"""
+
 	return await msg.answer("<b>Что-то пошло не так 😕\n\n</b>Ты мне отправил ссылку на страницу, на которой нужно пройти авторизацию ВКонтакте, и на странице <i>«не копируйте, вы можете потерять доступ к аккаунту ...»</i> скопировать текст с адресной строки браузера.\n<b>Попробуй снова!</b>")

@@ -74,7 +74,7 @@ def isURL(url: str) -> bool:
 _bytes = bytes
 class File:
 	"""
-	Класс, отображающий как файл.
+	Класс, являющийся файлом..
 	"""
 
 	url: str | None

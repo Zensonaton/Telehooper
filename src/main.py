@@ -6,32 +6,27 @@ from __future__ import annotations
 
 import asyncio
 import json
-import logging
-import logging.handlers
 import os
+import sys
 
 import aiogram
 import dotenv
+from loguru import logger
 
 import Consts
-import MiddlewareAPI
 import TelegramBot as TGBot
 import Utils
-from Consts import AccountDisconnectType
 from DB import getDefaultCollection
+from ServiceMAPIs.VK import VKTelehooperAPI
+from Consts import AccountDisconnectType
 
 # Логирование.
-logger = logging.getLogger(__name__)
+IS_DEBUG = False
+
 os.makedirs("Logs", exist_ok=True)
-logging.basicConfig(
-	level=logging.INFO,
-	format="[%(levelname)-8s %(asctime)s at %(funcName)s]: %(message)s",
-	datefmt="%d.%m.%Y %H:%M:%S",
-	handlers=[
-		logging.handlers.RotatingFileHandler("Logs/TGBot.log", maxBytes=10485760, backupCount=0),
-		logging.StreamHandler()
-	]
-)
+logger.remove()
+logger.add("Logs/TGBot.log", catch=True, level="DEBUG" if IS_DEBUG else "INFO")
+logger.add(sys.stdout, colorize=True, backtrace=IS_DEBUG, diagnose=IS_DEBUG, catch=True, level="DEBUG" if IS_DEBUG else "INFO")
 
 # Загружаем .env файл.
 dotenv.load_dotenv()
@@ -48,7 +43,9 @@ TELEGRAM_BOT_TOKEN = os.environ["TOKEN"]
 SKIP_UPDATES = Utils.parseStrAsBoolean(os.environ.get("SKIP_TELEGRAM_UPDATES", True))
 
 # Создаём Telegram-бота:
-HOOPER = TGBot.Telehooper(TELEGRAM_BOT_TOKEN)
+HOOPER = TGBot.Telehooper(
+	TELEGRAM_BOT_TOKEN
+)
 HOOPER.initTelegramBot()
 
 # Подключаемся к ДБ:
@@ -59,10 +56,7 @@ async def onBotStart(dp: aiogram.Dispatcher) -> None:
 	Функция, запускающаяся ПОСЛЕ запуска Telegram-бота.
 	"""
 
-	# TODO: Эта функция кажется некрасивой, стоит переписать её!
-
-	# Добавляем поля в ДБ:
-	DB = getDefaultCollection()
+	global DB, HOOPER
 
 	if DB.find_one({"_id": "_global"}) is None:
 		DB.update_one({
@@ -73,6 +67,9 @@ async def onBotStart(dp: aiogram.Dispatcher) -> None:
 					"TempDownloadImageFileID": None,
 					"ServiceDialogues": {
 						"VK": []
+					},
+					"ResourceCache": {
+						"VK": []
 					}
 				}
 			},
@@ -82,31 +79,36 @@ async def onBotStart(dp: aiogram.Dispatcher) -> None:
 	# Производим восстановление всех сессий:
 	logger.info("Бот запущен успешно! Пытаюсь авторизовать всех пользователей подключённых сервисов...")
 
+	# Подключаем сервисы как API:
+	HOOPER.vkAPI = VKTelehooperAPI(HOOPER)
+
 	# Извлекаем из ДБ список всех активных сессий ВК:
 	for doc in DB.find({"Services.VK.Auth": True}):
-		# TODO: Использовать asyncio.ensure_future(), что бы авторизация была быстрой.
-
 		if doc["Services"]["VK"]["Auth"]:
 			logger.debug(f"Обнаружен авторизованный в ВК пользователь с TID {doc['_id']}, авторизовываю...")
 
-			user: MiddlewareAPI.TelehooperUser = None # type: ignore
-
+			user: TGBot.TelehooperUser | None = None 
 			try:
 				# Авторизуемся, и после авторизации обязательно запускаем Polling для получения новых сообщений.
 
 				user = await HOOPER.getBotUser(int(doc["_id"]))
+				
+				await HOOPER.vkAPI.reconnect(user, doc["Services"]["VK"]["Token"])
 			except Exception as error:
-				logger.warning(f"Ошибка авторизации пользователя с TID {doc['_id']}: {error}")
+				# Что-то пошло не так, и мы не смогли восстановить сессию пользователя.
 
-				if user and user.vkMAPI:
-					await user.vkMAPI.disconnectService(AccountDisconnectType.ERRORED, False)
+				logger.error(f"Ошибка авторизации пользователя с TID {doc['_id']}: {error}")
 
+				if user and user:
+					await HOOPER.vkAPI.disconnect(user, AccountDisconnectType.ERRORED)
+
+				# TODO: Другое сообщение.
 				await HOOPER.TGBot.send_message(int(doc['_id']), "<b>Аккаунт был отключён от Telehooper</b> ⚠️\n\nПосле собственной перезагрузки, я не сумел переподключиться к аккаунту ВКонтакте. Если бот был отключён от ВКонтакте специально, например, путём отключения всех приложений/сессий в настройках безопасности, то волноваться незачем. В ином случае, ты можешь снова переподключить аккаунт, воспользовавшись командою /self.")
 
 	# Авторизуем всех остальных 'миниботов' для функции мультибота:
 	helperbots = os.environ.get("HELPER_BOTS", "[]")
 
-	logging.getLogger("aiogram.dispatcher.dispatcher").disabled = True
+	# logging.getLogger("aiogram.dispatcher.dispatcher").disabled = True
 	try:
 		helperbots = json.loads(helperbots)
 	except Exception as error:

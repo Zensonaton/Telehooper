@@ -2,17 +2,14 @@
 
 """Обработчик для команды `Help`."""
 
-import logging
-
 from aiogram import Bot, Dispatcher
 from aiogram.types import Message as MessageType
+from loguru import logger
 from TelegramBot import Telehooper
 
 TelehooperBot: 	Telehooper 	= None # type: ignore
 TGBot: 			Bot 		= None # type: ignore
 DP: 			Dispatcher 	= None # type: ignore
-
-logger = logging.getLogger(__name__)
 
 
 def _setupCHandler(bot: Telehooper) -> None:
