@@ -301,14 +301,14 @@ class Telehooper:
 			# Если мы можем отправить временные сообщения, то отправляем их:
 			if allow_sending_temp_messages and len(attachments) > 1:
 
-				fileID: str | None = None
+				tempImageFileID: str | None = None
 				tempMessages: List[aiogram.types.Message] = []
 				DB = getDefaultCollection()
 
 				# Пытаемся достать fileID временной фотки из ДБ:
 				res = DB.find_one({"_id": "_global"})
 				if res:
-					fileID = res["TempDownloadImageFileID"]
+					tempImageFileID = res["TempDownloadImageFileID"]
 
 				# Добавляем временные вложения:
 				for index in range(len(attachments)):
@@ -318,21 +318,30 @@ class Telehooper:
 					# не покажет нам текст сообщения.
 					#
 					# Как бы я не хвалил Telegram, технические решения здесь отвратительны.
-					if fileID:
-						tempMediaGroup.attach(aiogram.types.InputMediaPhoto(fileID, loadingCaption if index == 0 else None))
+					if tempImageFileID:
+						tempMediaGroup.attach(
+							aiogram.types.InputMediaPhoto(tempImageFileID, loadingCaption if index == 0 else None)
+						)
 					else:
-						tempMediaGroup.attach(aiogram.types.InputMediaPhoto(aiogram.types.InputFile("downloadImage.png"), loadingCaption if index == 0 else None))
+						tempMediaGroup.attach(
+							aiogram.types.InputMediaPhoto(
+								aiogram.types.InputFile("downloadImage.png"), 
+								loadingCaption if index == 0 else None
+							)
+						)
+
+						# Что бы не грузить одну временную фотку множество раз, делаем так:
+						tempImageFileID = tempMessages[0].photo[-1].file_id
+
+						# А так же, обязательно сохраняем fileID временной фотки в ДБ:
+						DB.update_one({"_id": "_global"}, {
+							"$set": {
+								"TempDownloadImageFileID": tempMessages[0].photo[-1].file_id
+							}
+						})
 
 				# Отправляем файлы с временными сообщениями, которые мы заменим реальными вложениями.
 				tempMessages = await self.TGBot.send_media_group(chat_id, tempMediaGroup, reply_to_message_id=reply_to)
-
-				# Если же у нас таковой нет, то мы сохраняем ID временной фотки в ДБ:
-				if not fileID:
-					DB.update_one({"_id": "_global"}, {
-						"$set": {
-							"TempDownloadImageFileID": tempMessages[0].photo[-1].file_id
-						}
-					})
 
 				# Спим, ибо flood control.
 				await asyncio.sleep(3)
