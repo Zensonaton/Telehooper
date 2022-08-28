@@ -13,7 +13,7 @@ from DB import getDefaultCollection
 
 if TYPE_CHECKING:
 	from TelegramBot import Telehooper, TelehooperUser
-	from ServiceMAPIs.VK import VKTelehooperAPI
+	from ServiceAPIs.VK import VKTelehooperAPI
 
 class DialogueGroup:
 	"""

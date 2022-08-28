@@ -17,8 +17,8 @@ from vkbottle_types.responses.account import AccountUserSettings
 
 import Exceptions
 from DB import getDefaultCollection
-from ServiceMAPIs.Base import DialogueGroup
-from ServiceMAPIs.VK import VKDialogue, VKTelehooperAPI
+from ServiceAPIs.Base import DialogueGroup
+from ServiceAPIs.VK import VKDialogue, VKTelehooperAPI
 from TelegramBotHandlers.commands import MD
 
 class Telehooper:

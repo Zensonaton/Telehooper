@@ -6,7 +6,7 @@ import asyncio
 import io
 from io import BytesIO
 from typing import TYPE_CHECKING, List, cast
-from ServiceMAPIs.VK import VKTelehooperAPI
+from ServiceAPIs.VK import VKTelehooperAPI
 
 import Utils
 from aiogram import Bot, Dispatcher

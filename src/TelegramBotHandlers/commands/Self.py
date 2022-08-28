@@ -11,7 +11,7 @@ from Consts import VK_OAUTH_URL, AccountDisconnectType
 from Consts import CommandThrottleNames as CThrottle
 from Consts import InlineButtonCallbacks as CButtons
 from Exceptions import CommandAllowedOnlyInPrivateChats
-from ServiceMAPIs.VK import VKTelehooperAPI
+from ServiceAPIs.VK import VKTelehooperAPI
 from TelegramBot import Telehooper
 from loguru import logger
 

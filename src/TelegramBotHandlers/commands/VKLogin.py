@@ -7,7 +7,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, cast
 
 import Consts
-from ServiceMAPIs.VK import VKTelehooperAPI
+from ServiceAPIs.VK import VKTelehooperAPI
 from TelegramBot import TelehooperAPIStorage
 import Utils
 import vkbottle
