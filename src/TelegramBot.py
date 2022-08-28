@@ -334,6 +334,9 @@ class Telehooper:
 						}
 					})
 
+				# Спим, ибо flood control.
+				await asyncio.sleep(3)
+
 				# Теперь нам стоит отредачить сообщение с новыми вложениями.
 				# Я специально редактирую всё с конца, что бы не трогать лишний раз caption
 				# самого первого сообщения.
@@ -347,12 +350,13 @@ class Telehooper:
 					# Заменяем старый временный файл на новый:
 					await tempMessages[index].edit_media(
 						aiogram.types.InputMedia(
-							media=attachment.aiofile, caption=text if index == 0 else None
+							media=attachment.aiofile, 
+							caption=text if index == 0 else None
 						)
 					)
 
 					# Каждый запрос спим, что бы не превысить лимит:
-					await asyncio.sleep(1)
+					await asyncio.sleep(1.5)
 
 				return _return(tempMessages)
 			else:
