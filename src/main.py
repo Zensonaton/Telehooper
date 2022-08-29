@@ -20,16 +20,16 @@ from DB import getDefaultCollection
 from ServiceAPIs.VK import VKTelehooperAPI
 from Consts import AccountDisconnectType
 
+# Загружаем .env файл.
+dotenv.load_dotenv()
+
 # Логирование.
-IS_DEBUG = False
+IS_DEBUG = Utils.parseStrAsBoolean(os.environ.get("DEBUG", "false"))
 
 os.makedirs("Logs", exist_ok=True)
 logger.remove()
 logger.add("Logs/TGBot.log", catch=True, level="DEBUG" if IS_DEBUG else "INFO")
 logger.add(sys.stdout, colorize=True, backtrace=IS_DEBUG, diagnose=IS_DEBUG, catch=True, level="DEBUG" if IS_DEBUG else "INFO")
-
-# Загружаем .env файл.
-dotenv.load_dotenv()
 
 # Проверяем на наличие всех необходимых env-переменных:
 for envVar in Consts.REQUIREDENVVARS:
