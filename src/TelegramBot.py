@@ -86,11 +86,11 @@ class Telehooper:
 		# Импортируем все Handler'ы как модули:
 		from TelegramBotHandlers import OtherCallbackQueryHandlers
 		from TelegramBotHandlers.commands import (Help, Self, Start, This,
-		                                          VKLogin, Debug)
+		                                          VKLogin, Debug, Settings)
 		from TelegramBotHandlers.events import GroupEvents, RegularMessageHandlers
 
 		# А теперь добавляем их в бота:
-		self.importHandlers([Start, VKLogin, GroupEvents, OtherCallbackQueryHandlers, This, Self, RegularMessageHandlers, MD, Help, Debug], self, is_multibot=False)
+		self.importHandlers([Start, VKLogin, GroupEvents, OtherCallbackQueryHandlers, This, Self, RegularMessageHandlers, MD, Help, Debug, Settings], self, is_multibot=False)
 
 		# Отдельно добавляю Error Handler:
 		self.DP.errors_handler()(self.global_error_handler)
