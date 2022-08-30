@@ -4,28 +4,26 @@
 
 from typing import TYPE_CHECKING
 
-from aiogram import Bot, Dispatcher
+from aiogram import Dispatcher
 from aiogram.types import Message as MessageType
 from loguru import logger
 
 if TYPE_CHECKING:
 	from TelegramBot import Telehooper
 
-TelehooperBot: 	"Telehooper" = None # type: ignore
-TGBot: 			Bot 		 = None # type: ignore
-DP: 			Dispatcher 	 = None # type: ignore
+TELEHOOPER:	"Telehooper" = None # type: ignore
+DP: 		Dispatcher   = None # type: ignore
 
 
-def _setupCHandler(bot: "Telehooper") -> None:
+def _setupHandler(bot: "Telehooper") -> None:
 	"""
-	Инициализирует команду `Debug`.
+	Инициализирует Handler.
 	"""
 
-	global TelehooperBot, TGBot, DP
+	global TELEHOOPER, DP
 
-	TelehooperBot = bot
-	TGBot = TelehooperBot.TGBot
-	DP = TelehooperBot.DP
+	TELEHOOPER = bot
+	DP = TELEHOOPER.DP
 
 	DP.register_message_handler(MD, commands=["md"])
 

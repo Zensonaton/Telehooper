@@ -15,21 +15,19 @@ from loguru import logger
 if TYPE_CHECKING:
 	from TelegramBot import Telehooper
 
-TelehooperBot: 	Telehooper 	= None # type: ignore
-TGBot: 			Bot 		= None # type: ignore
-DP: 			Dispatcher 	= None # type: ignore
+TELEHOOPER:	Telehooper = None # type: ignore
+DP: 		Dispatcher = None # type: ignore
 
 
-def _setupCHandler(bot: Telehooper) -> None:
+def _setupHandler(bot: Telehooper) -> None:
 	"""
 	Инициализирует Handler.
 	"""
 
-	global TelehooperBot, TGBot, DP
+	global TELEHOOPER, DP
 
-	TelehooperBot = bot
-	TGBot = TelehooperBot.TGBot
-	DP = TelehooperBot.DP
+	TELEHOOPER = bot
+	DP = TELEHOOPER.DP
 
 	DP.register_callback_query_handler(CancelDeleteCurMessageCallbackHandler, lambda query: query.data in [CButton.CancelAction.CANCEL_EDIT_MESSAGE, CButton.CancelAction.CANCEL_DELETE_MESSAGE, CButton.CancelAction.CANCEL_HIDE_BUTTONS])
 	DP.register_callback_query_handler(DoNothingCallback, lambda query: query.data == CButton.DO_NOTHING)

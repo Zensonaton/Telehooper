@@ -2,33 +2,36 @@
 
 """Обработчик для команды `GroupEvents`."""
 
+from typing import TYPE_CHECKING
+
 from aiogram import Bot, Dispatcher
 from aiogram.types import Message as MessageType
 from loguru import logger
 from TelegramBot import Telehooper
 
-TelehooperBot: 	Telehooper 	= None # type: ignore
-TGBot: 			Bot 		= None # type: ignore
-DP: 			Dispatcher 	= None # type: ignore
+if TYPE_CHECKING:
+	from TelegramBot import Telehooper
+
+TELEHOOPER:	Telehooper = None # type: ignore
+DP: 		Dispatcher = None # type: ignore
 
 
-def _setupCHandler(bot: Telehooper) -> None:
+def _setupHandler(bot: Telehooper) -> None:
 	"""
-	Инициализирует команду `GroupEvents`.
+	Инициализирует Handler.
 	"""
 
-	global TelehooperBot, TGBot, DP
+	global TELEHOOPER, DP
 
-	TelehooperBot = bot
-	TGBot = TelehooperBot.TGBot
-	DP = TelehooperBot.DP
+	TELEHOOPER = bot
+	DP = TELEHOOPER.DP
 
 	DP.register_chat_join_request_handler(GroupJoinHandler)
 	DP.register_message_handler(GroupJoinHandler, content_types=["new_chat_members", "group_chat_created", "supergroup_chat_created"])
 
 
 async def GroupJoinHandler(msg: MessageType) -> None:
-	bot_id = (await TGBot.get_me()).id
+	bot_id = (await TELEHOOPER.TGBot.get_me()).id
 
 	if ([i for i in msg.new_chat_members if i.id == bot_id]):
 		# Добавили текущего бота в беседу.

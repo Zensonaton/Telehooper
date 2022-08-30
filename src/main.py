@@ -16,9 +16,9 @@ from loguru import logger
 import Consts
 import TelegramBot as TGBot
 import Utils
+from Consts import AccountDisconnectType
 from DB import getDefaultCollection
 from ServiceAPIs.VK import VKTelehooperAPI
-from Consts import AccountDisconnectType
 
 # Загружаем .env файл.
 dotenv.load_dotenv()
@@ -46,7 +46,7 @@ DB = getDefaultCollection()
 SKIP_UPDATES = Utils.parseStrAsBoolean(os.environ.get("SKIP_TELEGRAM_UPDATES", True))
 
 # Создаём Telegram-бота:
-HOOPER = TGBot.Telehooper(
+TELEHOOPER = TGBot.Telehooper(
 	TELEGRAM_BOT_TOKEN
 )
 
@@ -55,7 +55,7 @@ async def onBotStart(dp: aiogram.Dispatcher) -> None:
 	Функция, запускающаяся ПОСЛЕ запуска Telegram-бота.
 	"""
 
-	global DB, HOOPER
+	global DB, TELEHOOPER
 
 	if DB.find_one({"_id": "_global"}) is None:
 		DB.update_one({
@@ -81,7 +81,7 @@ async def onBotStart(dp: aiogram.Dispatcher) -> None:
 	logger.info("Пытаюсь авторизовать всех пользователей подключённых сервисов...")
 
 	# Подключаем сервисы как API:
-	HOOPER.vkAPI = VKTelehooperAPI(HOOPER)
+	TELEHOOPER.vkAPI = VKTelehooperAPI(TELEHOOPER)
 
 	# Извлекаем из ДБ список всех активных сессий ВК:
 	for doc in DB.find({"Services.VK.Auth": True}):
@@ -92,19 +92,19 @@ async def onBotStart(dp: aiogram.Dispatcher) -> None:
 			try:
 				# Авторизуемся, и после авторизации обязательно запускаем Polling для получения новых сообщений.
 
-				user = await HOOPER.getBotUser(int(doc["_id"]))
+				user = await TELEHOOPER.getBotUser(int(doc["_id"]))
 				
-				await HOOPER.vkAPI.reconnect(user, doc["Services"]["VK"]["Token"])
+				await TELEHOOPER.vkAPI.reconnect(user, doc["Services"]["VK"]["Token"])
 			except Exception as error:
 				# Что-то пошло не так, и мы не смогли восстановить сессию пользователя.
 
 				logger.error(f"Ошибка авторизации пользователя с TID {doc['_id']}: {error}")
 
 				if user and user:
-					await HOOPER.vkAPI.disconnect(user, AccountDisconnectType.ERRORED)
+					await TELEHOOPER.vkAPI.disconnect(user, AccountDisconnectType.ERRORED)
 
 				# TODO: Другое сообщение.
-				await HOOPER.TGBot.send_message(int(doc['_id']), "<b>Аккаунт был отключён от Telehooper</b> ⚠️\n\nПосле собственной перезагрузки, я не сумел переподключиться к аккаунту ВКонтакте. Если бот был отключён от ВКонтакте специально, например, путём отключения всех приложений/сессий в настройках безопасности, то волноваться незачем. В ином случае, ты можешь снова переподключить аккаунт, воспользовавшись командою /self.")
+				await TELEHOOPER.TGBot.send_message(int(doc['_id']), "<b>Аккаунт был отключён от Telehooper</b> ⚠️\n\nПосле собственной перезагрузки, я не сумел переподключиться к аккаунту ВКонтакте. Если бот был отключён от ВКонтакте специально, например, путём отключения всех приложений/сессий в настройках безопасности, то волноваться незачем. В ином случае, ты можешь снова переподключить аккаунт, воспользовавшись командою /self.")
 
 	# Авторизуем всех остальных 'миниботов' для функции мультибота:
 	helperbots = os.environ.get("HELPER_BOTS", "[]")
@@ -119,7 +119,7 @@ async def onBotStart(dp: aiogram.Dispatcher) -> None:
 
 		for index, token in enumerate(helperbots):
 			try:
-				MINIBOT = TGBot.Minibot(HOOPER, token)
+				MINIBOT = TGBot.Minibot(TELEHOOPER, token)
 				MINIBOT.initTelegramBot()
 
 				loop.create_task(MINIBOT.DP.start_polling(), name=f"Multibot-{index+1}")
@@ -133,17 +133,17 @@ async def onBotStart(dp: aiogram.Dispatcher) -> None:
 if __name__ == "__main__":
 	# Проверяем древо настроек:
 	logger.info("Проверяем правильность древа настроек.")
-	HOOPER.settingsHandler.testIntegrity()
+	TELEHOOPER.settingsHandler.testIntegrity()
 
 	logger.info("Запускаю бота.")
-	HOOPER.initTelegramBot()
+	TELEHOOPER.initTelegramBot()
 
 	# Загружаем основного бота:
 	loop = asyncio.new_event_loop()
 	asyncio.set_event_loop(loop)
 
 	aiogram.utils.executor.start_polling(
-		dispatcher=HOOPER.DP,
+		dispatcher=TELEHOOPER.DP,
 		on_startup=onBotStart,
 		skip_updates=SKIP_UPDATES,
 		loop=loop,

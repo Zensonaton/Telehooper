@@ -7,7 +7,7 @@ import datetime
 import io
 import os
 from asyncio import Task
-from typing import TYPE_CHECKING, Any, List, Literal, cast, overload
+from typing import TYPE_CHECKING, Any, List, Literal, cast
 
 import aiogram
 import aiohttp
@@ -17,8 +17,7 @@ import vkbottle
 from Consts import AccountDisconnectType
 from DB import getDefaultCollection
 from loguru import logger
-from PIL import Image, ImageDraw, ImageFont
-from vkbottle.tools.dev.mini_types.base.message import BaseMessageMin
+from PIL import Image
 from vkbottle.user import Message
 from vkbottle_types.objects import MessagesGraffiti
 from vkbottle_types.responses.groups import GroupsGroupFull

@@ -3,10 +3,10 @@
 # Код для логики Telegram-бота.
 
 from __future__ import annotations
-from asyncio import Task
-import asyncio
 
+import asyncio
 import datetime
+from asyncio import Task
 from typing import Any, List, Literal, Optional, Tuple, cast
 
 import aiogram
@@ -14,14 +14,15 @@ import vkbottle
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from loguru import logger
 from vkbottle_types.responses.account import AccountUserSettings
-from Consts import SETTINGS
 
 import Exceptions
+from Consts import SETTINGS
 from DB import getDefaultCollection
 from ServiceAPIs.Base import DialogueGroup
 from ServiceAPIs.VK import VKDialogue, VKTelehooperAPI
 from Settings import SettingsHandler
 from TelegramBotHandlers.commands import MD
+
 
 class Telehooper:
 	"""
@@ -91,8 +92,8 @@ class Telehooper:
 
 		# Импортируем все Handler'ы как модули:
 		from TelegramBotHandlers import OtherCallbackQueryHandlers
-		from TelegramBotHandlers.commands import (Help, Self, Start, This,
-		                                          VKLogin, Debug, Settings)
+		from TelegramBotHandlers.commands import (Debug, Help, Self, Settings, Start,
+		                                          This, VKLogin)
 		from TelegramBotHandlers.events import GroupEvents, RegularMessageHandlers
 
 		# А теперь добавляем их в бота:
@@ -243,7 +244,7 @@ class Telehooper:
 		logger.debug(f"Было импортировано {len(handlers)} handler'ов, загружаю их...")
 
 		for index, messageHandler in enumerate(handlers):
-			messageHandler._setupCHandler(bot)
+			messageHandler._setupHandler(bot)
 
 			logger.debug(f"Инициализирован обработчик команды \"{handlers[index].__name__}\".")
 
@@ -413,7 +414,6 @@ class Telehooper:
 		if attachments is None:
 			attachments = []
 
-		# await self.TGBot.edit_message_text(f"{text}      <i>✏️ изменено...</i>", chat_id, message_id)
 		await self.TGBot.edit_message_text(f"{text}      <i>(ред.)</i>", chat_id, message_id)
 
 	async def startDialogueActivity(self, chat_id: int, activity_type: Literal["typing", "upload_photo", "record_video", "upload_video", "record_voice", "upload_voice", "upload_document", "choose_sticker", "find_location", "record_video_note", "upload_video_note"] = "typing"):
@@ -423,6 +423,8 @@ class Telehooper:
 		"""
 		Сохраняет ресурс в кэш. Это необходимо для кэширования, к примеру, стикеров.
 		"""
+
+		# TODO
 
 		DB = getDefaultCollection()
 
@@ -506,7 +508,7 @@ class TelehooperUser:
 	"""
 
 	TGUser: aiogram.types.User
-	bot: Telehooper
+	telehooperBot: Telehooper
 
 	vkAPI: vkbottle.API
 	vkUser: vkbottle.User
@@ -515,7 +517,7 @@ class TelehooperUser:
 
 	def __init__(self, bot: Telehooper, user: aiogram.types.User) -> None:
 		self.TGUser = user
-		self.bot = bot
+		self.telehooperBot = bot
 		self.isVKConnected = False
 		self.APIstorage = TelehooperAPIStorage()
 
@@ -524,20 +526,20 @@ class TelehooperUser:
 		Возвращает диалог-группу по ID группы Telegram, либо же `None`, если ничего не было найдено.
 		"""
 
-		return await self.bot.getDialogueGroupByTelegramGroup(telegram_group)
+		return await self.telehooperBot.getDialogueGroupByTelegramGroup(telegram_group)
 
 	async def getDialogueGroupByServiceDialogueID(self, service_dialogue_id: int) -> DialogueGroup | None:
 		"""
 		Возвращает диалог-группу по ID группы Telegram, либо же `None`, если ничего не было найдено.
 		"""
 
-		return await self.bot.getDialogueGroupByServiceDialogueID(service_dialogue_id)
+		return await self.telehooperBot.getDialogueGroupByServiceDialogueID(service_dialogue_id)
 
 	def getSetting(self, path: str) -> Any:
-		return self.bot.settingsHandler.getUserSetting(self, path)
+		return self.telehooperBot.settingsHandler.getUserSetting(self, path)
 
 	def setSetting(self, path: str, new_value: Any) -> Any:
-		return self.bot.settingsHandler.setUserSetting(self, path, new_value)
+		return self.telehooperBot.settingsHandler.setUserSetting(self, path, new_value)
 
 	def __str__(self) -> str:
 		return f"<TelehooperUser id:{self.TGUser.id}>"

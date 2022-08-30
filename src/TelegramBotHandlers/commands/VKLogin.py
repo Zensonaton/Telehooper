@@ -7,35 +7,34 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, cast
 
 import Consts
-from ServiceAPIs.VK import VKTelehooperAPI
-from TelegramBot import TelehooperAPIStorage
 import Utils
 import vkbottle
 from aiogram import Bot, Dispatcher
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.types import Message as MessageType
-from Consts import AccountDisconnectType, CommandThrottleNames as CThrottle
+from Consts import AccountDisconnectType
+from Consts import CommandThrottleNames as CThrottle
 from Consts import InlineButtonCallbacks as CButtons
 from loguru import logger
+from ServiceAPIs.VK import VKTelehooperAPI
+from TelegramBot import TelehooperAPIStorage
 
 if TYPE_CHECKING:
 	from TelegramBot import Telehooper, TelehooperUser
 
-TelehooperBot: 	"Telehooper" 	= None # type: ignore
-TGBot: 			Bot 		= None # type: ignore
-DP: 			Dispatcher 	= None # type: ignore
+TELEHOOPER:	Telehooper = None # type: ignore
+DP: 		Dispatcher = None # type: ignore
 
 
-def _setupCHandler(bot: "Telehooper") -> None:
+def _setupHandler(bot: Telehooper) -> None:
 	"""
-	Инициализирует команду `VKLogin`.
+	Инициализирует Handler.
 	"""
 
-	global TelehooperBot, TGBot, DP
+	global TELEHOOPER, DP
 
-	TelehooperBot = bot
-	TGBot = TelehooperBot.TGBot
-	DP = TelehooperBot.DP
+	TELEHOOPER = bot
+	DP = TELEHOOPER.DP
 
 	DP.register_message_handler(VKLogin, commands=["vklogin"])
 	DP.register_message_handler(VKTokenMessageHandler, lambda msg: msg.text.startswith("https://oauth.vk.com/blank.html#access_token="))
@@ -44,7 +43,7 @@ def _setupCHandler(bot: "Telehooper") -> None:
 
 async def VKLogin(msg: MessageType) -> None:
 	await DP.throttle(CThrottle.VK_LOGIN, rate=1, chat_id=msg.chat.id)
-	TelehooperBot.vkAPI = cast("VKTelehooperAPI", TelehooperBot.vkAPI)
+	TELEHOOPER.vkAPI = cast("VKTelehooperAPI", TELEHOOPER.vkAPI)
 
 	args = (msg.get_args() or "").split(" ")
 
@@ -63,7 +62,7 @@ async def VKLogin(msg: MessageType) -> None:
 		return
 
 	# Получаем объект пользователя:
-	user = await TelehooperBot.getBotUser(msg.from_user.id)
+	user = await TELEHOOPER.getBotUser(msg.from_user.id)
 
 	# Отправляем сообщения-статус:
 	await msg.answer(
@@ -87,7 +86,7 @@ async def VKLogin(msg: MessageType) -> None:
 		)
 
 		# Подключаем страницу ВК:
-		await TelehooperBot.vkAPI.connect(user, vkToken, True, True)
+		await TELEHOOPER.vkAPI.connect(user, vkToken, True, True)
 	except:
 		# Что-то пошло не так, и мы не сумели авторизоваться.
 
@@ -110,7 +109,7 @@ async def VKTokenMessageHandler(msg: MessageType):
 	vkToken = Utils.extractAccessTokenFromFullURL(msg.text)
 
 	# Получаем объект пользователя:
-	user = await TelehooperBot.getBotUser(msg.from_user.id)
+	user = await TELEHOOPER.getBotUser(msg.from_user.id)
 
 	# Отправляем сообщения-статус:
 	await msg.answer(
@@ -121,13 +120,13 @@ async def VKTokenMessageHandler(msg: MessageType):
 
 	# Мы не можем позволить пользователю подключить сразу 2 страницы ВКонтакте:
 	if user.isVKConnected:
-		TelehooperBot.vkAPI = cast(VKTelehooperAPI, TelehooperBot.vkAPI)
-		await TelehooperBot.vkAPI.disconnect(user, AccountDisconnectType.SILENT)
+		TELEHOOPER.vkAPI = cast(VKTelehooperAPI, TELEHOOPER.vkAPI)
+		await TELEHOOPER.vkAPI.disconnect(user, AccountDisconnectType.SILENT)
 
 		return
 
 	# Подключаем аккаунт к боту:
-	vkAccount = await TelehooperBot.vkAPI.connect(user, vkToken, False, True) # type: ignore
+	vkAccount = await TELEHOOPER.vkAPI.connect(user, vkToken, False, True) # type: ignore
 
 	# Отправляем сообщения о успехе в самом Telegram пользователю:
 	return await successConnectionMessage(msg, user)

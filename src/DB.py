@@ -5,9 +5,9 @@
 from __future__ import annotations
 
 import os
+import urllib.parse
 
 from pymongo.mongo_client import MongoClient
-import urllib.parse 
 
 
 def getDatabase(host: str = "localhost", port: int = 27017, user: str | None = None, pwd: str | None = None, auth_source: str | None = None) -> MongoClient:

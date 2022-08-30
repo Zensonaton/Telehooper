@@ -4,16 +4,14 @@
 Базовый объект API. Все сервисы должны импортировать значения из данного базового класса.
 """
 
-from typing import TYPE_CHECKING, Tuple, cast
+from typing import TYPE_CHECKING, Tuple
 
 import aiogram
-
 from Consts import MAPIServiceType
 from DB import getDefaultCollection
 
 if TYPE_CHECKING:
 	from TelegramBot import Telehooper, TelehooperUser
-	from ServiceAPIs.VK import VKTelehooperAPI
 
 class DialogueGroup:
 	"""

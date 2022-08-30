@@ -11,7 +11,7 @@ TelehooperBot: 	Telehooper 	= None # type: ignore
 TGBot: 			Bot 		= None # type: ignore
 DP: 			Dispatcher 	= None # type: ignore
 
-def _setupCHandler(bot: Telehooper) -> None:
+def _setupHandler(bot: Telehooper) -> None:
 	"""
 	Инициализирует команду `DMMessage`.
 	"""

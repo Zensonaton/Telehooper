@@ -2,8 +2,9 @@
 
 """Обработчик для команды `Self`."""
 
-from typing import cast
-from aiogram import Bot, Dispatcher
+from typing import TYPE_CHECKING, cast
+
+from aiogram import Dispatcher
 from aiogram.types import (CallbackQuery, InlineKeyboardButton,
                            InlineKeyboardMarkup)
 from aiogram.types import Message as MessageType
@@ -11,25 +12,23 @@ from Consts import VK_OAUTH_URL, AccountDisconnectType
 from Consts import CommandThrottleNames as CThrottle
 from Consts import InlineButtonCallbacks as CButtons
 from Exceptions import CommandAllowedOnlyInPrivateChats
+from loguru import logger
 from ServiceAPIs.VK import VKTelehooperAPI
 from TelegramBot import Telehooper
-from loguru import logger
 
-TelehooperBot: 	Telehooper 	= None # type: ignore
-TGBot: 			Bot 		= None # type: ignore
-DP: 			Dispatcher 	= None # type: ignore
+TELEHOOPER:	Telehooper = None # type: ignore
+DP: 		Dispatcher = None # type: ignore
 
 
-def _setupCHandler(bot: Telehooper) -> None:
+def _setupHandler(bot: Telehooper) -> None:
 	"""
-	Инициализирует команду `Self`.
+	Инициализирует Handler.
 	"""
 
-	global TelehooperBot, TGBot, DP
+	global TELEHOOPER, DP
 
-	TelehooperBot = bot
-	TGBot = TelehooperBot.TGBot
-	DP = TelehooperBot.DP
+	TELEHOOPER = bot
+	DP = TELEHOOPER.DP
 
 	DP.register_message_handler(Me, commands=["me", "self", "myself", "profile", "service", "services"])
 	DP.register_callback_query_handler(MeCallbackHandler, lambda query: query.data in [CButtons.CommandActions.DISCONNECT_SERVICE, CButtons.CommandMenus.VK_LOGIN_VKID, CButtons.CommandMenus.VK_LOGIN_PASSWORD, CButtons.CommandCallers.ME])
@@ -46,7 +45,7 @@ async def Me(msg: MessageType):
 
 async def MeMessage(msg: MessageType, edit_message_instead: bool = False, user_id: int | None = None):
 	# Получаем объект пользователя:
-	user = await TelehooperBot.getBotUser(user_id or msg.from_user.id)
+	user = await TELEHOOPER.getBotUser(user_id or msg.from_user.id)
 
 	# Если же у нас не подключён ВК, то показываем сообщения об этом:
 	if not user.isVKConnected:
@@ -74,14 +73,14 @@ async def MeMessage(msg: MessageType, edit_message_instead: bool = False, user_i
 
 async def MeCallbackHandler(query: CallbackQuery):
 	# Получаем объект пользователя:
-	user = await TelehooperBot.getBotUser(query.from_user.id)
+	user = await TELEHOOPER.getBotUser(query.from_user.id)
 
 	if query.data == CButtons.CommandActions.DISCONNECT_SERVICE:
 		if not user.isVKConnected:
 			await query.answer("Что-то пошло не так.")
 		else:
-			TelehooperBot.vkAPI = cast(VKTelehooperAPI, TelehooperBot.vkAPI)
-			await TelehooperBot.vkAPI.disconnect(user, AccountDisconnectType.INITIATED_BY_USER)
+			TELEHOOPER.vkAPI = cast(VKTelehooperAPI, TELEHOOPER.vkAPI)
+			await TELEHOOPER.vkAPI.disconnect(user, AccountDisconnectType.INITIATED_BY_USER)
 	elif query.data == CButtons.CommandCallers.ME:
 		await MeMessage(query.message, True, query.from_user.id)
 	elif query.data == CButtons.CommandMenus.VK_LOGIN_VKID:

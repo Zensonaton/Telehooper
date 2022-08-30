@@ -8,7 +8,7 @@ from typing import Tuple
 
 import aiogram
 import aiohttp
-from aiogram import Bot, Dispatcher
+from aiogram import Dispatcher
 from aiogram.types import (CallbackQuery, Chat, InlineKeyboardButton,
                            InlineKeyboardMarkup)
 from aiogram.types import Message as MessageType
@@ -18,23 +18,22 @@ from Consts import InlineButtonCallbacks as CButton
 from DB import getDefaultCollection
 from Exceptions import CommandAllowedOnlyInGroup
 from loguru import logger
-from TelegramBot import DialogueGroup, Telehooper, TelehooperUser
+from ServiceAPIs.Base import DialogueGroup
+from TelegramBot import Telehooper, TelehooperUser
 
-TelehooperBot: 	Telehooper 	= None # type: ignore
-TGBot: 			Bot 		= None # type: ignore
-DP: 			Dispatcher 	= None # type: ignore
+TELEHOOPER:	Telehooper = None # type: ignore
+DP: 		Dispatcher = None # type: ignore
 
 
-def _setupCHandler(bot: Telehooper) -> None:
+def _setupHandler(bot: Telehooper) -> None:
 	"""
-	Инициализирует команду `This`.
+	Инициализирует Handler.
 	"""
 
-	global TelehooperBot, TGBot, DP
+	global TELEHOOPER, DP
 
-	TelehooperBot = bot
-	TGBot = TelehooperBot.TGBot
-	DP = TelehooperBot.DP
+	TELEHOOPER = bot
+	DP = TELEHOOPER.DP
 
 	DP.register_message_handler(This, commands=["this", "thischat", "chat", "dialogue"])
 	DP.register_callback_query_handler(ThisCallbackHandler, lambda query: query.data == CButton.CommandCallers.THIS)
@@ -50,7 +49,7 @@ async def This(msg: MessageType):
 
 	await DP.throttle(CThrottle.THIS_DIALOGUE, rate=2, user_id=msg.from_user.id)
 
-	user = await TelehooperBot.getBotUser(msg.from_user.id)
+	user = await TELEHOOPER.getBotUser(msg.from_user.id)
 	dialogue = await user.getDialogueGroupByTelegramGroup(msg.chat.id)
 
 	# Если в диалоге:
@@ -169,10 +168,10 @@ async def CheckServiceDialogueConversionConditions(chat: Chat, user: User) -> Tu
 	NOT_CONNECTED_AS_DIALOGUE: bool = True # TODO: сделать проверку на наличие диалога в базе
 
 	# Получаем список админов в чате:
-	chat_admins = (await TGBot.get_chat_administrators(chat.id))
+	chat_admins = (await TELEHOOPER.TGBot.get_chat_administrators(chat.id))
 
 	USER_SENDER_IS_ADMIN = bool([i for i in chat_admins if i.user.id == user.id])
-	BOT_IS_ADMIN = bool([i for i in chat_admins if i.user.id == TGBot.id])
+	BOT_IS_ADMIN = bool([i for i in chat_admins if i.user.id == TELEHOOPER.TGBot.id])
 
 	return (
 		USER_SENDER_IS_ADMIN,
@@ -236,10 +235,10 @@ async def ConvertGroupToDialogueCallback(query: CallbackQuery) -> None:
 	dialogueListMessage = await query.message.answer(f"{_text}⏳ Пожалуйста, подожди, пока я загружаю список диалогов <b>ВКонтакте</b>...", disable_web_page_preview=True, reply_markup=keyboard)
 
 	# Грузим чаты ВК. Получаем объект пользователя:
-	user = await TelehooperBot.getBotUser(query.from_user.id)
+	user = await TELEHOOPER.getBotUser(query.from_user.id)
 
 	# Получаем список всех диалогов:
-	user_convos = await TelehooperBot.vkAPI.retrieveDialoguesList(user) # type: ignore
+	user_convos = await TELEHOOPER.vkAPI.retrieveDialoguesList(user) # type: ignore
 
 	# Для эмодзи перед названием диалога:
 	prefixEmojiDict = {
@@ -276,18 +275,18 @@ async def VKDialogueSelector(query: CallbackQuery) -> bool:
 	# TODO: Сделать проверку, вдруг такой чат уже был подключён к диалогу. Если да, то отключить предыдущий чат (сделать пустым).
 
 	# Получаем информацию:
-	user = await TelehooperBot.getBotUser(query.from_user.id)
+	user = await TELEHOOPER.getBotUser(query.from_user.id)
 
 	# Проверяем, не является ли группа диалогом:
 	if await user.getDialogueGroupByTelegramGroup(query.message.chat.id):
 		return await query.answer("Эта группа уже является диалогом.")
 
-	dialogue = TelehooperBot.vkAPI.getDialogueByID(user, VK_ID) # type: ignore
+	dialogue = TELEHOOPER.vkAPI.getDialogueByID(user, VK_ID) # type: ignore
 	if not dialogue:
 		return await query.answer("Произошла ошибка, выполни команду снова.")
 
 	# Добавляем диалог-группу в базу:
-	TelehooperBot.addDialogueGroup(
+	TELEHOOPER.addDialogueGroup(
 		DialogueGroup(query.message.chat, VK_ID)
 	)
 
