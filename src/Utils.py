@@ -103,6 +103,9 @@ def traverseDict(object: dict, *keys: str, default: Any = None):
 
 	value = object.copy()
 	for key in keys:
+		if not key:
+			break
+
 		if not isinstance(value, dict) or key not in value:
 			return default
 

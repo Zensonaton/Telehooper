@@ -1,8 +1,12 @@
 # coding: utf-8
 
-from typing import Any, List
+from typing import TYPE_CHECKING, Any, List, cast
 from loguru import logger
 import Utils
+from DB import getDefaultCollection
+
+if TYPE_CHECKING:
+	from TelegramBot import TelehooperUser
 
 REQUIRED_FILES_PROPERTIES = ["Name", "Default"]
 
@@ -38,6 +42,8 @@ class SettingsHandler:
 
 		stat_files = 0
 		stat_folders = 0
+
+		# TODO: Test DependsOn
 
 		files = Utils.getDictValuesByKeyPrefixes(object, "_")
 		for name, file in files.items():
@@ -83,7 +89,7 @@ class SettingsHandler:
 
 		return path.split(".")
 
-	def resolveListPath(self, *path: str) -> List[str] | None:
+	def resolveListPath(self, path: List[str]) -> List[str] | None:
 		"""
 		Парсит "путь" вида `["a", "b", "c", "d"]`, выдавая путь с префиксами: `["?a", "?b", "?c", "_d"]`. Если функция не находит какую-то часть пути, то результатом оказывается `None`.
 		"""
@@ -112,36 +118,36 @@ class SettingsHandler:
 
 		return resPath
 
-	def getFolders(self, *path: str, default: Any = {}) -> dict | None:
+	def getFolders(self, path: str, default: Any = {}) -> dict | None:
 		"""
-		Выдаёт `dict` со всеми "папками" по путю `*path`. У всех папок в переменной `SETTINGS` префикс - `?`.
+		Выдаёт `dict` со всеми "папками" по путю `path`. У всех папок в переменной `SETTINGS` префикс - `?`.
 		"""
 
 		return Utils.getDictValuesByKeyPrefixes(
-			Utils.traverseDict(self.settingsTree, *path, default=default), 
+			Utils.traverseDict(self.settingsTree, *(self.listPath(path)), default=default), 
 			"?"
 		)
 
-	def getFiles(self, *path: str, default: Any = {}) -> dict:
+	def getFiles(self, path: str, default: Any = {}) -> dict:
 		"""
-		Выдаёт `dict` со всеми "файлами" по путю `*path`. У всех файлов в переменной `SETTINGS` префикс - `_`.
+		Выдаёт `dict` со всеми "файлами" по путю `path`. У всех файлов в переменной `SETTINGS` префикс - `_`.
 		"""
 
 		return Utils.getDictValuesByKeyPrefixes(
-			Utils.traverseDict(self.settingsTree, *path, default=default), 
+			Utils.traverseDict(self.settingsTree, *(self.listPath(path)), default=default), 
 			"_"
 		)
 
-	def getByPath(self, *path: str, default: Any = {}) -> dict | None:
+	def getByPath(self, path: str, default: Any = {}) -> dict | None:
 		"""
 		Возвращает dict со всеми папками и файлами по данному пути. Если ничего не будет найдено, то вернёт `default`.
 		"""
 		
-		return Utils.traverseDict(self.settingsTree, *path, default=default)
+		return Utils.traverseDict(self.settingsTree, *(self.listPath(path)), default=default)
 
-	def renderByPath(self, *path: str, put_settings_folder_first: bool = True, move_selected_to_end: bool = True, markdown_monospace_space_characters: bool = True, insert_user_path: bool = True) -> str:
+	def renderByPath(self, path: List[str], put_settings_folder_first: bool = True, move_selected_to_end: bool = True, markdown_monospace_space_characters: bool = True, insert_user_path: bool = True) -> str:
 		"""
-		Возвращает строку с красиво оформленными файлами и папками по пути `*path`. Идея была взята у команды `tree`.
+		Возвращает строку с красиво оформленными файлами и папками по пути `path`. Идея была взята у команды `tree`.
 
 		В коде данной функции используется древняя, страшная магия, смотреть не рекомендуется.
 		"""
@@ -158,7 +164,7 @@ class SettingsHandler:
 			outStr += "<b>📂 Настройки</b>"
 
 			if insert_user_path:
-				outStr += "  —  <code>/setting " + '.'.join(self.convertResolvedPathToUserFriendly(*path)) + "</code>" 
+				outStr += "  —  <code>/setting " + '.'.join(self.convertResolvedPathToUserFriendly(path)) + "</code>" 
 
 		outStr += "\n"
 
@@ -172,7 +178,7 @@ class SettingsHandler:
 
 			return string
 
-		def _render(object: dict, pathIndex: int, *fullPath: str) -> str:
+		def _render(object: dict, pathIndex: int, fullPath: list[str]) -> str:
 			"""
 			Выполняет рендер специфичных частей.
 			"""
@@ -193,13 +199,14 @@ class SettingsHandler:
 				folderName = folder
 				folder = folders[folder]
 				friendlyName = folder["Name"]
+				isAvailable = True
 				folderCharacter = "📁 "
 
 				if pathIndex < len(fullPath) and fullPath[pathIndex] == folderName:
 					friendlyName = "<b>" + friendlyName + "</b>"
 					folderCharacter = "📂 "
 
-				outStr += _addMarkdownFormat(("    " * pathIndex) + (boxChar_URD if (index + 1) < foldersLen else boxChar_UR)) + folderCharacter + friendlyName + "\n"
+				outStr += _addMarkdownFormat(("    " * pathIndex) + (boxChar_URD if (index + 1) < foldersLen else boxChar_UR)) + ("" if isAvailable else "<s>") + folderCharacter + friendlyName + ("" if isAvailable else "</s>") + "\n"
 
 			
 			# Проходимся по всем файлам:
@@ -213,23 +220,24 @@ class SettingsHandler:
 			for index, file in enumerate(files):
 				fileName = file
 				file = files[file]
+				isAvailable = True
 				friendlyName = file["Name"]
 
 				if pathIndex < len(fullPath) and fullPath[pathIndex] == fileName:
 					friendlyName = "<b>" + friendlyName + "</b> ⬅️"
 
 
-				outStr += _addMarkdownFormat(("    " * pathIndex) + (boxChar_URD if (index + 1) < filesLen else boxChar_UR)) + "⚙️ " + friendlyName + "\n"
+				outStr += _addMarkdownFormat(("    " * pathIndex) + (boxChar_URD if (index + 1) < filesLen else boxChar_UR)) + ("" if isAvailable else "<s>") + "⚙️ " + friendlyName + ("" if isAvailable else "</s>") + "\n"
 
 
 			# Если у наш путь ещё не закончился, рекурсивно продолжаем:
 			if pathIndex < len(fullPath):
-				outStr += _render(object[fullPath[pathIndex]], pathIndex + 1, *fullPath)
+				outStr += _render(object[fullPath[pathIndex]], pathIndex + 1, fullPath)
 
 
 			return outStr
 
-		outStr += _render(self.settingsTree, 0, *path)
+		outStr += _render(self.settingsTree, 0, path)
 
 		# Удаляем лишний /n, если таковой имеется:
 		if outStr.endswith("\n"):
@@ -238,7 +246,44 @@ class SettingsHandler:
 
 		return outStr
 
-	def convertResolvedPathToUserFriendly(self, *resolved_path: str) -> List[str]:
+	def getDefaultSetting(self, path: str) -> Any | None:
+		"""
+		Выдаёт значение по умолчанию у настройки, либо `None`.
+		"""
+
+
+		if not path.startswith("?"):
+			res = self.resolveListPath(self.listPath(path))
+
+			if not res:
+				return None
+
+			path = ".".join(res)
+
+		res = self.getByPath(path, default={})
+
+		return cast(dict, res).get("Default", None)
+
+	def getUserSetting(self, user: "TelehooperUser", path: str) -> Any | None:
+		"""
+		Достаёт настройку у пользователя, или же `None`, если такой настройки нет.
+		"""
+
+		DB = getDefaultCollection()
+
+		res = DB.find_one({"_id": user.TGUser.id})
+
+		if not res:
+			return None
+
+		userSetting = res["Settings"].get(path, None)
+
+		if userSetting:
+			return userSetting
+
+		return self.getDefaultSetting(path)
+
+	def convertResolvedPathToUserFriendly(self, resolved_path: List[str]) -> List[str]:
 		"""
 		Превращает лист вида `["?a", "?b", "c?", "_d"]` в лист вида `["a", "b", "c", "d"]`
 		"""

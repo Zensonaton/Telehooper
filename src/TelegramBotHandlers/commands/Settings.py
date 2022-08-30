@@ -11,6 +11,7 @@ from Consts import InlineButtonCallbacks as CButtons
 from loguru import logger
 
 from Exceptions import CommandAllowedOnlyInPrivateChats
+from TelegramBot import TelehooperUser
 
 if TYPE_CHECKING:
 	from TelegramBot import Telehooper
@@ -40,7 +41,10 @@ async def Settings(msg: MessageType) -> None:
 
 	await SettingsMessage(msg)
 
-async def SettingsMessage(msg: MessageType, edit_message_instead: bool = False, force_path: str | None = None) -> None:
+async def SettingsMessage(msg: MessageType, edit_message_instead: bool = False, force_path: str | None = None, user: TelehooperUser | None = None) -> None:
+	if not user:
+		user = await TelehooperBot.getBotUser(msg.from_user.id)
+
 	args = msg.get_args()
 	if force_path:
 		args = force_path
@@ -52,12 +56,13 @@ async def SettingsMessage(msg: MessageType, edit_message_instead: bool = False, 
 
 	# Пытаемся пропарсить путь, данный пользователем:
 	path = []
+	pathStr = ""
 	if args:
 		if force_path:
 			path = TelehooperBot.settingsHandler.listPath(force_path)
 		else:
 			path = TelehooperBot.settingsHandler.resolveListPath(
-				*TelehooperBot.settingsHandler.listPath(args)
+				TelehooperBot.settingsHandler.listPath(args)
 			)
 
 		isGivenPathRight = bool(path)
@@ -66,8 +71,9 @@ async def SettingsMessage(msg: MessageType, edit_message_instead: bool = False, 
 		# Если да, то пытаемся достать объект, связанный с путём.
 		if isGivenPathRight:
 			path = cast(list[str], path)
+			pathStr = ".".join(path)
 
-			curObject = cast(dict, TelehooperBot.settingsHandler.getByPath(*path))
+			curObject = cast(dict, TelehooperBot.settingsHandler.getByPath(pathStr))
 			isAFile = curObject["IsAFile"]
 
 	# Сохраняем будущие тексты для отправки:
@@ -102,7 +108,7 @@ async def SettingsMessage(msg: MessageType, edit_message_instead: bool = False, 
 		)
 
 		# _text = f"<b>Настройки ⚙️</b>\n\nВ данный момент, ты изменяешь настройку <b>⚙️ {curObject['Name']}</b>. Посмотри ниже «диаграммы», там будет подробная информация о выбранной настройке.\nПуть у данной настройки: <code>/setting {'.'.join(TelehooperBot.settingsHandler.convertResolvedPathToUserFriendly(*path))}</code>\n\n{TelehooperBot.settingsHandler.renderByPath(*path)}\n\nℹ️ <b>{curObject['Name']}</b>:\n{curObject['Documentation']}\n\n\nТекущее значение настройки: ✅ Включено (да).\nУправлять значением данной настройки можно через кнопки ниже:"
-		_text = f"<b>Настройки ⚙️</b>\n\n{TelehooperBot.settingsHandler.renderByPath(*path)}\n\nℹ️ <b>{curObject['Name']}</b>:\n{curObject['Documentation']}\n\n\nТекущее значение настройки: ✅ Включено (да).\nУправлять значением данной настройки можно через кнопки ниже:"
+		_text = f"<b>Настройки ⚙️</b>\n\n{TelehooperBot.settingsHandler.renderByPath(path)}\n\nℹ️ <b>{curObject['Name']}</b>:\n{curObject['Documentation']}\n\n\nТекущее значение настройки: ✅ Включено (да).\nУправлять значением данной настройки можно через кнопки ниже:"
 	elif not isAFile:
 		# У нас дана папка, даём пользователю дальше прыгать по папкам:
 
@@ -129,7 +135,7 @@ async def SettingsMessage(msg: MessageType, edit_message_instead: bool = False, 
 		keyboard.row()
 
 		# Добавим все папки и файлы.
-		folders = cast(dict, TelehooperBot.settingsHandler.getFolders(*path))
+		folders = cast(dict, TelehooperBot.settingsHandler.getFolders(pathStr))
 		for index, folder in enumerate(folders):
 			folderName = folder
 			folder = folders[folder]
@@ -138,7 +144,7 @@ async def SettingsMessage(msg: MessageType, edit_message_instead: bool = False, 
 				InlineKeyboardButton("📁 " + folder["Name"], callback_data=CButtons.CommandActions.GOTO_SETTING + folder["FullPath"])
 			)
 
-		files = cast(dict, TelehooperBot.settingsHandler.getFiles(*path))
+		files = cast(dict, TelehooperBot.settingsHandler.getFiles(pathStr))
 		for index, file in enumerate(files):
 			fileName = file
 			file = files[file]
@@ -148,7 +154,7 @@ async def SettingsMessage(msg: MessageType, edit_message_instead: bool = False, 
 			)
 
 
-		_text = f"<b>Настройки ⚙️</b>\n\nДля навигации по этому меню используй <b>кнопки</b> под этим сообщением. Навигайся по разным <b>«разделам»</b> настроек, отмеченных эмодзи 📁, что бы найти <b>индивидуальные настройки</b>, отмеченные эмодзи ⚙️, расположенные внутри этих «разделов».\n\n{TelehooperBot.settingsHandler.renderByPath(*path)}"
+		_text = f"<b>Настройки ⚙️</b>\n\nДля навигации по этому меню используй <b>кнопки</b> под этим сообщением. Навигайся по разным <b>«разделам»</b> настроек, отмеченных эмодзи 📁, что бы найти <b>индивидуальные настройки</b>, отмеченные эмодзи ⚙️, расположенные внутри этих «разделов».\n\n{TelehooperBot.settingsHandler.renderByPath(path)}"
 	else:
 		logger.error(f"Невозможный кейс в /settings. args=\"{args}\"")
 		_text = "Если ты увидел это сообщение, то, пожалуйста, создай <a href=\"https://github.com/Zensonaton/Telehooper\">Issue на Github проекта</a>, поскольку это - баг :)"
@@ -159,8 +165,15 @@ async def SettingsMessage(msg: MessageType, edit_message_instead: bool = False, 
 	else:
 		await msg.answer(_text, reply_markup=keyboard)
 
+	print(TelehooperBot.settingsHandler.getUserSetting(user, "Visual.PinCharDistance"))
+
 async def SettingsCallbackHandler(query: CallbackQuery):
 	newPath = query.data.split(CButtons.CommandActions.GOTO_SETTING)[-1]
 
-	await SettingsMessage(query.message, True, newPath)
+	await SettingsMessage(
+		query.message, 
+		True, 
+		newPath,
+		await TelehooperBot.getBotUser(query.from_user.id)
+	)
 
