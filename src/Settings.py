@@ -173,7 +173,7 @@ class SettingsHandler:
 
 			# Проходимся по папкам.
 			foldersLen = len(folders)
-			for index, folder in enumerate(folders):
+			for index, folder in enumerate(folders, start=1):
 				folderName = folder
 				folder = folders[folder]
 				friendlyName = folder["Name"]
@@ -187,7 +187,7 @@ class SettingsHandler:
 					friendlyName = "<b>" + friendlyName + "</b>"
 					folderCharacter = "📂 "
 
-				outStr += _addMarkdownFormat(("    " * pathIndex) + (boxChar_URD if (index + 1) < foldersLen else boxChar_UR)) + ("" if isAvailable else "<s>") + folderCharacter + friendlyName + ("" if isAvailable else "</s>") + "\n"
+				outStr += _addMarkdownFormat(("    " * pathIndex) + (boxChar_URD if (index) < foldersLen else boxChar_UR)) + ("" if isAvailable else "<s>") + folderCharacter + friendlyName + ("" if isAvailable else "</s>") + "\n"
 
 			
 			# Проходимся по всем файлам:
@@ -198,7 +198,7 @@ class SettingsHandler:
 				files[fullPath[pathIndex]] = files.pop(fullPath[pathIndex])
 
 			filesLen = len(files)
-			for index, file in enumerate(files):
+			for index, file in enumerate(files, start=1):
 				fileName = file
 				file = files[file]
 				isAvailable = True
@@ -211,7 +211,7 @@ class SettingsHandler:
 					friendlyName = "<b>" + friendlyName + "</b> ⬅️"
 
 
-				outStr += _addMarkdownFormat(("    " * pathIndex) + (boxChar_URD if (index + 1) < filesLen else boxChar_UR)) + ("" if isAvailable else "<s>") + "⚙️ " + friendlyName + ("" if isAvailable else "</s>") + "\n"
+				outStr += _addMarkdownFormat(("    " * pathIndex) + (boxChar_URD if (index) < filesLen else boxChar_UR)) + ("" if isAvailable else "<s>") + "⚙️ " + friendlyName + ("" if isAvailable else "</s>") + "\n"
 
 
 			# Если у наш путь ещё не закончился, рекурсивно продолжаем:
