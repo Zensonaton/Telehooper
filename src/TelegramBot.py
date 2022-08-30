@@ -128,7 +128,6 @@ class Telehooper:
 			self,
 			(await self.TGBot.get_chat_member(user_id, user_id)).user
 		)
-		await user.restoreFromDB()
 
 		self.telehooperbotUsers.append(user)
 
@@ -520,23 +519,6 @@ class TelehooperUser:
 		self.isVKConnected = False
 		self.APIstorage = TelehooperAPIStorage()
 
-
-	async def restoreFromDB(self) -> None:
-		"""
-		Восстанавливает данные, а так же подключенные сервисы из ДБ.
-		"""
-
-		DB = getDefaultCollection()
-
-		res = DB.find_one({"_id": self.TGUser.id})
-		if res and res["Services"]["VK"]["Auth"]:
-			# Аккаунт ВК подключён.
-
-			# Подключаем ВК:
-			# await self.connectVKAccount(res["Services"]["VK"]["Token"], res["Services"]["VK"]["IsAuthViaPassword"])
-			# TODO?
-			pass
-
 	async def getDialogueGroupByTelegramGroup(self, telegram_group: aiogram.types.Chat | int) -> DialogueGroup | None:
 		"""
 		Возвращает диалог-группу по ID группы Telegram, либо же `None`, если ничего не было найдено.
@@ -550,6 +532,12 @@ class TelehooperUser:
 		"""
 
 		return await self.bot.getDialogueGroupByServiceDialogueID(service_dialogue_id)
+
+	def getSetting(self, path: str) -> Any:
+		return self.bot.settingsHandler.getUserSetting(self, path)
+
+	def setSetting(self, path: str, new_value: Any) -> Any:
+		return self.bot.settingsHandler.setUserSetting(self, path, new_value)
 
 	def __str__(self) -> str:
 		return f"<TelehooperUser id:{self.TGUser.id}>"

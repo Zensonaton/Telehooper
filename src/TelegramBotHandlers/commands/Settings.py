@@ -52,7 +52,7 @@ async def SettingsMessage(msg: MessageType, edit_message_instead: bool = False, 
 	isGivenPathRight = False
 	curObject = None
 	isAFile = False
-	keyboard = InlineKeyboardMarkup()
+	keyboard = InlineKeyboardMarkup(row_width=2)
 
 	# Пытаемся пропарсить путь, данный пользователем:
 	path = []
@@ -164,8 +164,6 @@ async def SettingsMessage(msg: MessageType, edit_message_instead: bool = False, 
 		await msg.edit_text(_text, reply_markup=keyboard)
 	else:
 		await msg.answer(_text, reply_markup=keyboard)
-
-	print(TelehooperBot.settingsHandler.getUserSetting(user, "Visual.PinCharDistance"))
 
 async def SettingsCallbackHandler(query: CallbackQuery):
 	newPath = query.data.split(CButtons.CommandActions.GOTO_SETTING)[-1]

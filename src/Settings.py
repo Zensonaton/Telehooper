@@ -276,12 +276,53 @@ class SettingsHandler:
 		if not res:
 			return None
 
-		userSetting = res["Settings"].get(path, None)
+		if not self.getByPath(path):
+			raise Exception(f"Настройка \"{path}\" не существует")
+
+		userSetting = res["Settings"].get(path.replace(".", "_"), None)
 
 		if userSetting:
 			return userSetting
 
 		return self.getDefaultSetting(path)
+
+	def setUserSetting(self, user: "TelehooperUser", path: str, new_value: Any):
+		"""
+		Сохраняет настройку в ДБ.
+		"""
+
+		path = path.replace(".", "_")
+
+		DB = getDefaultCollection()
+
+		res = DB.find_one({"_id": user.TGUser.id})
+
+		if not res:
+			return
+
+		if not self.getByPath(path):
+			raise Exception(f"Настройка \"{path}\" не существует")
+
+		userSetting = res["Settings"].get(path, None)
+
+		if new_value == userSetting:
+			# В базе данных бот будет хранить только изменённые настройки.
+
+			return
+
+		DB.update_one(
+			{
+				"_id": user.TGUser.id
+			},
+			
+			{
+				"$set": {
+					f"Settings.{path}": new_value
+				}
+			},
+			
+			upsert=True
+		)
 
 	def convertResolvedPathToUserFriendly(self, resolved_path: List[str]) -> List[str]:
 		"""
