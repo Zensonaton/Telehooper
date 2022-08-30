@@ -39,6 +39,9 @@ for envVar in Consts.REQUIREDENVVARS:
 # Сохраняем значения env-переменных:
 TELEGRAM_BOT_TOKEN = os.environ["TOKEN"]
 
+# Подключаемся к ДБ:
+DB = getDefaultCollection()
+
 # Достаём значения опциональных env-переменных.
 SKIP_UPDATES = Utils.parseStrAsBoolean(os.environ.get("SKIP_TELEGRAM_UPDATES", True))
 
@@ -46,10 +49,6 @@ SKIP_UPDATES = Utils.parseStrAsBoolean(os.environ.get("SKIP_TELEGRAM_UPDATES", T
 HOOPER = TGBot.Telehooper(
 	TELEGRAM_BOT_TOKEN
 )
-HOOPER.initTelegramBot()
-
-# Подключаемся к ДБ:
-DB = getDefaultCollection()
 
 async def onBotStart(dp: aiogram.Dispatcher) -> None:
 	"""
@@ -76,8 +75,10 @@ async def onBotStart(dp: aiogram.Dispatcher) -> None:
 			upsert=True
 		)
 
+	logger.info("Бот запущен успешно!")
+
 	# Производим восстановление всех сессий:
-	logger.info("Бот запущен успешно! Пытаюсь авторизовать всех пользователей подключённых сервисов...")
+	logger.info("Пытаюсь авторизовать всех пользователей подключённых сервисов...")
 
 	# Подключаем сервисы как API:
 	HOOPER.vkAPI = VKTelehooperAPI(HOOPER)
@@ -108,7 +109,6 @@ async def onBotStart(dp: aiogram.Dispatcher) -> None:
 	# Авторизуем всех остальных 'миниботов' для функции мультибота:
 	helperbots = os.environ.get("HELPER_BOTS", "[]")
 
-	# logging.getLogger("aiogram.dispatcher.dispatcher").disabled = True
 	try:
 		helperbots = json.loads(helperbots)
 	except Exception as error:
@@ -131,7 +131,12 @@ async def onBotStart(dp: aiogram.Dispatcher) -> None:
 
 # Запускаем бота.
 if __name__ == "__main__":
-	logger.info("Запускаю бота...")
+	# Проверяем древо настроек:
+	logger.info("Проверяем правильность древа настроек.")
+	HOOPER.settingsHandler.testIntegrity()
+
+	logger.info("Запускаю бота.")
+	HOOPER.initTelegramBot()
 
 	# Загружаем основного бота:
 	loop = asyncio.new_event_loop()

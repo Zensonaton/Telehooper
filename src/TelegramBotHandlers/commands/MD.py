@@ -39,4 +39,5 @@ async def MD(msg: MessageType) -> None:
 		text = msg.reply_to_message.html_text
 
 
-	await msg.answer(f"<code>{text.replace('<', '&lt;').replace(newline, newlinestr)}</code>")
+	text = text.replace('<', '&lt;').replace(newline, newlinestr).replace('"', '\\"')
+	await msg.answer(f"<code>{text}</code>")

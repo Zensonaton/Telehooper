@@ -11,6 +11,116 @@ REQUIREDENVVARS = {
 	"VKBOT_NOTIFIER_ID": "ID VK группы, в которую будет отправляться сообщение для уведомление о подключении нового пользователя. Отрицательное, числовое значение. По умолчанию 213024897. Используй число 0 для отключения.",
 }
 
+VK_OAUTH_URL = "https://oauth.vk.com/authorize?client_id=2685278&scope=69634&redirect_uri=https://oauth.vk.com/blank.html&display=page&response_type=token&revoke=1"
+
+SETTINGS = {
+	# Префиксы:
+	# ? - папка
+	# _ - файл
+
+	"?Visual": {
+		"Name": "Визуальные настройки",
+
+		"_UsePinInDialogues": {
+			"Name": "Закреп со статусом",
+			"Documentation": "Указывает, может ли Telehooper создавать закреплённое сообщение в новых диалогах Telegram, в которых может отображаться полезная информация:\n    <b>•</b> состояние <b>«онлайн»</b>,\n    <b>•</b> <b>имя</b> пользователя,\n    <b>•</b> статус <b>«прочитано»</b> у последнего отправленного сообщения.\nТак же рекомендуется посмотреть настройку <i>⚙️ Смещение слов в закрепе</i> (<code>/s Visual.PinCharDistance</code>) для настройки расстояния между словами в это закреплённом сообщении.",
+			"Default": True
+		},
+		"_PinOrderReversed": {
+			"Name": "Порядок слов в закрепе",
+			"Documentation": "При включённой опции <i>⚙️ Закреп со статусом</i>, (<code>/s Visual.UsePinInDialogues</code>) указывает, нужно ли боту поменять порядок поля статуса «онлайн» и поля «прочитано» в закреплённом сообщении.\nУвидеть как это выглядит можно в следующем сообщении, которое будет автоматически закреплено.",
+			"Default": False,
+			"DependsOn": [{
+				"LookIn": "?Visual._UsePinInDialogues",
+				"EqualTo": True
+			}]
+		},
+		"_PinCharDistance": {
+			"Name": "Смещение слов в закрепе",
+			"Documentation": "При включённой опции <i>⚙️ Закреп со статусом</i>, (<code>/s Visual.UsePinInDialogues</code>) указывает расстояние между словами, указывающих состояние «онлайн», имя пользователя, и статус «прочитано» последнего отправленного сообщения.\n\nДанная опция может быть нужна, если закреплённое сообщение отображается на вашем экране некорректно. К сожалению, реализовать отдельные «профиля» для ПК и телефона невозможно, поскольку в Telegram нет возможности узнать с какого именно устройства пользователь просматривает диалог.\nУвидеть как это выглядит можно в следующем сообщении, которое будет автоматически закреплено.",
+			"Default": 5,
+			"Min": 1,
+			"Max": 20,
+			"DependsOn": [{
+				"LookIn": "?Visual._UsePinInDialogues",
+				"EqualTo": True
+			}]
+		}
+	},
+
+	"?Security": {
+		"Name": "Безопасность",
+
+		"_StoreTokens": {
+			"Name": "Хранение токенов в базе данных",
+			"Documentation": "Указывается, может ли Telehooper хранить токены авторизации <a href=\"https://dev.vk.com/api/access-token/getting-started\"><i>[Документация ВК]</i></a> в его базе данных для автоматического процесса восстановления сессий сервисов в случае перезагрузки, вызванной, к примеру, обновлением бота.\n\nВыключив эту опцию <b>вы повысите безопасность своих сервисов</b> в случае взлома базы данных бота, однако, после своей перезагрузки Telehooper не сумеет переподключиться <b>ко всем сервисам</b>, что были подключены ранее, и поэтому Вам придётся снова производить процедуру авторизации.\nИзменения этой настройки будут применены мгновенно.",
+			"Default": True
+		}
+	},
+
+	"?Services": {
+		"Name": "Специфические настройки сервисов"
+	},
+
+	"?Other": {
+		"Name": "Другое",
+	},
+
+	"?TEST": {
+		"Name": "Тест вложенности",
+
+		"?TEST": {
+			"Name": "Тест №1",
+
+			"?TEST": {
+				"Name": "Тест №2",
+
+				"?TEST": {
+					"Name": "Тест №3",
+
+					"?TEST": {
+						"Name": "Тест №4",
+
+						"?TEST": {
+							"Name": "Тест №5",
+						}
+					}
+				}
+			},
+			"?TEST2": {
+				"Name": "Тест №2",
+
+				"?TEST": {
+					"Name": "Тест №3",
+
+					"?TEST": {
+						"Name": "Тест №4",
+
+						"?TEST": {
+							"Name": "Тест №5",
+						}
+					}
+				}
+			},
+			"?TEST3": {
+				"Name": "Тест №2",
+
+				"?TEST": {
+					"Name": "Тест №3",
+
+					"?TEST": {
+						"Name": "Тест №4",
+
+						"?TEST": {
+							"Name": "Тест №5",
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
 class officialVKAppCreds:
 	"""
 	Класс/Enum для хранения официальных данных приложений ВК. Необходимо для авторизации через логин-пароль.
@@ -49,6 +159,7 @@ class InlineButtonCallbacks:
 		DISCONNECT_SERVICE = "action_disconnect_service"
 		DIALOGUE_SELECT_VK = "action_dialogue-vk:"
 		CONVERT_TO_REGULAR_GROUP = "action_convert_to_group"
+		GOTO_SETTING = "action_gotosetting:"
 
 	class CommandMenus:
 		VK_LOGIN_VKID = "menu_login_vkid"
@@ -76,5 +187,3 @@ class CommandThrottleNames:
 	DIALOGUE_CONVERT = "grouptodialogueconvert"
 	SERVICES_LIST = "services"
 	THIS_DIALOGUE = "this"
-
-VK_OAUTH_URL = "https://oauth.vk.com/authorize?client_id=2685278&scope=69634&redirect_uri=https://oauth.vk.com/blank.html&display=page&response_type=token&revoke=1"

@@ -14,11 +14,13 @@ import vkbottle
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from loguru import logger
 from vkbottle_types.responses.account import AccountUserSettings
+from Consts import SETTINGS
 
 import Exceptions
 from DB import getDefaultCollection
 from ServiceAPIs.Base import DialogueGroup
 from ServiceAPIs.VK import VKDialogue, VKTelehooperAPI
+from Settings import SettingsHandler
 from TelegramBotHandlers.commands import MD
 
 class Telehooper:
@@ -38,9 +40,11 @@ class Telehooper:
 	telehooperbotUsers: List[TelehooperUser]
 	dialogueGroupsList: List[DialogueGroup]
 
+	settingsHandler: SettingsHandler
+
 	vkAPI: VKTelehooperAPI | None
 
-	def __init__(self, telegram_bot_token: str, telegram_bot_parse_mode = aiogram.types.ParseMode.HTML, storage: Optional[MemoryStorage] = None) -> None:
+	def __init__(self, telegram_bot_token: str, telegram_bot_parse_mode = aiogram.types.ParseMode.HTML, storage: Optional[MemoryStorage] = None, settings_tree: dict = SETTINGS) -> None:
 		self.token = telegram_bot_token
 		self.parse_mode = telegram_bot_parse_mode # type: ignore
 
@@ -53,6 +57,8 @@ class Telehooper:
 			self.storage = MemoryStorage()
 		else:
 			self.storage = storage
+
+		self.settingsHandler = SettingsHandler(settings_tree)
 
 
 	def initTelegramBot(self) -> Tuple[aiogram.Bot, aiogram.Dispatcher]:
@@ -227,7 +233,7 @@ class Telehooper:
 
 		return None
 
-	def importHandlers(self, handlers, bot: Telehooper | Minibot, mainBot: Optional[Telehooper] = None, is_multibot: bool = False) -> None:
+	def importHandlers(self, handlers: list, bot: Telehooper | Minibot, mainBot: Optional[Telehooper] = None, is_multibot: bool = False) -> None:
 		"""
 		Загружает (импортирует?) все Handler'ы в бота.
 		"""
@@ -240,7 +246,7 @@ class Telehooper:
 		for index, messageHandler in enumerate(handlers):
 			messageHandler._setupCHandler(bot)
 
-			logger.debug(f"Инициализирован обработчик команды \"{handlers[index]}\".")
+			logger.debug(f"Инициализирован обработчик команды \"{handlers[index].__name__}\".")
 
 		logger.debug(f"Все handler'ы были загружены успешно!")
 

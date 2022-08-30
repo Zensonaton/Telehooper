@@ -92,3 +92,38 @@ class TestUtils(unittest.TestCase):
 		self.assertEqual(Utils.clamp(number=2, value_min=0, value_max=0), 0)
 		self.assertEqual(Utils.clamp(number=2, value_min=-1, value_max=2), 2)
 		self.assertEqual(Utils.clamp(number=-5, value_min=-1, value_max=2), -1)
+
+	def test_traverseDict(self):
+		# traverseDict() ищет значение из dict с N-ным количеством ключей.
+
+		testDict = {
+			"hi": {
+				"test": {
+					"foo": {
+						"bar": True
+					}
+				}
+			}
+		}
+
+		self.assertEqual(Utils.traverseDict(testDict, "hi", "test", "foo", "bar"), True)
+		self.assertEqual(Utils.traverseDict(testDict, "hi", "test", "foo"), {"bar": True})
+		self.assertEqual(Utils.traverseDict(testDict, "hi", "test", "foo", "doesnotexists"), None)
+		self.assertEqual(Utils.traverseDict(testDict, "hi", "test", "foo", "bar", "doesnotexists"), None)
+
+	def test_getDictValuesByKeyPrefixes(self):
+		# getDictValuesByKeyPrefixes() выдаёт все значения из dict, ключи которого совпадают с данным функции префиксом.
+
+		testDict = {
+			"hi": True,
+			"something": {"foo": "bar"},
+			"!first": False,
+			"!second": False,
+			"???": ["foo"],
+			True: "False"
+		}
+
+		self.assertEqual(Utils.getDictValuesByKeyPrefixes(testDict, "!"), {"!first": False, "!second": False})
+		self.assertEqual(Utils.getDictValuesByKeyPrefixes(testDict, "nonexist"), {})
+		self.assertEqual(Utils.getDictValuesByKeyPrefixes(testDict, "?"), {"???": ["foo"]})
+		self.assertEqual(Utils.getDictValuesByKeyPrefixes(testDict, "???"), {"???": ["foo"]})

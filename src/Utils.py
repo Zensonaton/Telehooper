@@ -4,7 +4,7 @@ import io
 import os
 import random
 import re
-from typing import Literal
+from typing import Any, Literal
 
 import aiohttp
 from aiogram.types import InputFile
@@ -70,6 +70,52 @@ def isURL(url: str) -> bool:
 	"""
 
 	return re.match(r"^(?:http(s)?:\/\/)?[\w.-]+(?:\.[\w\.-]+)+[\w\-\._~:/?#[\]@!\$&'\(\)\*\+,;=.]+$", url) is not None
+
+def clamp(number: float, value_min: float, value_max: float) -> float:
+	"""
+	Ограничивает значение `number` в пределах `value_min` и `value_max`.
+	"""
+
+	return max(value_min, min(number, value_max))
+
+def traverseDict(object: dict, *keys: str, default: Any = None):
+	"""
+	Достаёт значение из `object`, используя N-ное количество ключей. Если что-то пошло не так, и функция не сумела найти какое-то значение, то она просто вернёт значение `default`.
+
+	Пример:
+	```python
+	someObject = {
+		"hi": {
+			"test": {
+				"foo": {
+					"bar": True
+				}
+			}
+		}
+	}
+
+	print(
+		safeGet(object, "hi", "test", "foo", "bar")
+	)
+	# True
+	```
+	"""
+
+	value = object.copy()
+	for key in keys:
+		if not isinstance(value, dict) or key not in value:
+			return default
+
+		value = value[key]
+
+	return value
+
+def getDictValuesByKeyPrefixes(object: dict, prefix: str):
+	"""
+	Возвращает `dict` объект со всеми значениями у `object`, префикс ключей которых совпадает со значением `prefix`.
+	"""
+
+	return {k: v for k, v in object.items() if str(k).startswith(prefix)}
 
 _bytes = bytes
 class File:
@@ -138,11 +184,3 @@ class File:
 
 	def __str__(self) -> str:
 		return "<File class>"
-
-
-def clamp(number: float, value_min: float, value_max: float) -> float:
-	"""
-	Ограничивает значение `number` в пределах `value_min` и `value_max`.
-	"""
-
-	return max(value_min, min(number, value_max))
