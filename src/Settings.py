@@ -1,6 +1,6 @@
 # coding: utf-8
 
-from typing import TYPE_CHECKING, Any, List, cast
+from typing import TYPE_CHECKING, Any, List, Optional, cast
 from loguru import logger
 import Utils
 from DB import getDefaultCollection
@@ -40,15 +40,10 @@ class SettingsHandler:
 		Проверяет малую часть древа настроек на наличие ошибок.
 		"""
 
-		stat_files = 0
-		stat_folders = 0
-
 		# TODO: Test DependsOn
 
-		files = Utils.getDictValuesByKeyPrefixes(object, "_")
+		files = self.getFilesDict(object)
 		for name, file in files.items():
-			stat_files += 1
-
 			if not isinstance(file, dict):
 				raise Exception(f"У файла \"{name}\" неправильный внутренний тип: {type(file)}, хотя должен быть dict.")
 
@@ -61,11 +56,10 @@ class SettingsHandler:
 			file["ID"] = name
 			file["FullPath"] = f"{current_dir}.{name}"
 			file["IsAFile"] = True
+			file["IsAFolder"] = False
 
-		folders = Utils.getDictValuesByKeyPrefixes(object, "?")
+		folders = self.getFoldersDict(object)
 		for name, folder in folders.items():
-			stat_folders += 1
-
 			if not isinstance(folder, dict):
 				raise Exception(f"У папки \"{name}\" неправильный внутренний тип: {type(folder)}, хотя должен быть dict.")
 
@@ -75,12 +69,13 @@ class SettingsHandler:
 			else:
 				folder["FullPath"] = name
 			folder["IsAFile"] = False
+			folder["IsAFolder"] = True
 
 
 			self._test(folder, folder["FullPath"], False)
 
 		if log_stats:
-			logger.info(f"Сканирование древа настроек было завершено, было просканировано {stat_files} файлов и {stat_folders} папок.")
+			logger.info(f"Сканирование древа настроек было завершено, ошибок не было обнаружено.")
 
 	def listPath(self, path: str) -> List[str]:
 		"""
@@ -89,54 +84,37 @@ class SettingsHandler:
 
 		return path.split(".")
 
-	def resolveListPath(self, path: List[str]) -> List[str] | None:
+	def getFolders(self, path: str) -> dict | None:
 		"""
-		Парсит "путь" вида `["a", "b", "c", "d"]`, выдавая путь с префиксами: `["?a", "?b", "?c", "_d"]`. Если функция не находит какую-то часть пути, то результатом оказывается `None`.
-		"""
-
-		curObject = self.settingsTree
-		resPath = []
-		for index, element in enumerate(path):
-			if   ("?" + element) in curObject:
-				element = ("?" + element)
-
-				curObject = curObject[element]
-				resPath.append(element)
-
-				continue
-			elif ("_" + element) in curObject:
-				element = ("_" + element)
-
-				curObject = curObject[element]
-				resPath.append(element)
-
-				continue
-			else:
-				# Ничего не нашли, выходим:
-
-				return None
-
-		return resPath
-
-	def getFolders(self, path: str, default: Any = {}) -> dict | None:
-		"""
-		Выдаёт `dict` со всеми "папками" по путю `path`. У всех папок в переменной `SETTINGS` префикс - `?`.
+		Выдаёт `dict` со всеми "папками" по путю `path`.
 		"""
 
-		return Utils.getDictValuesByKeyPrefixes(
-			Utils.traverseDict(self.settingsTree, *(self.listPath(path)), default=default), 
-			"?"
-		)
+		traversedRes = cast(dict, self.getByPath(path, default={}))
 
-	def getFiles(self, path: str, default: Any = {}) -> dict:
+		return self.getFoldersDict(traversedRes)
+
+	def getFiles(self, path: str) -> dict:
 		"""
-		Выдаёт `dict` со всеми "файлами" по путю `path`. У всех файлов в переменной `SETTINGS` префикс - `_`.
+		Выдаёт `dict` со всеми "файлами" по путю `path`.
 		"""
 
-		return Utils.getDictValuesByKeyPrefixes(
-			Utils.traverseDict(self.settingsTree, *(self.listPath(path)), default=default), 
-			"_"
-		)
+		traversedRes = cast(dict, self.getByPath(path, default={}))
+
+		return self.getFilesDict(traversedRes)
+
+	def getFoldersDict(self, object: dict) -> dict:
+		"""
+		Выдаёт `dict` со всеми "папками" из объекта `object`.
+		"""
+
+		return {k: v for k, v in object.items() if isinstance(v, dict) and "Default" not in v}
+
+	def getFilesDict(self, object: dict) -> dict:
+		"""
+		Выдаёт `dict` со всеми "файлами" из объекта `object`.
+		"""
+
+		return {k: v for k, v in object.items() if isinstance(v, dict) and "Default" in v}
 
 	def getByPath(self, path: str, default: Any = {}) -> dict | None:
 		"""
@@ -145,7 +123,7 @@ class SettingsHandler:
 		
 		return Utils.traverseDict(self.settingsTree, *(self.listPath(path)), default=default)
 
-	def renderByPath(self, path: List[str], put_settings_folder_first: bool = True, move_selected_to_end: bool = True, markdown_monospace_space_characters: bool = True, insert_user_path: bool = True) -> str:
+	def renderByPath(self, path: List[str], user: Optional["TelehooperUser"] = None, put_settings_folder_first: bool = True, move_selected_to_end: bool = True, markdown_monospace_space_characters: bool = True, insert_user_path: bool = True) -> str:
 		"""
 		Возвращает строку с красиво оформленными файлами и папками по пути `path`. Идея была взята у команды `tree`.
 
@@ -164,7 +142,7 @@ class SettingsHandler:
 			outStr += "<b>📂 Настройки</b>"
 
 			if insert_user_path:
-				outStr += "  —  <code>/setting " + '.'.join(self.convertResolvedPathToUserFriendly(path)) + "</code>" 
+				outStr += "  —  <code>/setting " + '.'.join(path) + "</code>" 
 
 		outStr += "\n"
 
@@ -187,7 +165,7 @@ class SettingsHandler:
 			outStr = ""
 
 			# Проходимся по всем папкам:
-			folders = Utils.getDictValuesByKeyPrefixes(object, "?")
+			folders = self.getFoldersDict(object)
 
 			# Если это нужно, то открытую папку переносим в самый конец:
 			if move_selected_to_end and len(fullPath) and pathIndex < len(fullPath) and fullPath[pathIndex] in folders:
@@ -202,6 +180,9 @@ class SettingsHandler:
 				isAvailable = True
 				folderCharacter = "📁 "
 
+				if user:
+					isAvailable = self.checkSettingAvailability(user, folder["FullPath"])
+
 				if pathIndex < len(fullPath) and fullPath[pathIndex] == folderName:
 					friendlyName = "<b>" + friendlyName + "</b>"
 					folderCharacter = "📂 "
@@ -210,7 +191,7 @@ class SettingsHandler:
 
 			
 			# Проходимся по всем файлам:
-			files = Utils.getDictValuesByKeyPrefixes(object, "_")
+			files = self.getFilesDict(object)
 
 			# Если это нужно, то открытый файл переносим в самый конец:
 			if move_selected_to_end and len(fullPath) and pathIndex < len(fullPath) and fullPath[pathIndex] in files:
@@ -222,6 +203,9 @@ class SettingsHandler:
 				file = files[file]
 				isAvailable = True
 				friendlyName = file["Name"]
+
+				if user:
+					isAvailable = self.checkSettingAvailability(user, file["FullPath"])
 
 				if pathIndex < len(fullPath) and fullPath[pathIndex] == fileName:
 					friendlyName = "<b>" + friendlyName + "</b> ⬅️"
@@ -251,18 +235,7 @@ class SettingsHandler:
 		Выдаёт значение по умолчанию у настройки, либо `None`.
 		"""
 
-
-		if not path.startswith("?"):
-			res = self.resolveListPath(self.listPath(path))
-
-			if not res:
-				return None
-
-			path = ".".join(res)
-
-		res = self.getByPath(path, default={})
-
-		return cast(dict, res).get("Default", None)
+		return cast(dict, self.getByPath(path, default={})).get("Default", None)
 
 	def getUserSetting(self, user: "TelehooperUser", path: str) -> Any | None:
 		"""
@@ -291,8 +264,6 @@ class SettingsHandler:
 		Сохраняет настройку в ДБ.
 		"""
 
-		path = path.replace(".", "_")
-
 		DB = getDefaultCollection()
 
 		res = DB.find_one({"_id": user.TGUser.id})
@@ -302,6 +273,8 @@ class SettingsHandler:
 
 		if not self.getByPath(path):
 			raise Exception(f"Настройка \"{path}\" не существует")
+
+		path = path.replace(".", "_")
 
 		userSetting = res["Settings"].get(path, None)
 
@@ -324,9 +297,16 @@ class SettingsHandler:
 			upsert=True
 		)
 
-	def convertResolvedPathToUserFriendly(self, resolved_path: List[str]) -> List[str]:
+	def checkSettingAvailability(self, user: "TelehooperUser", path: str) -> bool:
 		"""
-		Превращает лист вида `["?a", "?b", "c?", "_d"]` в лист вида `["a", "b", "c", "d"]`
+		Проверяет условия `DependsOn` у настройки. Если таковая настройка не была найдена, возвращает ошибку.
 		"""
 
-		return [i[1:] for i in resolved_path]
+		settingSelected = cast(dict, self.getByPath(path))
+		
+		# Проходимся по всем условиям, если таковые имеются:
+		for index, condition in enumerate(settingSelected.get("DependsOn", [])):
+			if "EqualTo" in condition and self.getUserSetting(user, condition["LookIn"]) != condition["EqualTo"]:
+				return False
+
+		return True

@@ -58,12 +58,7 @@ async def SettingsMessage(msg: MessageType, edit_message_instead: bool = False, 
 	path = []
 	pathStr = ""
 	if args:
-		if force_path:
-			path = TelehooperBot.settingsHandler.listPath(force_path)
-		else:
-			path = TelehooperBot.settingsHandler.resolveListPath(
-				TelehooperBot.settingsHandler.listPath(args)
-			)
+		path = TelehooperBot.settingsHandler.listPath(force_path if force_path else args)
 
 		isGivenPathRight = bool(path)
 
@@ -107,8 +102,7 @@ async def SettingsMessage(msg: MessageType, edit_message_instead: bool = False, 
 			InlineKeyboardButton("Many surprises await you", callback_data="a"),
 		)
 
-		# _text = f"<b>Настройки ⚙️</b>\n\nВ данный момент, ты изменяешь настройку <b>⚙️ {curObject['Name']}</b>. Посмотри ниже «диаграммы», там будет подробная информация о выбранной настройке.\nПуть у данной настройки: <code>/setting {'.'.join(TelehooperBot.settingsHandler.convertResolvedPathToUserFriendly(*path))}</code>\n\n{TelehooperBot.settingsHandler.renderByPath(*path)}\n\nℹ️ <b>{curObject['Name']}</b>:\n{curObject['Documentation']}\n\n\nТекущее значение настройки: ✅ Включено (да).\nУправлять значением данной настройки можно через кнопки ниже:"
-		_text = f"<b>Настройки ⚙️</b>\n\n{TelehooperBot.settingsHandler.renderByPath(path)}\n\nℹ️ <b>{curObject['Name']}</b>:\n{curObject['Documentation']}\n\n\nТекущее значение настройки: ✅ Включено (да).\nУправлять значением данной настройки можно через кнопки ниже:"
+		_text = f"<b>Настройки ⚙️</b>\n\n{TelehooperBot.settingsHandler.renderByPath(path, user)}\n\nℹ️ <b>{curObject['Name']}</b>:\n{curObject['Documentation']}\n\n\nТекущее значение настройки: ✅ Включено (да).\nУправлять значением данной настройки можно через кнопки ниже:"
 	elif not isAFile:
 		# У нас дана папка, даём пользователю дальше прыгать по папкам:
 
@@ -154,7 +148,7 @@ async def SettingsMessage(msg: MessageType, edit_message_instead: bool = False, 
 			)
 
 
-		_text = f"<b>Настройки ⚙️</b>\n\nДля навигации по этому меню используй <b>кнопки</b> под этим сообщением. Навигайся по разным <b>«разделам»</b> настроек, отмеченных эмодзи 📁, что бы найти <b>индивидуальные настройки</b>, отмеченные эмодзи ⚙️, расположенные внутри этих «разделов».\n\n{TelehooperBot.settingsHandler.renderByPath(path)}"
+		_text = f"<b>Настройки ⚙️</b>\n\nДля навигации по этому меню используй <b>кнопки</b> под этим сообщением. Навигайся по разным <b>«разделам»</b> настроек, отмеченных эмодзи 📁, что бы найти <b>индивидуальные настройки</b>, отмеченные эмодзи ⚙️, расположенные внутри этих «разделов».\n\n{TelehooperBot.settingsHandler.renderByPath(path, user)}"
 	else:
 		logger.error(f"Невозможный кейс в /settings. args=\"{args}\"")
 		_text = "Если ты увидел это сообщение, то, пожалуйста, создай <a href=\"https://github.com/Zensonaton/Telehooper\">Issue на Github проекта</a>, поскольку это - баг :)"
