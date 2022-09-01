@@ -11,7 +11,6 @@ from typing import TYPE_CHECKING, Any, List, Literal, cast
 
 import aiogram
 import aiohttp
-import cv2
 import Utils
 import vkbottle
 from Consts import AccountDisconnectType
@@ -63,7 +62,9 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 		vkAccountAPI = vkbottle.API(token)
 
 		accountInfo = await vkAccountAPI.account.get_profile_info()
+		await asyncio.sleep(1)
 		fullUserInfo = await vkAccountAPI.users.get(user_ids=[accountInfo.id])
+		await asyncio.sleep(1)
 
 		# Если мы дошли до этого момента, значит, что страница подключена, и токен верный.
 		
@@ -343,7 +344,7 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 			# Смотрим, какой тип вложения получили:
 			if TYPE == "photo":
 				# Фотография.
-				URL: str = vkAttachment.photo.sizes[-5].url # type: ignore
+				URL: str = cast(str, vkAttachment.photo.sizes[-5].url) # type: ignore
 
 				fileAttachments.append(Utils.File(URL))
 			elif TYPE == "audio_message":
@@ -356,6 +357,10 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 				URL: str = vkAttachment.sticker.animation_url or vkAttachment.sticker.images[-1].url # type: ignore
 
 				fileAttachments.append(Utils.File(URL, "sticker"))
+			elif TYPE == "video":
+				# Видео.
+				pass
+
 
 		# Ответ на сообщение:
 		replyMessageID = None
@@ -470,6 +475,7 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 {space}• Отключить аккаунт ВКонтакте от Telehooper: «logoff».""")
 
 		# Пытаемся отправить оповестительное сообщение в ВК-группу:
+		await asyncio.sleep(1)
 		try:
 			notifier_group_id = abs(int(os.environ["VKBOT_NOTIFIER_ID"]))
 
@@ -523,7 +529,18 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 		vkService = res["Services"]["VK"]
 		if not vkService.get("DownloadImage"):
 			vkService["DownloadImage"] = await vkbottle.PhotoMessageUploader(user.vkAPI).upload("downloadImage.png")
-			DB.update_one({"_id": user.TGUser.id}, {"$set": {"Services.VK.DownloadImage": vkService["DownloadImage"]}})
+			
+			DB.update_one(
+				{
+					"_id": user.TGUser.id
+				}, 
+				
+				{
+					"$set": {
+						"Services.VK.DownloadImage": vkService["DownloadImage"]
+					}
+				}
+			)
 
 		return vkService["DownloadImage"]
 
