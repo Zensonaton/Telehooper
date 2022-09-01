@@ -382,17 +382,21 @@ class Telehooper:
 					if not attachment.ready:
 						await attachment.parse()
 
-					MEDIA_TYPES = ["photo", "video", "document", "animation"]
+					MEDIA_TYPES = ["photo", "document", "animation"]
 
 					if attachment.type in MEDIA_TYPES:
 						tempMediaGroup.attach(aiogram.types.InputMedia(media=attachment.aiofile, caption=text if index == 0 else None))
 					elif attachment.type == "voice":
 						return _return(await self.TGBot.send_voice(chat_id, attachment.aiofile, reply_to_message_id=reply_to))
+					elif attachment.type == "video":
+						tempMediaGroup.attach(aiogram.types.InputMediaVideo(media=attachment.aiofile, caption=text if index == 0 else None))
+					else:
+						raise Exception(f"Незивестный тип {attachment.type}")
 
 
 
 				# И после добавления в MediaGroup, отправляем сообщение:
-				await self.vkAPI.startDialogueActivity(user, chat_id, "photo")
+				await self.startDialogueActivity(chat_id, "upload_photo")
 
 				return _return(await self.TGBot.send_media_group(chat_id, tempMediaGroup, reply_to_message_id=reply_to))
 

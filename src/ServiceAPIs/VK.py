@@ -22,7 +22,7 @@ from vkbottle_types.objects import MessagesGraffiti
 from vkbottle_types.responses.groups import GroupsGroupFull
 from vkbottle_types.responses.messages import MessagesConversationWithMessage
 from vkbottle_types.responses.users import UsersUserFull
-
+import aiofiles
 from .Base import BaseTelehooperAPI, MappedMessage
 
 if TYPE_CHECKING:
@@ -359,8 +359,43 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 				fileAttachments.append(Utils.File(URL, "sticker"))
 			elif TYPE == "video":
 				# Видео.
-				pass
+				# Так как ВК не дают простого метода получения прямой
+				# ссылки на видео, приёдтся использовать закрытый API:
 
+				# async with aiohttp.ClientSession() as client:
+				# 	async with client.post("https://api.vk.me/method/execute.getVideoById",
+				# 		data={
+				# 			"owner_id": vkAttachment.video.owner_id, # type: ignore
+				# 			"video_id": vkAttachment.video.id, # type: ignore
+				# 			"https": 1,
+				# 			"func_v": 6,
+				# 			# "access_token": await user.vkAPI.token_generator.get_token(),
+				# 			"v": "5.190"
+				# 		}
+				# 	) as response:
+				# 		res = (await response.json())["response"]
+
+				# 		URL: str = res["video"]
+
+				async with aiohttp.ClientSession() as client:
+					async with client.post("https://api.vk.com/method/video.get",
+						data={
+							"videos": f"{vkAttachment.video.owner_id}_{vkAttachment.video.id}_{vkAttachment.video.access_key}", # type: ignore
+							"access_token": await user.vkAPI.token_generator.get_token(),
+							"v": "5.131"
+						}
+					) as response:
+						res = (await response.json())["response"]["items"][-1]["files"]
+
+						URL: str = cast(
+							str, 
+							Utils.getFirstAvailableValueFromDict(
+								res, 
+								"mp4_1080", "mp4_720", "mp4_480", "mp4_360", "mp4_240", "mp4_144"
+							)
+						)
+
+						fileAttachments.append(Utils.File(URL, "video"))
 
 		# Ответ на сообщение:
 		replyMessageID = None
@@ -529,7 +564,7 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 		vkService = res["Services"]["VK"]
 		if not vkService.get("DownloadImage"):
 			vkService["DownloadImage"] = await vkbottle.PhotoMessageUploader(user.vkAPI).upload("downloadImage.png")
-			
+
 			DB.update_one(
 				{
 					"_id": user.TGUser.id

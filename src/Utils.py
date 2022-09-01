@@ -55,12 +55,23 @@ def generateVKRandomID() -> int:
 
 def getFirstAvailableValueFromClass(cls, *keys: str, default = None):
 	"""
-	Возвращает первое доступное значение из словаря.
+	Возвращает первое доступное значение из класса.
 	"""
 
 	for key in keys:
 		if hasattr(cls, key):
 			return cls.__dict__.get(key)
+
+	return default
+
+def getFirstAvailableValueFromDict(object, *keys: str, default = None):
+	"""
+	Возвращает первое доступное значение из словаря.
+	"""
+
+	for key in keys:
+		if key in object:
+			return object.get(key)
 
 	return default
 
@@ -123,7 +134,7 @@ def getDictValuesByKeyPrefixes(object: dict, prefix: str):
 _bytes = bytes
 class File:
 	"""
-	Класс, являющийся файлом..
+	Класс, являющийся файлом.
 	"""
 
 	url: str | None
@@ -132,11 +143,11 @@ class File:
 	bytes: _bytes | None
 	filename: str | None
 
-	type: Literal["photo", "sticker", "voice"]
+	type: Literal["photo", "sticker", "voice", "video"]
 
 	ready: bool = False
 
-	def __init__(self, path_url_bytes_file: str | InputFile | io.IOBase | _bytes, file_type: Literal["photo", "sticker", "voice"] = "photo") -> None:
+	def __init__(self, path_url_bytes_file: str | InputFile | io.IOBase | _bytes, file_type: Literal["photo", "sticker", "voice", "video"] = "photo") -> None:
 		self.type = file_type
 
 		self.url = None
