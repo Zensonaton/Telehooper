@@ -72,8 +72,8 @@ async def VKLogin(msg: MessageType) -> None:
 	)
 
 	# Мы не можем позволить пользователю подключить сразу 2 страницы ВКонтакте:
-	# if user.isVKConnected:
-	# 	await user.vkMAPI.disconnectService(AccountDisconnectType.SILENT, True)
+	if user.isVKConnected:
+		await TELEHOOPER.vkAPI.disconnect(user, AccountDisconnectType.SILENT)
 
 	try:
 		# Авторизуемся в ВК через логин+пароль:
