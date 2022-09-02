@@ -362,21 +362,6 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 				# Так как ВК не дают простого метода получения прямой
 				# ссылки на видео, приёдтся использовать закрытый API:
 
-				# async with aiohttp.ClientSession() as client:
-				# 	async with client.post("https://api.vk.me/method/execute.getVideoById",
-				# 		data={
-				# 			"owner_id": vkAttachment.video.owner_id, # type: ignore
-				# 			"video_id": vkAttachment.video.id, # type: ignore
-				# 			"https": 1,
-				# 			"func_v": 6,
-				# 			# "access_token": await user.vkAPI.token_generator.get_token(),
-				# 			"v": "5.190"
-				# 		}
-				# 	) as response:
-				# 		res = (await response.json())["response"]
-
-				# 		URL: str = res["video"]
-
 				async with aiohttp.ClientSession() as client:
 					async with client.post("https://api.vk.com/method/video.get",
 						data={
@@ -538,7 +523,7 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 						"Auth": True,
 						"IsAuthViaPassword": connect_via_password,
 						"AuthDate": datetime.datetime.now(),
-						"Token": token,
+						"Token": Utils.encryptWithEnvKey(token),
 						"ID": user.APIstorage.vk.accountInfo.id, # type: ignore
 						"DownloadImage": await self._getDefaultDownloadingImage(user),
 						"ServiceToTelegramMIDs": []

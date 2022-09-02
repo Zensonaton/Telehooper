@@ -8,6 +8,7 @@ from typing import Any, Literal
 
 import aiohttp
 from aiogram.types import InputFile
+from cryptography.fernet import Fernet
 
 
 def parseStrAsBoolean(value: str | bool) -> bool:
@@ -130,6 +131,40 @@ def getDictValuesByKeyPrefixes(object: dict, prefix: str):
 	"""
 
 	return {k: v for k, v in object.items() if str(k).startswith(prefix)}
+
+def encryptWithEnvKey(input: str) -> str:
+	"""
+	Шифрует строку `input` ключём шифрования из `.env`-файла.
+	"""
+
+	# Проверяем, есть ли у нас ключ для шифрования в .env-файле:
+	key = os.environ.get("TOKEN_ENCRYPT_KEY")
+	if not key:
+		# Ключа нет, не шифруем, возвращаем такое же значение.
+
+		return input
+
+
+	# Ключ шифрования есть, тогда шифруем:
+
+	return Fernet(key).encrypt(input.encode()).decode()
+
+def decryptWithEnvKey(input: str) -> str:
+	"""
+	Расшифровывает строку `input` ключём шифрования из `.env`-файла.
+	"""
+
+	# Проверяем, есть ли у нас ключ для шифрования в .env-файле:
+	key = os.environ.get("TOKEN_ENCRYPT_KEY")
+	if not key:
+		# Ключа нет, не расшифровываем, возвращаем такое же значение.
+
+		return input
+
+
+	# Ключ шифрования есть, тогда расшифровываем:
+
+	return Fernet(key).decrypt(input.encode()).decode()
 
 _bytes = bytes
 class File:

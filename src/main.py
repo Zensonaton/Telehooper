@@ -94,7 +94,7 @@ async def onBotStart(dp: aiogram.Dispatcher) -> None:
 
 				user = await TELEHOOPER.getBotUser(int(doc["_id"]))
 				
-				await TELEHOOPER.vkAPI.reconnect(user, doc["Services"]["VK"]["Token"])
+				await TELEHOOPER.vkAPI.reconnect(user, Utils.decryptWithEnvKey(doc["Services"]["VK"]["Token"]))
 			except Exception as error:
 				# Что-то пошло не так, и мы не смогли восстановить сессию пользователя.
 
