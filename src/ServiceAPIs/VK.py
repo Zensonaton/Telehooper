@@ -548,7 +548,7 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 
 		vkService = res["Services"]["VK"]
 		if not vkService.get("DownloadImage"):
-			vkService["DownloadImage"] = await vkbottle.PhotoMessageUploader(user.vkAPI).upload("downloadImage.png")
+			vkService["DownloadImage"] = await vkbottle.PhotoMessageUploader(user.vkAPI).upload("resources/downloadImage.png")
 
 			DB.update_one(
 				{

@@ -326,7 +326,7 @@ class Telehooper:
 					# Как бы я не хвалил Telegram, технические решения здесь отвратительны.
 					tempMediaGroup.attach(
 						aiogram.types.InputMediaPhoto(
-							tempImageFileID if tempImageFileID else aiogram.types.InputFile("downloadImage.png"), 
+							tempImageFileID if tempImageFileID else aiogram.types.InputFile("resources/downloadImage.png"), 
 							loadingCaption if index == 0 else None
 						)
 					)

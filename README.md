@@ -1,6 +1,6 @@
 # Telehooper
 
-![Telehooper Logo](https://github.com/Zensonaton/Telehooper/blob/49576ac54c9fdb9b59c623bd1db27eed1931a191/logo.png)
+![Telehooper Logo](https://github.com/Zensonaton/Telehooper/blob/main/resources/logo.png)
 
 [Telegram-бот](t.me/telehooper_bot) для подключения различных сервисов для получения и/ли отправки сообщений. Список поддерживаемых сервисов описан ниже.
 
