@@ -94,6 +94,11 @@ class BaseTelehooperAPI:
 
 		self._checkAvailability()
 
+	async def onMessageDelete(self, user: "TelehooperUser"):
+		"""
+		Вызывается при удалении сообщения (для всех).
+		"""
+
 	async def onSuccessfulConnection(self, user: "TelehooperUser"):
 		"""
 		Вызывается при успешном подключении сервиса.

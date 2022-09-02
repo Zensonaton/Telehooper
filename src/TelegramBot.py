@@ -7,6 +7,7 @@ from __future__ import annotations
 import asyncio
 import datetime
 from asyncio import Task
+from email.mime import message
 from typing import Any, List, Literal, Optional, Tuple, cast
 
 import aiogram
@@ -403,7 +404,7 @@ class Telehooper:
 		# У нас нет никакой группы вложений, поэтому мы просто отправим сообщение:
 		return _return(await self.TGBot.send_message(chat_id, text, reply_to_message_id=reply_to))
 
-	async def editMessage(self, user: TelehooperUser, text: str | None, chat_id: int, message_id: str | int, attachments: list | None = []):
+	async def editMessage(self, user: TelehooperUser, text: str | None, chat_id: int, message_id: int, attachments: list | None = []):
 		"""
 		Редактирует сообщение в Telegram.
 		"""
@@ -419,6 +420,13 @@ class Telehooper:
 			attachments = []
 
 		await self.TGBot.edit_message_text(f"{text}      <i>(ред.)</i>", chat_id, message_id)
+
+	async def deleteMessage(self, user: TelehooperUser, chat_id: int, message_id: int):
+		"""
+		Удаляет сообщение в Telegram.
+		"""
+
+		await self.TGBot.delete_message(chat_id, message_id)
 
 	async def startDialogueActivity(self, chat_id: int, activity_type: Literal["typing", "upload_photo", "record_video", "upload_video", "record_voice", "upload_voice", "upload_document", "choose_sticker", "find_location", "record_video_note", "upload_video_note"] = "typing"):
 		await self.TGBot.send_chat_action(chat_id, action=activity_type)

@@ -194,6 +194,22 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 		async def _onChatPhotoUploadState(msg):
 			await self.onDialogueActivity(user, msg.object[1], "photo")
 
+		@user.vkUser.on.raw_event(vkbottle.UserEventType.MESSAGES_DELETE) # type: ignore
+		async def _onMessageDelete(msg):
+			# Данный метод, похоже, не вызывается.
+
+			logger.warning(f"Метод _onMessageDelete был вызван, хотя не должен был: {msg}")
+
+		@user.vkUser.on.raw_event(vkbottle.UserEventType.INSTALL_MESSAGE_FLAGS) # type: ignore
+		async def _onMessageFlagsChange(msg):
+			# Вызывается в случае изменения информации о сообщении.
+
+			IS_DELETED = Utils.getVKMessageFlags(msg.object[2])[7]
+
+			# Если же сообщение было удалено, то выполняем на это функцию:
+			if IS_DELETED:
+				await self.onMessageDelete(user, msg)
+
 		# Создаём Polling-задачу:
 		user.APIstorage.vk.pollingTask = asyncio.create_task(user.vkUser.run_polling(), name=f"VK Polling, id{user.APIstorage.vk.accountInfo.id}") # type: ignore
 
@@ -207,7 +223,7 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 		if not user.APIstorage.vk.pollingTask:
 			return
 
-		user.APIstorage.vk.pollingTask.cancel() # type: ignore
+		user.APIstorage.vk.pollingTask.cancel()
 
 	def saveMessageID(self, user: "TelehooperUser", telegram_message_id: int | str, vk_message_id: int | str, telegram_dialogue_id: int | str, vk_dialogue_id: int | str, is_sent_via_telegram: bool) -> None:
 		super().saveMessageID(user, "VK", telegram_message_id, vk_message_id, telegram_dialogue_id, vk_dialogue_id, is_sent_via_telegram)
@@ -441,6 +457,26 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 
 		# В ином случае, редактируем:
 		await self.telehooper_bot.editMessage(user, MSGTEXT.replace("<", "&lt;"), res.telegramDialogueID, res.telegramMID)
+
+	async def onMessageDelete(self, user: "TelehooperUser", msg):
+		await super().onMessageDelete(user)
+
+		# Получаем ID сообщения в Telegram:
+
+		MSGID = msg.object[1]
+		MSGCHATID = msg.object[3]
+
+		res = self.getMessageDataByServiceMID(user, MSGID)
+		if not res:
+			return
+
+		# Сообщение найдено, проверяем, кто его отправил.
+		# Если было получено с Telegram, то не удаляем.
+		if res.sentViaTelegram:
+			return
+
+		# В ином случае, удаляем:
+		await self.telehooper_bot.deleteMessage(user, res.telegramDialogueID, res.telegramMID)
 
 	async def onDialogueActivity(self, user: "TelehooperUser", chat_id: int, activity_type: Literal["voice", "file", "photo", "typing", "video"] = "typing"):
 		await super().onDialogueActivity(user)
