@@ -401,7 +401,7 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 		# Отправляем сообщение и сохраняем в ДБ:
 		telegramMessage = cast(aiogram.types.Message, await self.telehooper_bot.sendMessage(
 			user=user,
-			text=msgPrefix + (msg.text or "<i>ошибка: пустой текст у сообщения. возможно, в сообщении неподдерживаемый тип?</i>"),
+			text=msgPrefix + (msg.text.replace("<", "&lt;") or "<i>ошибка: пустой текст у сообщения. возможно, в сообщении неподдерживаемый тип?</i>"),
 			chat_id=dialogue.group.id,
 			attachments=fileAttachments,
 			reply_to=replyMessageID,
@@ -440,7 +440,7 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 			return
 
 		# В ином случае, редактируем:
-		await self.telehooper_bot.editMessage(user, MSGTEXT, res.telegramDialogueID, res.telegramMID)
+		await self.telehooper_bot.editMessage(user, MSGTEXT.replace("<", "&lt;"), res.telegramDialogueID, res.telegramMID)
 
 	async def onDialogueActivity(self, user: "TelehooperUser", chat_id: int, activity_type: Literal["voice", "file", "photo", "typing", "video"] = "typing"):
 		await super().onDialogueActivity(user)
