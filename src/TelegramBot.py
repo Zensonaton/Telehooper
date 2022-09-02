@@ -397,7 +397,7 @@ class Telehooper:
 
 
 				# И после добавления в MediaGroup, отправляем сообщение:
-				await self.startDialogueActivity(chat_id, "upload_photo")
+				await self.TGBot.send_chat_action(chat_id, "upload_photo")
 
 				return _return(await self.TGBot.send_media_group(chat_id, tempMediaGroup, reply_to_message_id=reply_to))
 
@@ -427,9 +427,6 @@ class Telehooper:
 		"""
 
 		await self.TGBot.delete_message(chat_id, message_id)
-
-	async def startDialogueActivity(self, chat_id: int, activity_type: Literal["typing", "upload_photo", "record_video", "upload_video", "record_voice", "upload_voice", "upload_document", "choose_sticker", "find_location", "record_video_note", "upload_video_note"] = "typing"):
-		await self.TGBot.send_chat_action(chat_id, action=activity_type)
 
 	async def saveCachedResource(self, service_name: str, resource_input: str, resource_output: str):
 		"""
