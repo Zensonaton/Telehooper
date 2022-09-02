@@ -38,7 +38,7 @@ def _setupHandler(bot: Telehooper) -> None:
 
 	DP.register_message_handler(VKLogin, commands=["vklogin"])
 	DP.register_message_handler(VKTokenMessageHandler, lambda msg: msg.text.startswith("https://oauth.vk.com/blank.html#access_token="))
-	DP.register_message_handler(VKTokenURLMessageHandler, lambda msg: msg.text.strip().startswith("https://oauth.vk.com/oauth/authorize?client_id=6463690"))
+	DP.register_message_handler(VKTokenURLMessageHandler, lambda msg: msg.text.strip().startswith("https://oauth.vk.com/authorize?client_id=2685278"))
 
 
 async def VKLogin(msg: MessageType) -> None:
@@ -145,4 +145,4 @@ async def VKTokenURLMessageHandler(msg: MessageType) -> MessageType:
 	Отправляет сообщение в Telegram когда пользователь по-ошибке отправляет не тот URL.
 	"""
 
-	return await msg.answer("<b>Что-то пошло не так 😕\n\n</b>Ты мне отправил ссылку на страницу, на которой нужно пройти авторизацию ВКонтакте, и на странице <i>«не копируйте, вы можете потерять доступ к аккаунту ...»</i> скопировать текст с адресной строки браузера.\n<b>Попробуй снова!</b>")
+	return await msg.answer("<b>Что-то пошло не так 😕\n\n</b>Ты мне отправил ссылку на страницу, <b>на которой нужно пройти авторизацию ВКонтакте</b>, и на странице <i>«не копируйте, вы можете потерять доступ к аккаунту ...»</i> скопировать текст с адресной строки браузера.\n<b>Попробуй снова!</b>")
