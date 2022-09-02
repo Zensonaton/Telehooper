@@ -21,7 +21,7 @@ from DB import getDefaultCollection
 from ServiceAPIs.Base import DialogueGroup
 from ServiceAPIs.VK import VKDialogue, VKTelehooperAPI
 from Settings import SettingsHandler
-from TelegramBotHandlers.commands import MD
+from vkbottle_types.responses.users import UsersUserFull
 
 
 class Telehooper:
@@ -93,7 +93,7 @@ class Telehooper:
 		# Импортируем все Handler'ы как модули:
 		from TelegramBotHandlers import OtherCallbackQueryHandlers
 		from TelegramBotHandlers.commands import (Debug, Help, Self, Settings, Start,
-		                                          This, VKLogin)
+		                                          This, VKLogin, MD)
 		from TelegramBotHandlers.events import GroupEvents, RegularMessageHandlers
 
 		# А теперь добавляем их в бота:
@@ -563,7 +563,7 @@ class TelehooperAPIStorage:
 		"""
 
 		accountInfo: AccountUserSettings = None # type: ignore
-		fullUserInfo: Any = None # type: ignore # FIXME: Удалить это поле?
+		fullUserInfo: UsersUserFull = None # type: ignore
 		pollingTask: Task = None # type: ignore
 		dialogues: List[VKDialogue] = []
 

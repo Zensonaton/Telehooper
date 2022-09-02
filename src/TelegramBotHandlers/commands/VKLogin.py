@@ -3,15 +3,17 @@
 """Обработчик для команды `VKLogin`."""
 
 from __future__ import annotations
+import asyncio
 
 from typing import TYPE_CHECKING, cast
 
 import Consts
 import Utils
 import vkbottle
-from aiogram import Bot, Dispatcher
+from aiogram import Dispatcher
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.types import Message as MessageType
+from aiogram.types import InputFile
 from Consts import AccountDisconnectType
 from Consts import CommandThrottleNames as CThrottle
 from Consts import InlineButtonCallbacks as CButtons
@@ -122,8 +124,7 @@ async def VKTokenMessageHandler(msg: MessageType):
 	if user.isVKConnected:
 		TELEHOOPER.vkAPI = cast(VKTelehooperAPI, TELEHOOPER.vkAPI)
 		await TELEHOOPER.vkAPI.disconnect(user, AccountDisconnectType.SILENT)
-
-		return
+		await asyncio.sleep(1)
 
 	# Подключаем аккаунт к боту:
 	vkAccount = await TELEHOOPER.vkAPI.connect(user, vkToken, False, True) # type: ignore
@@ -137,8 +138,10 @@ async def successConnectionMessage(msg: MessageType, user: "TelehooperUser") -> 
 	"""
 
 	user.APIstorage.vk = cast("TelehooperAPIStorage.VKAPIStorage", user.APIstorage.vk)
-	user.APIstorage.vk = cast("TelehooperAPIStorage.VKAPIStorage", user.APIstorage.vk)
-	return await msg.answer(f"<b>Подключение аккаунта 🔗\n\n</b>С радостью заявляю, что я сумел успешно подключиться к твоему аккаунту <b>ВКонтакте</b>!\nРад тебя видеть, <b>{user.APIstorage.vk.accountInfo.first_name} {user.APIstorage.vk.accountInfo.last_name}</b>! 🙃👍\n\nТеперь, после подключения страницы ВКонтакте тебе нужно создать отдельную группу под каждый нужный тебе диалог ВКонтакте. Подробный гайд есть в команде /help.\nУправлять подключённой страницей ты можешь используя команду /me.")
+	return await msg.answer_photo(
+		InputFile.from_url(user.APIstorage.vk.fullUserInfo.photo_max_orig),
+		f"<b>Подключение аккаунта 🔗\n\n</b>С радостью заявляю, что я сумел успешно подключиться к твоему аккаунту <b>ВКонтакте</b>!\nРад познакомиться, <b>{user.APIstorage.vk.accountInfo.first_name} {user.APIstorage.vk.accountInfo.last_name}</b>! 🙃👍\n\nТеперь, после подключения страницы ВКонтакте тебе нужно создать отдельную группу под каждый нужный тебе диалог ВКонтакте. Подробный гайд есть в команде /help.\nУправлять подключённой страницей ты можешь используя команду /me."
+	)
 
 async def VKTokenURLMessageHandler(msg: MessageType) -> MessageType:
 	"""
