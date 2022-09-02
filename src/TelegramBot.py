@@ -295,6 +295,8 @@ class Telehooper:
 		if chat_id is None:
 			chat_id = user.TGUser.id
 
+		text = text.replace("<", "&lt;")
+
 		reply_to = reply_to if reply_to is None else int(reply_to)
 
 		self.vkAPI = cast(VKTelehooperAPI, self.vkAPI)
@@ -410,6 +412,8 @@ class Telehooper:
 
 		if text is None:
 			text = ""
+
+		text = text.replace("<", "&lt;")
 
 		if message_id is str:
 			message_id = int(message_id)

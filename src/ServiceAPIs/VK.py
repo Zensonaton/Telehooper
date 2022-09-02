@@ -439,7 +439,6 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 			return
 
 		# В ином случае, редактируем:
-		# await self.editMessage(user, MSGTEXT + "ㅤㅤㅤ<i>изменено</i>", res.telegramDialogueID, res.telegramMID)
 		await self.telehooper_bot.editMessage(user, MSGTEXT, res.telegramDialogueID, res.telegramMID)
 
 	async def onDialogueActivity(self, user: "TelehooperUser", chat_id: int, activity_type: Literal["voice", "file", "photo", "typing", "video"] = "typing"):
