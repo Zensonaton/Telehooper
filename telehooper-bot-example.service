@@ -1,0 +1,15 @@
+# Переименуй этот файл в telehooper-bot.service
+[Unit]
+Description=Telehooper Telegram bot
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/user/telehooper-bot
+ExecStart=python3.10 main.py
+KillMode=process
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
