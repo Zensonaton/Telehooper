@@ -27,5 +27,4 @@ def _setupHandler(bot: Telehooper) -> None:
 
 
 async def Debug(msg: MessageType) -> None:
-	await asyncio.sleep(5)
-	await (await msg.answer("test")).delete()
+	pass

@@ -7,8 +7,7 @@ from __future__ import annotations
 import asyncio
 import datetime
 from asyncio import Task
-from email.mime import message
-from typing import Any, List, Literal, Optional, Tuple, cast
+from typing import Any, List, Optional, Tuple, cast
 
 import aiogram
 import vkbottle
@@ -140,24 +139,25 @@ class Telehooper:
 		Добавляет диалог-группу в бота.
 		"""
 
-		# TODO: Перенести в MAPI?
-
 		self.dialogueGroupsList.append(group)
 
 		# Получаем ДБ:
 		DB = getDefaultCollection()
 
-		DB.update_one({
+		DB.update_one(
+			{
 				"_id": "_global"
-			}, {
+			}, 
+			
+			{
 				"$push": {
 					"ServiceDialogues.VK": {
 						"ID": group.serviceDialogueID,
 						"TelegramGroupID": group.group.id,
 						"AddDate": datetime.datetime.now(),
 						"LatestMessageID": None,
-						"LatestServiceMessageID": None
-						# TODO: "PinnedMessageID": group.pinnedMessageID
+						"LatestServiceMessageID": None,
+						"PinnedMessageID": group.group.pinned_message.message_id
 					}
 				}
 			},
@@ -428,23 +428,51 @@ class Telehooper:
 
 		await self.TGBot.delete_message(chat_id, message_id)
 
-	async def saveCachedResource(self, service_name: str, resource_input: str, resource_output: str):
+	def saveCachedResource(self, service_name: str, resource_input: str, resource_output: str):
 		"""
 		Сохраняет ресурс в кэш. Это необходимо для кэширования, к примеру, стикеров.
 		"""
 
-		# TODO
-
 		DB = getDefaultCollection()
 
-		DB.update_one({
+		resource_input = resource_input.replace(".", "_")
+
+		DB.update_one(
+			{
 				"_id": "_global"
 			},
 
 			{
+				"$set": {
+					f"ResourceCache.{service_name}.{resource_input}": resource_output
+				}
+			},
 
+			upsert=True
+		)
+
+	def getCachedResource(self, service_name: str, resource_input: str) -> None | str:
+		"""
+		Вытаскивает значение ресурса из кэша. Может вернуть `None`, если такое значение не было найдено.
+		"""
+
+		DB = getDefaultCollection()
+
+		resource_input = resource_input.replace(".", "_")
+
+		res = DB.find_one(
+			{
+				"_id": "_global"
 			}
 		)
+		if not res:
+			return None
+
+		for key, value in res["ResourceCache"][service_name].items():
+			if key == resource_input:
+				return value
+
+		return None	
 
 
 	def __str__(self) -> str:

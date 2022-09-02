@@ -58,9 +58,12 @@ async def onBotStart(dp: aiogram.Dispatcher) -> None:
 	global DB, TELEHOOPER
 
 	if DB.find_one({"_id": "_global"}) is None:
-		DB.update_one({
+		DB.update_one(
+			{
 				"_id": "_global"
-			}, {
+			}, 
+			
+			{
 				"$set": {
 					"_id": "_global",
 					"TempDownloadImageFileID": None,
@@ -68,10 +71,11 @@ async def onBotStart(dp: aiogram.Dispatcher) -> None:
 						"VK": []
 					},
 					"ResourceCache": {
-						"VK": []
+						"VK": {}
 					}
 				}
 			},
+			
 			upsert=True
 		)
 
