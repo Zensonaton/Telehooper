@@ -139,14 +139,13 @@ class SettingsHandler:
 		# Строка, которая будет по итогу дополняться:
 		outStr = ""
 
+		# Путь к настройке:
+		if insert_user_path:
+			outStr += "Путь: <code>/setting " + '.'.join(path) + "</code>\n" 
+
 		# Добавляем "настройки" в самое начало:
 		if put_settings_folder_first:
-			outStr += "<b>📂 Настройки</b>"
-
-			if insert_user_path:
-				outStr += "  —  <code>/setting " + '.'.join(path) + "</code>" 
-
-		outStr += "\n"
+			outStr += "<b>📂 Настройки</b>\n"
 
 		def _addMarkdownFormat(string: str) -> str:
 			"""
