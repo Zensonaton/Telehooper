@@ -578,6 +578,9 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 				"_id": user.TGUser.id,
 				"TelegramUserID": user.TGUser.id,
 				"IsAwareOfDialogueConversionConditions": False,
+				"Settings": {
+					"VK": {}
+				},
 				"Services": {
 					"VK": {
 						"Auth": True,
