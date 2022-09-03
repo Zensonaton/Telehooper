@@ -521,7 +521,7 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 
 		activity = telegram_activiy.get(activity_type, "typing")
 
-		await self.telehooper_bot.startDialogueActivity(res.group.id, activity) # type: ignore
+		await self.telehooper_bot.TGBot.send_chat_action(res.group.id, activity) # type: ignore
 
 	async def _sendSuccessfulConnectionMessage(self, user: "TelehooperUser", connect_via_password: bool = False):
 		space = "&#12288;" # Символ пробела, который не удаляется при отправке сообщения ВКонтакте.
