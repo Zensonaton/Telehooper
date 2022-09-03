@@ -47,7 +47,7 @@ async def This(msg: MessageType):
 	if msg.chat.type == "private":
 		raise CommandAllowedOnlyInGroup()
 
-	await DP.throttle(CThrottle.THIS_DIALOGUE, rate=2, user_id=msg.from_user.id)
+	await DP.throttle(CThrottle.THIS_DIALOGUE, rate=30, user_id=msg.from_user.id)
 
 	user = await TELEHOOPER.getBotUser(msg.from_user.id)
 	dialogue = await user.getDialogueGroupByTelegramGroup(msg.chat.id)
@@ -215,9 +215,6 @@ async def ConvertGroupToDialogueCallback(query: CallbackQuery) -> None:
 	DB = getDefaultCollection()
 	DB.update_one({"_id": query.from_user.id}, {"$set": {"IsAwareOfDialogueConversionConditions": True}})
 
-	# Прячем все кнопки:
-	await query.message.edit_text(query.message.html_text)
-
 	# Делаем группу "пустой":
 	await MakeGroupEmpty(query.message.chat)
 
@@ -232,7 +229,7 @@ async def ConvertGroupToDialogueCallback(query: CallbackQuery) -> None:
 	for i in range(12):
 		keyboard.add(InlineKeyboardButton("загрузка...", callback_data=CButton.DO_NOTHING))
 
-	dialogueListMessage = await query.message.answer(f"{_text}⏳ Пожалуйста, подожди, пока я загружаю список диалогов <b>ВКонтакте</b>...", disable_web_page_preview=True, reply_markup=keyboard)
+	await query.message.edit_text(f"{_text}⏳ Пожалуйста, подожди, пока я загружаю список диалогов <b>ВКонтакте</b>...", disable_web_page_preview=True, reply_markup=keyboard)
 
 	# Грузим чаты ВК. Получаем объект пользователя:
 	user = await TELEHOOPER.getBotUser(query.from_user.id)
@@ -264,10 +261,10 @@ async def ConvertGroupToDialogueCallback(query: CallbackQuery) -> None:
 
 		buttonText = f"{prefixEmojiDict[(convo._type + '_' + str(convo.isMale)) if convo.isUser else convo._type]} {convo.fullName} {'📌' if convo.isPinned else ''}"
 
-		keyboard.add(InlineKeyboardButton(buttonText, callback_data=f"{CButton.CommandActions.DIALOGUE_SELECT_VK}{convo.ID}"))
+		keyboard.add(InlineKeyboardButton(buttonText, callback_data=CButton.CommandActions.DIALOGUE_SELECT_VK + str(convo.ID)))
 
 
-	await dialogueListMessage.edit_text(f"{_text}⚙️ Выбери любой нужный диалог из <b>ВКонтакте</b>:", reply_markup=keyboard, disable_web_page_preview=True)
+	await query.message.edit_text(f"{_text}⚙️ Выбери любой нужный диалог из <b>ВКонтакте</b>:", reply_markup=keyboard, disable_web_page_preview=True)
 
 async def VKDialogueSelector(query: CallbackQuery) -> bool:
 	VK_ID = int(query.data.split(CButton.CommandActions.DIALOGUE_SELECT_VK)[-1])

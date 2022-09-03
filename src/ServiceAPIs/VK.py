@@ -363,17 +363,35 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 				# Фотография.
 				URL: str = cast(str, vkAttachment.photo.sizes[-5].url) # type: ignore
 
-				fileAttachments.append(Utils.File(URL))
+				fileAttachments.append(
+					Utils.File(
+						URL, 
+						"photo", 
+						f"photo{vkAttachment.photo.owner_id}_{vkAttachment.photo.owner_id}_{vkAttachment.photo.access_key}" # type: ignore
+					)
+				)
 			elif TYPE == "audio_message":
 				# Голосовое сообщение.
 				URL: str = vkAttachment.audio_message.link_ogg # type: ignore
 
-				fileAttachments.append(Utils.File(URL, "voice"))
+				fileAttachments.append(
+					Utils.File(
+						URL, 
+						"voice", 
+						f"photo{vkAttachment.audio_message.owner_id}_{vkAttachment.audio_message.owner_id}_{vkAttachment.audio_message.access_key}" # type: ignore
+					)
+				)
 			elif TYPE == "sticker":
 				# Стикер.
-				URL: str = vkAttachment.sticker.animation_url or vkAttachment.sticker.images[-1].url # type: ignore
+				URL: str = vkAttachment.sticker.images[-1].url # type: ignore
 
-				fileAttachments.append(Utils.File(URL, "sticker"))
+				fileAttachments.append(
+					Utils.File(
+						URL, 
+						"sticker", 
+						f"sticker{vkAttachment.sticker.product_id}_{vkAttachment.sticker.sticker_id}" # type: ignore
+					)
+				)
 			elif TYPE == "video":
 				# Видео.
 				# Так как ВК не дают простого метода получения прямой
@@ -397,7 +415,13 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 							)
 						)
 
-						fileAttachments.append(Utils.File(URL, "video"))
+						fileAttachments.append(
+							Utils.File(
+								URL, 
+								"video",
+								f"{vkAttachment.video.owner_id}_{vkAttachment.video.id}_{vkAttachment.video.access_key}" # type: ignore
+							)
+						)
 
 		# Ответ на сообщение:
 		replyMessageID = None
@@ -616,9 +640,14 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 			if not start_chat_activities:
 				return
 
-			await self.startDialogueActivity(user, chat_id, action)
+			dialogue = await self.getDialogueGroupByServiceDialogueID(chat_id)
 
-		attachmentStr: List[str] = []
+			if not dialogue:
+				return
+
+			await self.startDialogueActivity(user, dialogue.group.id, action)
+
+		attachmentsList: List[str] = []
 
 		if message is None:
 			message = ""
@@ -638,15 +667,63 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 				tempPhotoAttachment = await self._getDefaultDownloadingImage(user)
 				assert tempPhotoAttachment is not None, "Не удалось получить временное изображение для вложений."
 
-				tempMessageID = await user.vkAPI.messages.send(
-					peer_id=chat_id, 
-					random_id=Utils.generateVKRandomID(), 
-					message=f"{message}\n\n(пожалуйста, дождись загрузки всех {len(attachmentsFile)} вложений, они появятся в этом сообщении.)", 
-					reply_to=msg_id_to_reply, 
-					attachment=(tempPhotoAttachment + ",") * len(attachmentsFile)
-				)
+				tempPhotoAttachmentAlbum = ""
+
+				for attachment in attachmentsFile:
+					# Если такое вложение уже кэшировано, юзаем FileID из БД:
+
+					# Пытаемся извлечь кэшированный элемент:
+					videores = self.telehooper_bot.getCachedResource(
+						"VK", 
+						Utils.sha256hash(
+							cast(str, attachment.uid)
+						)
+					)
+
+					tempPhotoAttachmentAlbum += (
+						Utils.decryptWithKey(
+							videores, cast(str, attachment.uid)
+						) 
+
+						if videores else 
+
+						tempPhotoAttachment
+					) + ","
+
+				# Отправляем временное сообщение только в случае, если есть незагруженный медиа элемент:
+				if tempPhotoAttachment in tempPhotoAttachmentAlbum:
+					tempMessageID = await user.vkAPI.messages.send(
+						peer_id=chat_id, 
+						random_id=Utils.generateVKRandomID(), 
+						message=f"{message}\n\n(пожалуйста, дождись загрузки всех {len(attachmentsFile)} вложений, они появятся в этом сообщении.)", 
+						reply_to=msg_id_to_reply, 
+						attachment=tempPhotoAttachmentAlbum
+					)
 
 			for index, file in enumerate(attachmentsFile):
+				uploadedAttachment: str
+				uploadRes: str | None = None
+
+				# Проверяем, есть ли такой файл в кэше:
+				cache = self.telehooper_bot.getCachedResource(
+					"VK", 
+					Utils.sha256hash(
+						cast(str, file.uid)
+					)
+				)
+				if cache:
+					# Файл есть в кэше, ничего не скачиваем.
+					attachmentsList.append(
+						Utils.decryptWithKey(
+							cache,
+							cast(str, file.uid)
+						)
+					)
+
+					continue
+
+				# Кэша нет :(
+
 				# attachment является типом Utils.File, но иногда он бывает не готовым к использованию,
 				# т.е., он не имеет поля bytes, к примеру. Поэтому я сделаю дополнительную проверку:
 				if not file.ready:
@@ -655,13 +732,13 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 				assert file.bytes is not None, "attachment.bytes is None"
 
 				# Окончательно загружаем файл на сервера ВК:
-				uploadedAttachment: str
-				uploadRes: str | None = None
 				if file.type == "photo":
 					await _chatAction(chat_id, "photo")
+
 					uploadRes = await vkbottle.PhotoMessageUploader(user.vkAPI).upload(file.bytes) # type: ignore
 				elif file.type == "voice":
 					await _chatAction(chat_id, "audiomessage")
+
 					uploadRes = await vkbottle.VoiceMessageUploader(user.vkAPI).upload(title="voice message title?", file_source=file.bytes) # type: ignore
 				elif file.type == "sticker":
 					await _chatAction(chat_id, "photo")
@@ -691,11 +768,11 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 						)
 					)
 					img_bytes = io.BytesIO()
-					img.save(img_bytes, format='PNG')
+					img.save(img_bytes, format="PNG")
 					img_bytes = img_bytes.getvalue()
 					del img
 
-					uploadUrl = (await vkbottle.DocUploader(user.vkAPI).get_server(type="graffiti"))["upload_url"]
+					uploadVideoData = (await vkbottle.DocUploader(user.vkAPI).get_server(type="graffiti"))["upload_url"]
 					async with aiohttp.ClientSession() as session:
 						data = aiohttp.FormData()
 						data.add_field(
@@ -704,12 +781,25 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 							content_type="image/png"
 						)
 
-						async with session.post(uploadUrl, data=data) as response:
+						async with session.post(uploadVideoData, data=data) as response:
 							response = await response.json()
 
-							res = cast(MessagesGraffiti, (await user.vkAPI.docs.save((response)["file"])).graffiti)
-							uploadRes = f"doc{res.owner_id}_{res.id}"
-						
+							graffiti = cast(MessagesGraffiti, (await user.vkAPI.docs.save((response)["file"])).graffiti)
+							uploadRes = f"doc{graffiti.owner_id}_{graffiti.id}_{graffiti.access_key}"
+				elif file.type == "video":
+					await _chatAction(chat_id, "video")
+
+					uploadVideoData = (await vkbottle.VideoUploader(user.vkAPI).get_server(target="messages"))
+					async with aiohttp.ClientSession() as session:
+						data = aiohttp.FormData()
+						data.add_field(
+							"file", file.bytes, 
+							filename="video.mp4", 
+							content_type="video/mp4"
+						)
+
+						async with session.post(uploadVideoData["upload_url"], data=data) as response:
+							uploadRes = f"video{uploadVideoData['owner_id']}_{uploadVideoData['video_id']}_{uploadVideoData['access_key']}"
 				else:
 					raise Exception(f"Неподдерживаемый тип: {file.type}")
 
@@ -718,8 +808,19 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 				uploadedAttachment = uploadRes
 				del uploadRes
 
+				# Добавляем в кэш:
+				if file.uid:
+					self.telehooper_bot.saveCachedResource(
+						"VK", 
+						Utils.sha256hash(file.uid), 
+						Utils.encryptWithKey(
+							uploadedAttachment, 
+							file.uid
+						)
+					)
+
 				# Добавляем строку вида "photo123_456" в массив:
-				attachmentStr.append(uploadedAttachment)
+				attachmentsList.append(uploadedAttachment)
 
 
 				# Через каждый второй файл делаем sleep:
@@ -736,7 +837,7 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 				peer_id=chat_id, 
 				message=message, 
 				message_id=tempMessageID, 
-				attachment=",".join(attachmentStr)
+				attachment=",".join(attachmentsList)
 			)
 
 			return tempMessageID
@@ -749,11 +850,9 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 				random_id=Utils.generateVKRandomID(), 
 				message=message, 
 				reply_to=msg_id_to_reply, 
-				attachment=",".join(attachmentStr),
+				attachment=",".join(attachmentsList),
 				silent=silent
 			)
-
-			return res
 
 	async def editMessage(self, user: "TelehooperUser", message: str, chat_id: int, message_id: int, attachments: str = ""):
 		await super().editMessage(user)

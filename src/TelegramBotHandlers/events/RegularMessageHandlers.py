@@ -5,14 +5,15 @@
 import asyncio
 import io
 from io import BytesIO
-from typing import TYPE_CHECKING, List, cast
+from typing import TYPE_CHECKING, Dict, List, cast
 
 import Utils
-from aiogram import Bot, Dispatcher
-from aiogram.types import Message as MessageType
+from aiogram import Dispatcher
+from aiogram.types import Message as MessageType, PhotoSize
 from loguru import logger
 from ServiceAPIs.VK import VKTelehooperAPI
 from TelegramBot import DialogueGroup, Telehooper
+import hashlib
 
 if TYPE_CHECKING:
 	from TelegramBot import TelehooperUser
@@ -20,7 +21,7 @@ if TYPE_CHECKING:
 TELEHOOPER:	Telehooper = None # type: ignore
 DP: 		Dispatcher = None # type: ignore
 
-MEDIA_GROUPS = {}
+MEDIA_GROUPS: Dict[str, List[PhotoSize]] = {}
 
 
 def _setupHandler(bot: Telehooper) -> None:
@@ -67,17 +68,27 @@ async def checkMediaGroup(media_group_id: str, sleep: float = 0.5) -> List[Utils
 	await asyncio.sleep(sleep)
 
 	# После, у нас должен быть полный список всех файлов в медиа группе:
-	MEDIA = MEDIA_GROUPS.get(media_group_id, []).copy()
+	MEDIA: List[PhotoSize] = MEDIA_GROUPS.get(media_group_id, []).copy()
+	NEW_MEDIA: List[Utils.File] = []
 
 	# Загружаем все файлы с серверов Telegram, и создаем Utils.File объект:
-	for index, media in enumerate(MEDIA):
-		MEDIA[index] = await Utils.File(await media.download(destination_file=BytesIO())).parse()
+	for media in MEDIA:
+		downloaded = BytesIO()
+		downloaded = (await media.download(destination_file=downloaded)).read()
+
+		NEW_MEDIA.append(
+			await Utils.File(
+				downloaded,
+				file_type="photo",
+				uid=media.file_unique_id
+			).parse()
+		)
 
 	# Удаляем старый список медиа:
 	MEDIA_GROUPS.pop(media_group_id)
 
 	# Возвращаем полученный список файлов типа Utils.File:
-	return MEDIA
+	return NEW_MEDIA
 
 async def RegularMessageHandlers(msg: MessageType):
 	dialogue: DialogueGroup = msg._dialogue # type: ignore
@@ -106,6 +117,7 @@ async def RegularMessageHandlers(msg: MessageType):
 
 			if msg.media_group_id not in MEDIA_GROUPS:
 				MEDIA_GROUPS[msg.media_group_id] = [msg.photo[-1]]
+				
 				# Создаём таймер:
 				attachments.extend(await checkMediaGroup(msg.media_group_id))
 			else:
@@ -113,11 +125,17 @@ async def RegularMessageHandlers(msg: MessageType):
 
 				MEDIA_GROUPS[msg.media_group_id].append(msg.photo[-1])
 		else:
-			await TELEHOOPER.vkAPI.startDialogueActivity(user, dialogue.serviceDialogueID, "photo")
+			# await TELEHOOPER.vkAPI.startDialogueActivity(user, dialogue.serviceDialogueID, "photo")
+
+			downloaded: BytesIO = BytesIO()
+			downloaded = await msg.photo[-1].download(destination_file=downloaded)
+			bytes = downloaded.read()
 
 			attachments.append(
 				await Utils.File(
-					await msg.photo[-1].download(destination_file=BytesIO())
+					bytes,
+					file_type="photo",
+					uid=msg.photo[-1].file_unique_id
 				).parse()
 			)
 	elif msg.sticker:
@@ -126,44 +144,61 @@ async def RegularMessageHandlers(msg: MessageType):
 			
 			return
 
-		await TELEHOOPER.vkAPI.startDialogueActivity(user, dialogue.serviceDialogueID, "photo")
+		# await TELEHOOPER.vkAPI.startDialogueActivity(user, dialogue.serviceDialogueID, "photo")
 
 		attachments.append(
 			Utils.File(
 				await msg.sticker.download(destination_file=io.BytesIO()),
-				file_type="sticker"
+				file_type="sticker",
+				uid=msg.sticker.file_unique_id
 			)
 		)
 	elif msg.voice:
-		await TELEHOOPER.vkAPI.startDialogueActivity(user, dialogue.serviceDialogueID, "audiomessage")
+		# await TELEHOOPER.vkAPI.startDialogueActivity(user, dialogue.serviceDialogueID, "audiomessage")
+		pass
 
 		attachments.append(
 			Utils.File(
 				await msg.voice.download(destination_file=io.BytesIO()), 
-				file_type="voice"
+				file_type="voice",
+				uid=msg.voice.file_unique_id
+			)
+		)
+	elif msg.video:
+		# await TELEHOOPER.vkAPI.startDialogueActivity(user, dialogue.serviceDialogueID, "video")
+		pass
+
+		attachments.append(
+			Utils.File(
+				await msg.video.download(destination_file=io.BytesIO()),
+				file_type="video",
+				uid=msg.video.file_unique_id
 			)
 		)
 	else:
-		await TELEHOOPER.vkAPI.startDialogueActivity(user, dialogue.serviceDialogueID, "typing")
+		# await TELEHOOPER.vkAPI.startDialogueActivity(user, dialogue.serviceDialogueID, "typing")
+		pass
+
+	if not shouldSendMessage:
+		return
 
 	# Отправляем сообщение в ВК, сохраняя его в базе:
-	if shouldSendMessage:
-		TELEHOOPER.vkAPI.saveMessageID(
+	TELEHOOPER.vkAPI.saveMessageID(
+		user,
+		msg.message_id,
+		await TELEHOOPER.vkAPI.sendMessage(
 			user,
-			msg.message_id,
-			await TELEHOOPER.vkAPI.sendMessage(
-				user,
-				msg.text
-				or msg.caption,
-				dialogue.serviceDialogueID,
-				reply_message_id,
-				attachments,
-				start_chat_activities=False
-			),
-			msg.chat.id,
+			msg.text
+			or msg.caption,
 			dialogue.serviceDialogueID,
-			True
-		)
+			reply_message_id,
+			attachments,
+			start_chat_activities=True
+		),
+		msg.chat.id,
+		dialogue.serviceDialogueID,
+		True
+	)
 
 async def RegularMessageEditHandler(msg: MessageType):
 	dialogue: DialogueGroup = msg._dialogue # type: ignore

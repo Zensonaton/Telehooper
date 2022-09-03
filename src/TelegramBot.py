@@ -14,14 +14,15 @@ import vkbottle
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from loguru import logger
 from vkbottle_types.responses.account import AccountUserSettings
+from vkbottle_types.responses.users import UsersUserFull
 
 import Exceptions
+import Utils
 from Consts import SETTINGS
 from DB import getDefaultCollection
 from ServiceAPIs.Base import DialogueGroup
 from ServiceAPIs.VK import VKDialogue, VKTelehooperAPI
 from Settings import SettingsHandler
-from vkbottle_types.responses.users import UsersUserFull
 
 
 class Telehooper:
@@ -92,8 +93,8 @@ class Telehooper:
 
 		# Импортируем все Handler'ы как модули:
 		from TelegramBotHandlers import OtherCallbackQueryHandlers
-		from TelegramBotHandlers.commands import (Debug, Help, Self, Settings, Start,
-		                                          This, VKLogin, MD)
+		from TelegramBotHandlers.commands import (MD, Debug, Help, Self, Settings,
+		                                          Start, This, VKLogin)
 		from TelegramBotHandlers.events import GroupEvents, RegularMessageHandlers
 
 		# А теперь добавляем их в бота:
@@ -271,7 +272,7 @@ class Telehooper:
 
 		return True
 
-	async def sendMessage(self, user: TelehooperUser, text: str | None, chat_id: int | None = None, attachments: list | None = [], reply_to: int | None = None, allow_sending_temp_messages: bool = True, return_only_first_element: bool = True):
+	async def sendMessage(self, user: TelehooperUser, text: str | None, chat_id: int | None = None, attachments: list[Utils.File] | None = [], reply_to: int | None = None, allow_sending_temp_messages: bool = True, return_only_first_element: bool = True):
 		"""
 		Отправляет сообщение в Telegram.
 		"""
@@ -307,9 +308,10 @@ class Telehooper:
 
 			# Если мы можем отправить временные сообщения, то отправляем их:
 			if allow_sending_temp_messages and len(attachments) > 1:
-
 				tempImageFileID: str | None = None
 				tempMessages: List[aiogram.types.Message] = []
+				indeciesInCache = []
+
 				DB = getDefaultCollection()
 
 				# Пытаемся достать fileID временной фотки из ДБ:
@@ -318,7 +320,32 @@ class Telehooper:
 					tempImageFileID = res["TempDownloadImageFileID"]
 
 				# Добавляем временные вложения:
-				for index in range(len(attachments)):
+				for index, attachment in enumerate(attachments):
+					# Пытаемся достать кэш:
+					cache =	self.getCachedResource(
+						"VK",
+						cast(str, attachment.uid)
+					)
+
+					if cache:
+						# Кэш есть, дешифровываем.
+
+						cache = Utils.decryptWithKey(
+							cache,
+							cast(str, attachment.uid)
+						)
+
+						tempMediaGroup.attach(
+							aiogram.types.InputMedia(
+								media=cache,
+								caption=loadingCaption if index == 0 else None
+							)
+						)
+
+						indeciesInCache.append(index)
+
+						continue
+
 
 					# Проверяем, есть ли у нас в ДБ идентификатор для временного файла. Если да,
 					# то добавляем caption только на первом элементе, в ином случае Telegram
@@ -339,25 +366,34 @@ class Telehooper:
 					reply_to_message_id=reply_to
 				)
 
-				# Что бы не грузить одну временную фотку множество раз, делаем так:
-				tempImageFileID = tempMessages[0].photo[-1].file_id
+				if not tempImageFileID:
+					# Что бы не грузить одну временную фотку множество раз, делаем так:
+					tempImageFileID = tempMessages[0].photo[-1].file_id
 
-				# И обязательно сохраняем fileID временной фотки в ДБ:
-				DB.update_one({"_id": "_global"}, {
-					"$set": {
-						"TempDownloadImageFileID": tempImageFileID
-					}
-				})
+					# И обязательно сохраняем fileID временной фотки в ДБ:
+					DB.update_one({"_id": "_global"}, {
+						"$set": {
+							"TempDownloadImageFileID": tempImageFileID
+						}
+					})
 
 				del tempImageFileID
 
-				# Спим, ибо flood control.
-				await asyncio.sleep(3)
+				if len(indeciesInCache) != len(attachments):
+					# Спим, ибо flood control.
+					await asyncio.sleep(3)
 
 				# Теперь нам стоит отредачить сообщение с новыми вложениями.
 				# Я специально редактирую всё с конца, что бы не трогать лишний раз caption
 				# самого первого сообщения.
 				for index, attachment in reversed(list(enumerate(attachments))):
+					# Если такое изображение уже было кэшировано, ничего не делаем.
+
+					if index in indeciesInCache:
+						await tempMessages[index].edit_caption(text)
+
+						continue
+
 					await self.vkAPI.startDialogueActivity(user, chat_id, "photo")
 
 					# Загружаем файл, если он не был загружен:
@@ -380,26 +416,80 @@ class Telehooper:
 				# Если мы не можем отправить временные сообщения, то добавляем их по одному в MediaGroup:
 
 				for index, attachment in enumerate(attachments):
-					if not attachment.ready:
+					cache = self.getCachedResource(
+						"VK",
+						Utils.sha256hash(cast(str, attachment.uid))
+					)
+
+					if cache:
+						# Ресурс есть в кэше.
+
+						cache = Utils.decryptWithKey(
+							cache,
+							cast(str, attachment.uid)
+						)
+
+					if not attachment.ready and not cache:
 						await attachment.parse()
 
 					MEDIA_TYPES = ["photo", "document", "animation"]
 
 					if attachment.type in MEDIA_TYPES:
-						tempMediaGroup.attach(aiogram.types.InputMedia(media=attachment.aiofile, caption=text if index == 0 else None))
+						tempMediaGroup.attach(
+							aiogram.types.InputMedia(media=cache if cache else attachment.aiofile, caption=text if index == 0 else None)
+						)
 					elif attachment.type == "voice":
-						return _return(await self.TGBot.send_voice(chat_id, attachment.aiofile, reply_to_message_id=reply_to))
+						# В сообщении может быть только одно голосовое сообщение.
+
+						return _return(
+							await self.TGBot.send_voice(chat_id, cache if cache else attachment.aiofile, reply_to_message_id=reply_to)
+						)
 					elif attachment.type == "video":
-						tempMediaGroup.attach(aiogram.types.InputMediaVideo(media=attachment.aiofile, caption=text if index == 0 else None))
+						tempMediaGroup.attach(
+							aiogram.types.InputMediaVideo(media=cache if cache else attachment.aiofile, caption=text if index == 0 else None)
+						)
+					elif attachment.type == "sticker":
+						# В сообщении может быть только один стикер.
+						
+						msg = await self.TGBot.send_sticker(chat_id, sticker=cache if cache else attachment.aiofile, reply_to_message_id=reply_to)
+
+						# Кэшируем стикер:
+						self.saveCachedResource(
+							"VK",
+							Utils.sha256hash(cast(str, attachment.uid)),
+							Utils.encryptWithKey(
+								msg.sticker.file_id,
+								cast(str, attachment.uid)
+							)
+						)
+
+						return _return(msg)
 					else:
-						raise Exception(f"Незивестный тип {attachment.type}")
+						raise Exception(f"Неизвестный тип {attachment.type}")
 
 
 
-				# И после добавления в MediaGroup, отправляем сообщение:
 				await self.TGBot.send_chat_action(chat_id, "upload_photo")
 
-				return _return(await self.TGBot.send_media_group(chat_id, tempMediaGroup, reply_to_message_id=reply_to))
+				# И после добавления в MediaGroup, отправляем сообщение:
+				mediaMessages = await self.TGBot.send_media_group(chat_id, tempMediaGroup, reply_to_message_id=reply_to)
+				
+				# Кэшируем всё, что есть:
+				for index, msg in enumerate(mediaMessages):
+					media = getattr(msg, cast(str, msg.content_type))
+					if msg.content_type == "photo":
+						media = media[-1]
+
+					self.saveCachedResource(
+						"VK",
+						Utils.sha256hash(cast(str, attachments[index].uid)),
+						Utils.encryptWithKey(
+							media.file_id,
+							cast(str, attachments[index].uid)
+						)
+					)
+
+				return _return(mediaMessages)
 
 		# У нас нет никакой группы вложений, поэтому мы просто отправим сообщение:
 		return _return(await self.TGBot.send_message(chat_id, text, reply_to_message_id=reply_to))

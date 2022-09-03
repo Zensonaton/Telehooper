@@ -1,5 +1,7 @@
 # coding: utf-8
 
+import base64
+import hashlib
 import io
 import os
 import random
@@ -166,6 +168,48 @@ def decryptWithEnvKey(input: str) -> str:
 
 	return Fernet(key).decrypt(input.encode()).decode()
 
+def encryptWithKey(input: str, key: str) -> str:
+	"""
+	Шифрует строку `input` с ключём `key`.
+	"""
+
+	hlib = hashlib.md5()
+	hlib.update(key.encode())
+
+	return Fernet(
+		base64.urlsafe_b64encode(hlib.hexdigest().encode())
+	).encrypt(
+		input.encode()
+	).decode()
+
+def decryptWithKey(input: str, key: str) -> str:
+	"""
+	Расшифровывает строку `input` с ключём `key`.
+	"""
+
+	hlib = hashlib.md5()
+	hlib.update(key.encode())
+
+	return Fernet(
+		base64.urlsafe_b64encode(hlib.hexdigest().encode())
+	).decrypt(
+		input.encode()
+	).decode()
+
+def md5hash(input: str) -> str:
+	"""
+	Выдаёт MD5-хэш строки.
+	"""
+
+	return hashlib.md5(input.encode()).hexdigest()
+
+def sha256hash(input: str) -> str:
+	"""
+	Выдаёт SHA256-хэш строки.
+	"""
+
+	return hashlib.sha256(input.encode()).hexdigest()
+
 def getVKMessageFlags(flags: int) -> Tuple[bool, bool, bool, bool, bool, bool, bool, bool, bool, bool, bool, bool, bool]:
 	"""
 	Выдаёт tuple с флагами сообщения. [Документация ВК](https://vk.com/dev/using_longpoll_3).
@@ -216,13 +260,15 @@ class File:
 	aiofile: InputFile | None
 	bytes: _bytes | None
 	filename: str | None
+	uid: str | None
 
 	type: Literal["photo", "sticker", "voice", "video"]
 
 	ready: bool = False
 
-	def __init__(self, path_url_bytes_file: str | InputFile | io.IOBase | _bytes, file_type: Literal["photo", "sticker", "voice", "video"] = "photo") -> None:
+	def __init__(self, path_url_bytes_file: str | InputFile | io.IOBase | _bytes, file_type: Literal["photo", "sticker", "voice", "video"] = "photo", uid: str | None = None) -> None:
 		self.type = file_type
+		self.uid = uid
 
 		self.url = None
 		self.path = None
