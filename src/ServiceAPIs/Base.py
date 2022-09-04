@@ -52,6 +52,17 @@ class MappedMessage:
 		self.sentViaTelegram = sent_via_telegram
 		self.sentViaService = not self.sentViaTelegram
 
+class LatestMessage:
+	"""
+	Последнее сообщение диалога.
+	"""
+
+	telegram_message_id: int
+	service_message_id: int
+
+	def __init__(self, telegram_message_id: int, service_message_id: int) -> None:
+		self.telegram_message_id = telegram_message_id
+		self.service_message_id = service_message_id
 
 class BaseTelehooperAPI:
 	"""
@@ -176,6 +187,13 @@ class BaseTelehooperAPI:
 
 		self._checkAvailability()
 
+	async def markAsRead(self, user: "TelehooperUser"):
+		"""
+		Помечает сообщение как "прочитанное".
+		"""
+
+		self._checkAvailability()
+
 	def saveMessageID(self, user: "TelehooperUser", service_name: str, telegram_message_id: int | str, service_message_id: int | str, telegram_dialogue_id: int | str, service_dialogue_id: int | str, is_sent_via_telegram: bool) -> None:
 		"""Сохраняет ID сообщения в базу."""
 
@@ -236,22 +254,30 @@ class BaseTelehooperAPI:
 			}
 		}, array_filters = [{"element.TelegramGroupID": dialogue_telegram_id}])
 
-	def getLatestMessageID(self, user: "TelehooperUser", dialogue_telegram_id: int | str) -> Tuple[int, int] | None:
+	def getLatestMessageID(self, user: "TelehooperUser", service_name: str, dialogue_telegram_id: int | str) -> LatestMessage | None:
 		"""
 		Возвращает ID последнего сообщения в диалоге.
 		"""
 
-		# TODO
-		# DB = getDefaultCollection()
-		# # res = DB.find_one({"_id": "_global", "ServiceDialogues.VK.$[element].TelegramGroupID": dialogue_telegram_id}, array_filters=[{"element.TelegramGroupID": dialogue_telegram_id}])
-		# res = DB.find_one({"_id": "_global", "ServiceDialogues.VK.TelegramGroupID": dialogue_telegram_id}, {"ServiceDialogues.VK.LatestServiceMessageID": 1, "ServiceDialogues.VK.LatestMessageID": 1, "ServiceDialogues.VK.TelegramGroupID": 1})
+		DB = getDefaultCollection()
 
-		# if res:
-		# 	return res["ServiceDialogues"]["VK"][0]["LatestMessageID"], res["ServiceDialogues"]["VK"][0]["LatestServiceMessageID"]
+		res = DB.find_one(
+			{
+				"_id": "_global", 
+				f"ServiceDialogues.{service_name}.TelegramGroupID": int(dialogue_telegram_id)
+			},
 
-		# return None
+			{
+				f"ServiceDialogues.{service_name}.$": 1, 
+				"_id": 0
+			}
+		)
+		if not res:
+			return
 
-		pass
+		res = res["ServiceDialogues"][service_name][0]
+
+		return LatestMessage(res["LatestMessageID"], res["LatestServiceMessageID"])
 
 	async def getDialogueGroupByTelegramGroup(self, telegram_group: aiogram.types.Chat | int) -> DialogueGroup | None:
 		return await self.telehooper_bot.getDialogueGroupByTelegramGroup(telegram_group)

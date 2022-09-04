@@ -12,13 +12,14 @@ from typing import Any, List, Optional, Tuple, cast
 import aiogram
 import vkbottle
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from loguru import logger
 from vkbottle_types.responses.account import AccountUserSettings
 from vkbottle_types.responses.users import UsersUserFull
 
 import Exceptions
 import Utils
-from Consts import SETTINGS
+from Consts import SETTINGS, InlineButtonCallbacks as CButtons
 from DB import getDefaultCollection
 from ServiceAPIs.Base import DialogueGroup
 from ServiceAPIs.VK import VKDialogue, VKTelehooperAPI
@@ -94,11 +95,17 @@ class Telehooper:
 		# Импортируем все Handler'ы как модули:
 		from TelegramBotHandlers import OtherCallbackQueryHandlers
 		from TelegramBotHandlers.commands import (MD, Debug, Help, Self, Settings,
-		                                          Start, This, VKLogin)
+		                                          Start, This, VKLogin, MarkAsRead)
 		from TelegramBotHandlers.events import GroupEvents, RegularMessageHandlers
 
 		# А теперь добавляем их в бота:
-		self.importHandlers([Start, VKLogin, GroupEvents, OtherCallbackQueryHandlers, This, Self, RegularMessageHandlers, MD, Help, Debug, Settings], self, is_multibot=False)
+		self.importHandlers([
+				Start, VKLogin, This, Self, MD, Help, Debug, Settings, MarkAsRead, 
+				RegularMessageHandlers, GroupEvents, OtherCallbackQueryHandlers
+			], 
+			self, 
+			is_multibot=False
+		)
 
 		# Отдельно добавляю Error Handler:
 		self.DP.errors_handler()(self.global_error_handler)
@@ -272,7 +279,7 @@ class Telehooper:
 
 		return True
 
-	async def sendMessage(self, user: TelehooperUser, text: str | None, chat_id: int | None = None, attachments: list[Utils.File] | None = [], reply_to: int | None = None, allow_sending_temp_messages: bool = True, return_only_first_element: bool = True):
+	async def sendMessage(self, user: TelehooperUser, text: str | None, chat_id: int | None = None, attachments: list[Utils.File] | None = [], reply_to: int | None = None, allow_sending_temp_messages: bool = True, return_only_first_element: bool = True, read_button: bool = True):
 		"""
 		Отправляет сообщение в Telegram.
 		"""
@@ -300,6 +307,16 @@ class Telehooper:
 		reply_to = reply_to if reply_to is None else int(reply_to)
 
 		self.vkAPI = cast(VKTelehooperAPI, self.vkAPI)
+
+		keyboard = InlineKeyboardMarkup()
+
+		if read_button:
+			keyboard.add(
+				InlineKeyboardButton(
+					"Прочитать",
+					callback_data=CButtons.CommandCallers.MARK_AS_READ
+				)
+			)
 
 		# Проверяем, есть ли у нас вложения, которые стоит отправить:
 		if len(attachments) > 0:
@@ -363,7 +380,7 @@ class Telehooper:
 				tempMessages = await self.TGBot.send_media_group(
 					chat_id, 
 					tempMediaGroup, 
-					reply_to_message_id=reply_to
+					reply_to_message_id=reply_to,
 				)
 
 				if not tempImageFileID:
@@ -442,7 +459,7 @@ class Telehooper:
 						# В сообщении может быть только одно голосовое сообщение.
 
 						return _return(
-							await self.TGBot.send_voice(chat_id, cache if cache else attachment.aiofile, reply_to_message_id=reply_to)
+							await self.TGBot.send_voice(chat_id, cache if cache else attachment.aiofile, reply_to_message_id=reply_to, reply_markup=keyboard)
 						)
 					elif attachment.type == "video":
 						tempMediaGroup.attach(
@@ -451,7 +468,7 @@ class Telehooper:
 					elif attachment.type == "sticker":
 						# В сообщении может быть только один стикер.
 						
-						msg = await self.TGBot.send_sticker(chat_id, sticker=cache if cache else attachment.aiofile, reply_to_message_id=reply_to)
+						msg = await self.TGBot.send_sticker(chat_id, sticker=cache if cache else attachment.aiofile, reply_to_message_id=reply_to, reply_markup=keyboard)
 
 						# Кэшируем стикер:
 						self.saveCachedResource(
@@ -492,7 +509,7 @@ class Telehooper:
 				return _return(mediaMessages)
 
 		# У нас нет никакой группы вложений, поэтому мы просто отправим сообщение:
-		return _return(await self.TGBot.send_message(chat_id, text, reply_to_message_id=reply_to))
+		return _return(await self.TGBot.send_message(chat_id, text, reply_to_message_id=reply_to, reply_markup=keyboard))
 
 	async def editMessage(self, user: TelehooperUser, text: str | None, chat_id: int, message_id: int, attachments: list | None = []):
 		"""

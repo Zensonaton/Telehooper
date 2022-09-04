@@ -19,7 +19,7 @@
 			"",
 			"def _setupHandler(bot: Telehooper) -> None:",
 			"\t\"\"\"",
-			"\tИнициализирует команду Handler.",
+			"\tИнициализирует Handler.",
 			"\t\"\"\"",
 			"",
 			"\tglobal TELEHOOPER, DP",

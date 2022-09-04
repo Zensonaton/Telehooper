@@ -22,7 +22,8 @@ from vkbottle_types.objects import MessagesGraffiti
 from vkbottle_types.responses.groups import GroupsGroupFull
 from vkbottle_types.responses.messages import MessagesConversationWithMessage
 from vkbottle_types.responses.users import UsersUserFull
-from .Base import BaseTelehooperAPI, MappedMessage
+from .Base import BaseTelehooperAPI, LatestMessage, MappedMessage
+from aiogram.types import InlineKeyboardMarkup
 
 if TYPE_CHECKING:
 	from TelegramBot import Telehooper, TelehooperUser
@@ -437,6 +438,19 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 
 			sender = await msg.get_user()
 			msgPrefix = (sender.first_name or "") + " " + (sender.last_name or "") + ": "
+
+		# Удаляем предыдущую клавиатуру:
+		self.telehooper_bot.vkAPI = cast(VKTelehooperAPI, self.telehooper_bot.vkAPI)
+		latest = self.telehooper_bot.vkAPI.getLatestMessageID(
+			user,
+			dialogue.group.id
+		)
+		if latest:
+			try:
+				await self.telehooper_bot.TGBot.edit_message_reply_markup(dialogue.group.id, latest.telegram_message_id, reply_markup=InlineKeyboardMarkup())
+			except:
+				pass
+
 
 		# Отправляем сообщение и сохраняем в ДБ:
 		telegramMessage = cast(aiogram.types.Message, await self.telehooper_bot.sendMessage(
@@ -867,11 +881,19 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 
 		return await user.vkAPI.messages.delete(peer_id=chat_id, message_id=message_id, delete_for_all=delete_for_everyone)
 
+	async def markAsRead(self, user: "TelehooperUser", chat_id: int, message_id: int):
+		await super().markAsRead(user)
+
+		return await user.vkAPI.messages.mark_as_read(start_message_id=message_id, peer_id=chat_id)
+
 	def getMessageDataByServiceMID(self, user: "TelehooperUser", service_message_id: int | str) -> None | MappedMessage:
 		return super().getMessageDataByServiceMID(user, "VK", service_message_id)
 
 	def getMessageDataByTelegramMID(self, user: "TelehooperUser", telegram_message_id: int | str) -> None | MappedMessage:
 		return super().getMessageDataByTelegramMID(user, "VK", telegram_message_id)
+
+	def getLatestMessageID(self, user: "TelehooperUser", dialogue_telegram_id: int | str) -> LatestMessage | None:
+		return super().getLatestMessageID(user, "VK", dialogue_telegram_id)
 
 class VKDialogue:
 	"""

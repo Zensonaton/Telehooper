@@ -165,6 +165,7 @@ class InlineButtonCallbacks:
 		ME = "command_self"
 		THIS = "command_this"
 		CONVERT = "command_convert_to_dialogue"
+		MARK_AS_READ = "command_read"
 
 	class CommandActions:
 		CONVERT_TO_DIALOGUE = "action_convert_to_dialogue"
