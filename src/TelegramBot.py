@@ -690,15 +690,3 @@ class TelehooperAPIStorage:
 
 	def __init__(self) -> None:
 		self.vk = self.VKAPIStorage()
-
-class CachedResource:
-	"""
-	Класс, отображающий кэшированный ресурс.
-	"""
-
-	input: str
-	output: str
-
-	def __init__(self, input: str, output: str) -> None:
-		self.input = input
-		self.output = output
