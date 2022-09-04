@@ -194,18 +194,25 @@ class Telehooper:
 
 		newList = []
 		for dialogue in res["ServiceDialogues"]["VK"]:
-			# Ищем группу в кэше:
-			for oldDialogue in old_dialogueList:
-				if oldDialogue.serviceDialogueID == dialogue["ID"]:
-					newList.append(oldDialogue)
-					break
-			else:
-				# Если группы нет в кэше, то создаём новую:
-				newDialogue = DialogueGroup(
-					await self.TGBot.get_chat(dialogue["TelegramGroupID"]),
-					dialogue["ID"]
-				)
-				newList.append(newDialogue)
+			try:
+				# Ищем группу в кэше:
+				for oldDialogue in old_dialogueList:
+					if oldDialogue.serviceDialogueID == dialogue["ID"]:
+						newList.append(oldDialogue)
+						break
+				else:
+					# Если группы нет в кэше, то создаём новую:
+					newDialogue = DialogueGroup(
+						await self.TGBot.get_chat(dialogue["TelegramGroupID"]),
+						dialogue["ID"]
+					)
+					newList.append(newDialogue)
+			except:
+				# Бота исключили из группы.
+
+				# TODO: Удалить из БД.
+
+				pass
 
 		# Каждый диалог, находящийся в переменной, добавляем:
 		self.dialogueGroupsList = []
