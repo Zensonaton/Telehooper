@@ -441,6 +441,17 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 								f"{vkAttachment.video.owner_id}_{vkAttachment.video.id}_{vkAttachment.video.access_key}" # type: ignore
 							)
 						)
+			elif TYPE == "graffiti":
+				# Граффити. Граффити мы отправляем в Telegram как стикер.
+				URL: str = vkAttachment.graffiti.url # type: ignore
+
+				fileAttachments.append(
+					Utils.File(
+						URL, 
+						"sticker", 
+						f"sticker{vkAttachment.graffiti.owner_id}_{vkAttachment.graffiti.id}_{vkAttachment.graffiti.access_key}" # type: ignore
+					)
+				)
 
 		# Ответ на сообщение:
 		replyMessageID = None
