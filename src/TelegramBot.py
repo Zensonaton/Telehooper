@@ -249,6 +249,32 @@ class Telehooper:
 
 		return None
 
+	def getDialoguePin(self, service_name: str, telegram_group: aiogram.types.Chat | int) -> int | None:
+		"""
+		Достаёт закреплённое сообщение из диалога, выдавая его ID.
+		"""
+
+		if isinstance(telegram_group, aiogram.types.Chat):
+			telegram_group = telegram_group.id
+
+		DB = getDefaultCollection()
+
+		res = DB.find_one(
+			{
+				f"ServiceDialogues.{service_name}.TelegramGroupID": telegram_group
+			},
+
+			{
+				f"ServiceDialogues.{service_name}.$": 1, "_id": 0
+			}
+		)
+		if not res:
+			return None
+
+		res = res["ServiceDialogues"][service_name][0]
+
+		return res.get("PinnedMessageID", None)
+
 	def importHandlers(self, handlers: list, bot: Telehooper | Minibot, mainBot: Optional[Telehooper] = None, is_multibot: bool = False) -> None:
 		"""
 		Загружает (импортирует?) все Handler'ы в бота.
@@ -685,6 +711,9 @@ class TelehooperUser:
 		"""
 
 		return await self.telehooperBot.getDialogueGroupByServiceDialogueID(service_dialogue_id)
+
+	def getDialoguePin(self, telegram_group: aiogram.types.Chat | int):
+		return self.telehooperBot.getDialoguePin("VK", telegram_group)
 
 	def getSetting(self, path: str) -> Any:
 		return self.telehooperBot.settingsHandler.getUserSetting(self, path)

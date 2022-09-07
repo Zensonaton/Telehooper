@@ -4,7 +4,7 @@
 Базовый объект API. Все сервисы должны импортировать значения из данного базового класса.
 """
 
-from typing import TYPE_CHECKING, Tuple
+from typing import TYPE_CHECKING
 
 import aiogram
 from Consts import MAPIServiceType
@@ -190,6 +190,13 @@ class BaseTelehooperAPI:
 	async def markAsRead(self, user: "TelehooperUser"):
 		"""
 		Помечает сообщение как "прочитанное".
+		"""
+
+		self._checkAvailability()
+
+	async def updatePin(self, user: "TelehooperUser"):
+		"""
+		Обновляет содержимое закреплённого сообщения с состоянием диалога.
 		"""
 
 		self._checkAvailability()

@@ -211,6 +211,24 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 			if IS_DELETED:
 				await self.onMessageDelete(user, msg)
 
+		@user.vkUser.on.raw_event(vkbottle.UserEventType.FRIEND_ONLINE) # type: ignore
+		async def _onFriendOnline(event):
+			USER_ID = abs(event.object[1])
+
+			pass
+
+		@user.vkUser.on.raw_event(vkbottle.UserEventType.FRIEND_OFFLINE) # type: ignore
+		async def _onFriendOffline(event):
+			USER_ID = abs(event.object[1])
+
+			pass
+
+		@user.vkUser.on.raw_event(vkbottle.UserEventType.OUT_READ) # type: ignore
+		async def _onOutRead(event):
+			USER_ID = event.object[1]
+
+			pass
+
 		# Создаём Polling-задачу:
 		user.APIstorage.vk.pollingTask = asyncio.create_task(user.vkUser.run_polling(), name=f"VK Polling, id{user.APIstorage.vk.accountInfo.id}") # type: ignore
 
