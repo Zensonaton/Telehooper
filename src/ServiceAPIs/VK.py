@@ -453,10 +453,16 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 					)
 				)
 
-		# Ответ на сообщение:
+		# Ответ на сообщение, либо же "пересланное" сообщение, но в одном экземляре.
 		replyMessageID = None
+		reply = None
 		if msg.reply_message:
-			res = self.getMessageDataByServiceMID(user, msg.reply_message.id or 0)
+			reply = msg.reply_message
+		elif msg.fwd_messages and len(msg.fwd_messages) == 1:
+			reply = msg.fwd_messages[0]
+
+		if reply:
+			res = self.getMessageDataByServiceMID(user, reply.id or 0)
 			if res:
 				replyMessageID = res.telegramMID
 
