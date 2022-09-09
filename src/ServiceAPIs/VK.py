@@ -908,7 +908,21 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 	async def deleteMessage(self, user: "TelehooperUser", chat_id: int, message_id: int, delete_for_everyone: bool = False):
 		await super().deleteMessage(user)
 
-		return await user.vkAPI.messages.delete(peer_id=chat_id, message_id=message_id, delete_for_all=delete_for_everyone)
+		# Здесь я использую именно "сырой" запрос, что бы не волноваться насчёт
+		# очередной ошибки в vkbottle из-за pydantic.
+		# Алиса, когда фикс? :D
+		#
+		# #removepydanticfromvkbottle 
+		
+		return (await user.vkAPI.request(
+			"messages.delete", 
+
+			{
+				"peer_id": chat_id,
+				"message_id": message_id,
+				"delete_for_all": delete_for_everyone
+			}
+		))["response"]
 
 	async def markAsRead(self, user: "TelehooperUser", chat_id: int, message_id: int):
 		await super().markAsRead(user)

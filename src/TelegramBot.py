@@ -95,12 +95,12 @@ class Telehooper:
 		# Импортируем все Handler'ы как модули:
 		from TelegramBotHandlers import OtherCallbackQueryHandlers
 		from TelegramBotHandlers.commands import (MD, Debug, Help, Self, Settings,
-		                                          Start, This, VKLogin, MarkAsRead)
+		                                          Start, This, VKLogin, MarkAsRead, Delete)
 		from TelegramBotHandlers.events import GroupEvents, RegularMessageHandlers
 
 		# А теперь добавляем их в бота:
 		self.importHandlers([
-				Start, VKLogin, This, Self, MD, Help, Debug, Settings, MarkAsRead, 
+				Start, VKLogin, This, Self, MD, Help, Debug, Settings, MarkAsRead, Delete,
 				RegularMessageHandlers, GroupEvents, OtherCallbackQueryHandlers
 			], 
 			self, 
@@ -279,8 +279,6 @@ class Telehooper:
 		"""
 		Загружает (импортирует?) все Handler'ы в бота.
 		"""
-
-		MESSAGE_HANDLERS_IMPORTED_FILENAMES = [i.__name__.split(".")[-1] + ".py" for i in handlers]
 
 		# Загружаем команды.
 		logger.debug(f"Было импортировано {len(handlers)} handler'ов, загружаю их...")
