@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Dict, List, cast
 
 import Utils
 from aiogram import Dispatcher
-from aiogram.types import Message as MessageType, PhotoSize
+from aiogram.types import Message as MessageType, PhotoSize, InlineKeyboardMarkup
 from loguru import logger
 from ServiceAPIs.VK import VKTelehooperAPI
 from TelegramBot import DialogueGroup, Telehooper
@@ -181,6 +181,18 @@ async def RegularMessageHandlers(msg: MessageType):
 
 	if not shouldSendMessage:
 		return
+
+	# Удаляем предыдущую клавиатуру:
+	TELEHOOPER.vkAPI = cast(VKTelehooperAPI, TELEHOOPER.vkAPI)
+	latest = TELEHOOPER.vkAPI.getLatestMessageID(
+		user,
+		dialogue.group.id
+	)
+	if latest:
+		try:
+			await TELEHOOPER.TGBot.edit_message_reply_markup(dialogue.group.id, latest.telegram_message_id, reply_markup=InlineKeyboardMarkup())
+		except:
+			pass
 
 	# Отправляем сообщение в ВК, сохраняя его в базе:
 	TELEHOOPER.vkAPI.saveMessageID(
