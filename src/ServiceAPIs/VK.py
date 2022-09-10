@@ -466,6 +466,40 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 			if res:
 				replyMessageID = res.telegramMID
 
+		# Обработаем пересланные сообщения:
+		fwd_messages_str = ""
+		if msg.fwd_messages and not reply:
+			latestUserID = 0
+			for fwd in msg.fwd_messages:
+				if latestUserID != fwd.from_id:
+					fwd_user = await fwd.get_user()
+
+					fwd_messages_str += f"<a href=\"vk.com/{fwd_user.domain or ('id' + str(fwd_user.id))}\">{fwd_user.first_name} {fwd_user.last_name}</a>, <code>{datetime.datetime.utcfromtimestamp(fwd.date).strftime('%H:%M')}</code>:\n" # type: ignore
+					latestUserID = fwd.from_id
+
+				fwd_messages_str += f"  {fwd.text}\n"
+
+				if fwd.attachments or fwd.fwd_messages:
+					fwd_messages_str += "    + "
+
+					for fwd_attach in fwd.attachments or []:
+						if fwd_attach.audio:
+							fwd_messages_str += "🎵 "
+						elif fwd_attach.audio_message:
+							fwd_messages_str += "🎤 "
+						elif fwd_attach.doc:
+							fwd_messages_str += "📄 "
+						elif fwd_attach.graffiti or fwd_attach.sticker or fwd_attach.photo:
+							fwd_messages_str += "🖼 "
+						elif fwd_attach.video:
+							fwd_messages_str += "📹 "
+						elif fwd_attach.wall:
+							fwd_messages_str += "📰 "
+						elif fwd.fwd_messages:
+							fwd_messages_str += "<i>пересланное сообщение</i> "				 
+
+
+
 		# Если сообщение из беседы, то добавляем имя:
 		msgPrefix = ""
 		if FROM_CONVO:
@@ -490,11 +524,12 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 		# Отправляем сообщение и сохраняем в ДБ:
 		telegramMessage = cast(aiogram.types.Message, await self.telehooper_bot.sendMessage(
 			user=user,
-			text=msgPrefix + (msg.text.replace("<", "&lt;") or "<i>ошибка: пустой текст у сообщения. возможно, в сообщении неподдерживаемый тип?</i>"),
+			text=msgPrefix + (msg.text.replace("<", "&lt;") or "<i>пустой текст у сообщения, неподдерживаемый тип вложения?</i>") + (f"\n\n<i>пересланные сообщения:</i>\n{fwd_messages_str}" if fwd_messages_str else ""),
 			chat_id=dialogue.group.id,
 			attachments=fileAttachments,
 			reply_to=replyMessageID,
-			return_only_first_element=True
+			return_only_first_element=True,
+			disable_preview=bool(fwd_messages_str)
 		))
 
 		self.telehooper_bot.vkAPI = cast("VKTelehooperAPI", self.telehooper_bot.vkAPI)

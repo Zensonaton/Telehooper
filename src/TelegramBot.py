@@ -310,7 +310,7 @@ class Telehooper:
 
 		return True
 
-	async def sendMessage(self, user: TelehooperUser, text: str | None, chat_id: int | None = None, attachments: list[Utils.File] | None = [], reply_to: int | None = None, allow_sending_temp_messages: bool = True, return_only_first_element: bool = True, read_button: bool = True):
+	async def sendMessage(self, user: TelehooperUser, text: str | None, chat_id: int | None = None, attachments: list[Utils.File] | None = [], reply_to: int | None = None, allow_sending_temp_messages: bool = True, return_only_first_element: bool = True, read_button: bool = True, disable_preview: bool = False):
 		"""
 		Отправляет сообщение в Telegram.
 		"""
@@ -355,7 +355,7 @@ class Telehooper:
 			loadingCaption = "<i>Весь контент появится здесь после загрузки, подожди...</i>\n\n" + text
 
 			# Если мы можем отправить временные сообщения, то отправляем их:
-			if allow_sending_temp_messages and len(attachments) > 1:
+			if allow_sending_temp_messages and len(attachments) > 1: # TODO: Проверить тут типы вложений.
 				tempImageFileID: str | None = None
 				tempMessages: List[aiogram.types.Message] = []
 				indeciesInCache = []
@@ -411,7 +411,7 @@ class Telehooper:
 				tempMessages = await self.TGBot.send_media_group(
 					chat_id, 
 					tempMediaGroup, 
-					reply_to_message_id=reply_to,
+					reply_to_message_id=reply_to
 				)
 
 				if not tempImageFileID:
@@ -520,7 +520,11 @@ class Telehooper:
 				await self.TGBot.send_chat_action(chat_id, "upload_photo")
 
 				# И после добавления в MediaGroup, отправляем сообщение:
-				mediaMessages = await self.TGBot.send_media_group(chat_id, tempMediaGroup, reply_to_message_id=reply_to)
+				mediaMessages = await self.TGBot.send_media_group(
+					chat_id, 
+					tempMediaGroup, 
+					reply_to_message_id=reply_to
+				)
 				
 				# Кэшируем всё, что есть:
 				for index, msg in enumerate(mediaMessages):
@@ -540,7 +544,15 @@ class Telehooper:
 				return _return(mediaMessages)
 
 		# У нас нет никакой группы вложений, поэтому мы просто отправим сообщение:
-		return _return(await self.TGBot.send_message(chat_id, text, reply_to_message_id=reply_to, reply_markup=keyboard))
+		return _return(
+			await self.TGBot.send_message(
+				chat_id, 
+				text, 
+				reply_to_message_id=reply_to, 
+				reply_markup=keyboard,
+				disable_web_page_preview=disable_preview
+			)
+		)
 
 	async def editMessage(self, user: TelehooperUser, text: str | None, chat_id: int, message_id: int, attachments: list | None = []):
 		"""
