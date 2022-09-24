@@ -576,6 +576,9 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 		MSGID = msg.object[1]
 		MSGTEXT = msg.object[6]
 		MSGCHATID = msg.object[3]
+		MSGUSERID = int(msg.object[7]["from"])
+		FROM_USER = MSGCHATID < 2000000000
+		FROM_CONVO = MSGCHATID >= 2000000000
 
 		res = self.getMessageDataByServiceMID(user, MSGID)
 		if not res:
@@ -586,8 +589,17 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 		if res.sentViaTelegram:
 			return
 
+		# Если сообщение из беседы, то добавляем имя:
+		self.telehooper_bot.vkAPI = cast(VKTelehooperAPI, self.telehooper_bot.vkAPI)
+		msgPrefix = ""
+		if FROM_CONVO:
+			# Получаем инфу о отправителе:
+
+			sender = await self.telehooper_bot.vkAPI.ensureGetUserInfo(user, MSGUSERID)
+			msgPrefix = f"<b>{sender['FirstName']} {sender['LastName']}</b>: "
+
 		# В ином случае, редактируем:
-		await self.telehooper_bot.editMessage(user, MSGTEXT.replace("<", "&lt;"), res.telegramDialogueID, res.telegramMID)
+		await self.telehooper_bot.editMessage(user, msgPrefix + MSGTEXT.replace("<", "&lt;"), res.telegramDialogueID, res.telegramMID)
 
 	async def onMessageDelete(self, user: "TelehooperUser", msg):
 		await super().onMessageDelete(user)
