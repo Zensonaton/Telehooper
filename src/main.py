@@ -72,6 +72,9 @@ async def onBotStart(dp: aiogram.Dispatcher) -> None:
 					},
 					"ResourceCache": {
 						"VK": {}
+					},
+					"UsersCache": {
+						"VK": {}
 					}
 				}
 			},
@@ -116,22 +119,27 @@ async def onBotStart(dp: aiogram.Dispatcher) -> None:
 	try:
 		helperbots = json.loads(helperbots)
 	except Exception as error:
-		logger.warning("У меня не удалось загрузить переменную среды \"HELPER_BOTS\" как JSON-объект: %s", error)
+		logger.warning(f"У меня не удалось загрузить переменную среды \"HELPER_BOTS\" как JSON-объект: {error}")
 	else:
 		logger.info(f"Было обнаружено {len(helperbots)} 'миниботов' в настройках переменных среды, пытаюсь авторизовать их...")
 		loop = asyncio.get_event_loop()
 
-		for index, token in enumerate(helperbots):
+		for index, token in enumerate(helperbots, start=1):
 			try:
 				MINIBOT = TGBot.Minibot(TELEHOOPER, token)
 				MINIBOT.initTelegramBot()
 
 				loop.create_task(MINIBOT.DP.start_polling(), name=f"Multibot-{index+1}")
-				logger.debug(f"Мультибот #{index+1}/{len(helperbots)} был запущен!")
+				logger.debug(f"Мультибот #{index}/{len(helperbots)} был запущен!")
 			except Exception as error:
-				logger.warning(f"Мультибота #{index+1} не удалось подключить: {error}")
+				logger.warning(f"Мультибота #{index} не удалось подключить: {error}")
 	finally:
 		logger.info("Завершил подключение миниботов.")
+
+	logger.info(f"Запускаю фоновую задачу по обновлению данных пользователей в БД с частотой в {Utils.seconds_to_userfriendly_string(Consts.VK_USERS_GET_AUTOUPDATE_SECS)}...")
+	TELEHOOPER.vkAPI.runBackgroundTasks(
+		asyncio.get_event_loop()
+	)
 
 # Запускаем бота.
 if __name__ == "__main__":

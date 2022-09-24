@@ -27,4 +27,6 @@ def _setupHandler(bot: Telehooper) -> None:
 
 
 async def Debug(msg: MessageType) -> None:
+	user = await TELEHOOPER.getBotUser(msg.from_user.id)
+
 	pass

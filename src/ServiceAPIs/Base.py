@@ -4,7 +4,9 @@
 Базовый объект API. Все сервисы должны импортировать значения из данного базового класса.
 """
 
-from typing import TYPE_CHECKING
+import time
+from asyncio import AbstractEventLoop
+from typing import TYPE_CHECKING, cast
 
 import aiogram
 from Consts import MAPIServiceType
@@ -201,6 +203,105 @@ class BaseTelehooperAPI:
 
 		self._checkAvailability()
 
+	def saveUserCache(self, service_name: str, user_id: int | str, data: dict, issued_by: int):
+		"""
+		Сохраняет информацию о пользователе в кэш.
+		"""
+
+		DB = getDefaultCollection()
+
+		# Костыль. Проверяем, существует ли такой пользователь в кэше.
+		# Если да, то мы извлекаем оттуда значение LastLookup.
+		prevRes = DB.find_one(
+			{
+				"_id": "_global", 
+				
+				f"UsersCache.{service_name}.{user_id}": {
+					"$exists": True
+				}
+			}
+		)
+
+		lastLookup = int(time.time())
+		if prevRes:
+			lastLookup = prevRes["UsersCache"][service_name][str(user_id)].get("LastLookup", int(time.time()))
+
+		data.update({
+			"LastLookup": lastLookup,
+			"IssuedByTelegramID": issued_by
+		})
+
+		DB.update_one(
+			{
+				"_id": "_global"
+			}, 
+			
+			{
+				"$set": {
+					f"UsersCache.{service_name}.{user_id}": data
+				}
+			}
+		)
+
+		return data
+
+	def getUserCache(self, service_name: str, user_id: int | str, silent_lookup: bool = False):
+		"""
+		Достаёт информацию о пользователе из кэша.
+		"""
+
+		DB = getDefaultCollection()
+
+		res = DB.find_one(
+			{
+				"_id": "_global"
+			},
+
+			{
+				f"UsersCache.{service_name}.{user_id}": 1
+			}
+		)
+
+		if not res:
+			return None
+
+		if not silent_lookup:
+			DB.update_one(
+				{
+					"_id": "_global",
+					f"UsersCache.{service_name}": str(user_id)
+				},
+
+				{
+					"$set": {
+						"LastLookup": int(time.time())
+					}
+				}
+			)
+
+		return res["UsersCache"][service_name].get(str(user_id))
+
+	async def getBaseUserInfo(self, user: "TelehooperUser"):
+		"""
+		Достаёт базовую информацию о пользователе.
+		"""
+
+		self._checkAvailability()
+
+	async def getBaseUserInfoMultiple(self, user: "TelehooperUser"):
+		"""
+		Достаёт базовую информацию о сразу нескольких пользователях.
+		"""
+
+		self._checkAvailability()
+
+	async def ensureGetUserInfo(self, user: "TelehooperUser"):
+		"""
+		Достаёт информацию о пользователе из кэша. Если такого пользователя нет в кэше, то информация о нём принудительно скачивается.
+		"""
+
+		self._checkAvailability()
+
 	def saveMessageID(self, user: "TelehooperUser", service_name: str, telegram_message_id: int | str, service_message_id: int | str, telegram_dialogue_id: int | str, service_dialogue_id: int | str, is_sent_via_telegram: bool) -> None:
 		"""Сохраняет ID сообщения в базу."""
 
@@ -217,6 +318,13 @@ class BaseTelehooperAPI:
 				}
 			}
 		})
+
+	def runBackgroundTasks(self, loop: AbstractEventLoop):
+		"""
+		Создаёт фоновую задачу, ассоциированную с этим сервисом.
+		"""
+
+		self._checkAvailability()
 
 	def getMessageDataByTelegramMID(self, user: "TelehooperUser", service_name: str, telegram_message_id: int | str) -> None | MappedMessage:
 		return self._getMessageDataByKeyname(user, service_name, "TelegramMID", telegram_message_id)

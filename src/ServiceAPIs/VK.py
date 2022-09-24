@@ -5,15 +5,18 @@ from __future__ import annotations
 import asyncio
 import datetime
 import io
+import math
 import os
-from asyncio import Task
+from asyncio import AbstractEventLoop, Task
+import time
 from typing import TYPE_CHECKING, Any, List, Literal, cast
 
 import aiogram
 import aiohttp
 import Utils
 import vkbottle
-from Consts import AccountDisconnectType
+from aiogram.types import InlineKeyboardMarkup
+from Consts import VK_USER_INACTIVE_SECS, VK_USERS_GET_AUTOUPDATE_SECS, AccountDisconnectType
 from DB import getDefaultCollection
 from loguru import logger
 from PIL import Image
@@ -22,8 +25,8 @@ from vkbottle_types.objects import MessagesGraffiti
 from vkbottle_types.responses.groups import GroupsGroupFull
 from vkbottle_types.responses.messages import MessagesConversationWithMessage
 from vkbottle_types.responses.users import UsersUserFull
+
 from .Base import BaseTelehooperAPI, LatestMessage, MappedMessage
-from aiogram.types import InlineKeyboardMarkup
 
 if TYPE_CHECKING:
 	from TelegramBot import Telehooper, TelehooperUser
@@ -468,11 +471,12 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 
 		# Обработаем пересланные сообщения:
 		fwd_messages_str = ""
+		self.telehooper_bot.vkAPI = cast(VKTelehooperAPI, self.telehooper_bot.vkAPI)
 		if msg.fwd_messages and not reply:
 			latestUserID = 0
 			for fwd in msg.fwd_messages:
 				if latestUserID != fwd.from_id:
-					fwd_user = await fwd.get_user()
+					fwd_user = await self.telehooper_bot.vkAPI.ensureGetUserInfo(user, fwd.from_id)
 
 					fwd_messages_str += f"<a href=\"vk.com/{fwd_user.domain or ('id' + str(fwd_user.id))}\">{fwd_user.first_name} {fwd_user.last_name}</a>, <code>{datetime.datetime.utcfromtimestamp(fwd.date).strftime('%H:%M')}</code>:\n" # type: ignore
 					latestUserID = fwd.from_id
@@ -503,13 +507,12 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 		# Если сообщение из беседы, то добавляем имя:
 		msgPrefix = ""
 		if FROM_CONVO:
-			# Получаем имя отправителя:
+			# Получаем инфу о отправителе:
 
-			sender = await msg.get_user()
-			msgPrefix = (sender.first_name or "") + " " + (sender.last_name or "") + ": "
+			sender = await self.telehooper_bot.vkAPI.ensureGetUserInfo(user, msg.from_id)
+			msgPrefix = f"<b>{sender['FirstName']} {sender['LastName']}</b>: "
 
 		# Удаляем предыдущую клавиатуру:
-		self.telehooper_bot.vkAPI = cast(VKTelehooperAPI, self.telehooper_bot.vkAPI)
 		latest = self.telehooper_bot.vkAPI.getLatestMessageID(
 			user,
 			dialogue.group.id
@@ -969,6 +972,123 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 		await super().markAsRead(user)
 
 		return await user.vkAPI.messages.mark_as_read(start_message_id=message_id, peer_id=chat_id)
+
+	async def getBaseUserInfo(self, user: "TelehooperUser", user_id: int):
+		await super().getBaseUserInfo(user)
+
+		return (await self.getBaseUserInfoMultiple(user, [user_id]))[0]
+
+	async def getBaseUserInfoMultiple(self, user: "TelehooperUser", user_ids: List[int | str]):
+		await super().getBaseUserInfoMultiple(user)
+
+		res = []
+		for index in range(math.ceil(len(user_ids) / 1000)):
+			# Сделано что бы избавиться от лимита в 1000 пользователей максимум.
+
+			res.extend(await user.vkAPI.users.get(
+				user_ids=user_ids[index * 1000 : (index + 1) * 1000],
+				fields=["activities", "about", "blacklisted", "blacklisted_by_me", "books", "bdate", "can_be_invited_group", "can_post", "can_see_all_posts", "can_see_audio", "can_send_friend_request", "can_write_private_message", "career", "common_count", "connections", "contacts", "city", "country", "crop_photo", "domain", "education", "exports", "followers_count", "friend_status", "has_photo", "has_mobile", "home_town", "photo_100", "photo_200", "photo_200_orig", "photo_400_orig", "photo_50", "sex", "site", "schools", "screen_name", "status", "verified", "games", "interests", "is_favorite", "is_friend", "is_hidden_from_feed", "last_seen", "maiden_name", "military", "movies", "music", "nickname", "occupation", "online", "personal", "photo_id", "photo_max", "photo_max_orig", "quotes", "relation", "relatives", "timezone", "tv", "universities"]
+			))
+
+		return_list = []
+
+		for data in res:
+			last_seen_timestamp = data.last_seen or 0
+			if last_seen_timestamp:
+				last_seen_timestamp = last_seen_timestamp.time or 0
+
+			return_list.append({
+				"FirstName": data.first_name,
+				"LastName": data.last_name,
+				"LastOnline": last_seen_timestamp,
+				"ID": data.id,
+				"Photo": data.photo_max or "https://vk.com/images/camera_400.png"
+			})
+
+		return return_list
+
+	def saveUserCache(self, user_id: int | str, data: dict, issued_by_telegram_id: int):
+		return super().saveUserCache("VK", user_id, data, issued_by_telegram_id)
+
+	def getUserCache(self, user_id: int | str, silent_lookup: bool = False):
+		super().getUserCache("VK", user_id, silent_lookup)
+
+	async def ensureGetUserInfo(self, user: "TelehooperUser", user_id: int):
+		await super().ensureGetUserInfo(user)
+
+		cached = self.getUserCache(user_id)
+
+		if not cached:
+			cached = self.saveUserCache(
+				user_id,
+				await self.getBaseUserInfo(user, user_id),
+				user.TGUser.id
+			)
+
+		return cached
+
+	def runBackgroundTasks(self, loop: AbstractEventLoop):
+		super().runBackgroundTasks(loop)
+
+		async def bg_task():
+			DB = getDefaultCollection()
+
+			while True:
+				logger.info("Обновляю всех пользователей ВК в БД...")
+
+				# Извлекаем всех пользователей из UserCache:
+				userCache = DB.find_one(
+					{
+						"_id": "_global",
+					},
+
+					{
+						"UsersCache.VK": 1
+					}
+				)
+
+				# Проверяем, есть ли такое поле:
+				if not userCache:
+					logger.error("По какой-то причине, \"UsersCache\" пуст.")
+
+					return
+
+				# Теперь, распределяем работу по разным пользователям.
+				userCacheSorted = {}
+
+				for user_id, user in userCache["UsersCache"]["VK"].items():
+					# Убеждаемся, что пользователь был активен:
+					if (int(time.time()) - user["LastLookup"]) > VK_USER_INACTIVE_SECS:
+						# Пользователь был неактивен долгое время, пропускаем его обновление.
+
+						continue
+
+					userCacheSorted.update({
+						user["IssuedByTelegramID"]: [*userCacheSorted.get(user["IssuedByTelegramID"], []), int(user_id)]
+					})
+
+				# Нас теперь есть словарь ISSUED_USER: VK_USER_IDS, получим инфу о всех пользователях:
+				for issued_telegram_user_id, user_ids in userCacheSorted.items():
+					try:
+						# Получаем инфу о пользователе:
+						usersData = await self.getBaseUserInfoMultiple(
+							await self.telehooper_bot.getBotUser(issued_telegram_user_id),
+							user_ids
+						)
+
+						# Сохраняем её в ДБ:
+						for cachedDataUser in usersData:
+							self.saveUserCache(cachedDataUser["ID"], cachedDataUser, issued_telegram_user_id)
+					except Exception as error:
+						logger.error(f"При обновлении информации о пользователе возникла ошибка: {error}")
+
+
+				# Спим.
+				await asyncio.sleep(VK_USERS_GET_AUTOUPDATE_SECS)
+
+
+
+		loop.create_task(bg_task())
 
 	def getMessageDataByServiceMID(self, user: "TelehooperUser", service_message_id: int | str) -> None | MappedMessage:
 		return super().getMessageDataByServiceMID(user, "VK", service_message_id)
