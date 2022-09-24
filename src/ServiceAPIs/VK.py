@@ -478,29 +478,38 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 				if latestUserID != fwd.from_id:
 					fwd_user = await self.telehooper_bot.vkAPI.ensureGetUserInfo(user, fwd.from_id)
 
-					fwd_messages_str += f"<a href=\"vk.com/{fwd_user.domain or ('id' + str(fwd_user.id))}\">{fwd_user.first_name} {fwd_user.last_name}</a>, <code>{datetime.datetime.utcfromtimestamp(fwd.date).strftime('%H:%M')}</code>:\n" # type: ignore
+					fwd_messages_str += f"<a href=\"vk.com/{fwd_user['Domain'] or ('id' + str(fwd_user['ID']))}\">{fwd_user['FirstName']} {fwd_user['LastName']}</a>, <code>{datetime.datetime.utcfromtimestamp(fwd.date).strftime('%H:%M')}</code>:\n" # type: ignore
 					latestUserID = fwd.from_id
 
-				fwd_messages_str += f"  {fwd.text}\n"
+				fwd_messages_str += f"  {fwd.text}"
 
 				if fwd.attachments or fwd.fwd_messages:
-					fwd_messages_str += "    + "
+					fwd_messages_list_str = []
 
 					for fwd_attach in fwd.attachments or []:
 						if fwd_attach.audio:
-							fwd_messages_str += "🎵 "
+							fwd_messages_list_str.append(f"музыка")
 						elif fwd_attach.audio_message:
-							fwd_messages_str += "🎤 "
+							fwd_messages_list_str.append(f"<a href=\"{fwd_attach.audio_message.link_mp3}\">голосовое</a>")
 						elif fwd_attach.doc:
-							fwd_messages_str += "📄 "
-						elif fwd_attach.graffiti or fwd_attach.sticker or fwd_attach.photo:
-							fwd_messages_str += "🖼 "
+							fwd_messages_list_str.append(f"<a href=\"{fwd_attach.doc.url}\">файл</a>")
+						elif fwd_attach.photo:
+							fwd_messages_list_str.append(f"<a href=\"{fwd_attach.photo.sizes[-1].url}\">фото</a>") # type: ignore
+						elif fwd_attach.graffiti:
+							fwd_messages_list_str.append(f"<a href=\"{fwd_attach.graffiti.url}\">граффити</a>")
+						elif fwd_attach.sticker:
+							fwd_messages_list_str.append(f"<a href=\"{fwd_attach.sticker.photo_512}\">стикер</a>")
 						elif fwd_attach.video:
-							fwd_messages_str += "📹 "
+							fwd_messages_list_str.append(f"<a href=\"https://vk.com/video{fwd_attach.video.owner_id}_{fwd_attach.video.id}\">видео</a>")
 						elif fwd_attach.wall:
-							fwd_messages_str += "📰 "
+							fwd_messages_list_str.append(f"<a href=\"https://vk.com/wall{fwd_attach.wall.from_id}_{fwd_attach.wall.id}\">пост</a>")
 						elif fwd.fwd_messages:
-							fwd_messages_str += "<i>пересланное сообщение</i> "				 
+							fwd_messages_list_str.append("пересланные сообщения")		 
+
+					fwd_messages_str += f"  <i>[+ {', '.join(fwd_messages_list_str)}]</i>"
+					del fwd_messages_list_str
+
+				fwd_messages_str += "\n\n"
 
 
 
@@ -527,7 +536,7 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 		# Отправляем сообщение и сохраняем в ДБ:
 		telegramMessage = cast(aiogram.types.Message, await self.telehooper_bot.sendMessage(
 			user=user,
-			text=msgPrefix + (msg.text.replace("<", "&lt;") or "<i>пустой текст у сообщения, неподдерживаемый тип вложения?</i>") + (f"\n\n<i>пересланные сообщения:</i>\n{fwd_messages_str}" if fwd_messages_str else ""),
+			text=msgPrefix + (msg.text.replace("<", "&lt;") or "<i>пустой текст у сообщения?</i>") + (f"\n\n<i>🔁 Пересланные сообщения:</i>\n{fwd_messages_str}" if fwd_messages_str else ""),
 			chat_id=dialogue.group.id,
 			attachments=fileAttachments,
 			reply_to=replyMessageID,
@@ -1040,6 +1049,7 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 				"LastName": data.last_name,
 				"LastOnline": last_seen_timestamp,
 				"ID": data.id,
+				"Domain": data.domain,
 				"Photo": data.photo_max or "https://vk.com/images/camera_400.png"
 			})
 
