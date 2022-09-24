@@ -355,7 +355,7 @@ class Telehooper:
 			loadingCaption = "<i>Весь контент появится здесь после загрузки, подожди...</i>\n\n" + text
 
 			# Если мы можем отправить временные сообщения, то отправляем их:
-			if allow_sending_temp_messages and len(attachments) > 1: # TODO: Проверить тут типы вложений.
+			if allow_sending_temp_messages and len(attachments) > 1 and not [i for i in attachments if i.type != "photo"]:
 				tempImageFileID: str | None = None
 				tempMessages: List[aiogram.types.Message] = []
 				indeciesInCache = []

@@ -785,7 +785,7 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 
 			# Проверяем, если у нас >= 2 вложений, то мы должны отправить временное
 			# сообщение, и потом в него добавить вложения.
-			if allow_creating_temp_message and len(attachmentsFile) >= 2:
+			if allow_creating_temp_message and len(attachmentsFile) >= 2 and not [i for i in attachmentsFile if i.type != "photo"]:
 				tempPhotoAttachment = await self._getDefaultDownloadingImage(user)
 				assert tempPhotoAttachment is not None, "Не удалось получить временное изображение для вложений."
 
