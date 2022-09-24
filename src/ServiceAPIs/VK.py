@@ -503,8 +503,8 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 							fwd_messages_list_str.append(f"<a href=\"https://vk.com/video{fwd_attach.video.owner_id}_{fwd_attach.video.id}\">видео</a>")
 						elif fwd_attach.wall:
 							fwd_messages_list_str.append(f"<a href=\"https://vk.com/wall{fwd_attach.wall.from_id}_{fwd_attach.wall.id}\">пост</a>")
-						elif fwd.fwd_messages:
-							fwd_messages_list_str.append("пересланные сообщения")		 
+					else:
+						fwd_messages_list_str.append("пересланные сообщения")
 
 					fwd_messages_str += f"  <i>[+ {', '.join(fwd_messages_list_str)}]</i>"
 					del fwd_messages_list_str
@@ -1059,7 +1059,7 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 		return super().saveUserCache("VK", user_id, data, issued_by_telegram_id)
 
 	def getUserCache(self, user_id: int | str, silent_lookup: bool = False):
-		super().getUserCache("VK", user_id, silent_lookup)
+		return super().getUserCache("VK", user_id, silent_lookup)
 
 	async def ensureGetUserInfo(self, user: "TelehooperUser", user_id: int):
 		await super().ensureGetUserInfo(user)
