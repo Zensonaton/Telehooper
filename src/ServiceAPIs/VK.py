@@ -548,6 +548,26 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 	async def onNewOutcomingMessage(self, user: "TelehooperUser", msg: Message):
 		await super().onNewOutcomingMessage(user)
 
+		FROM_USER = msg.peer_id < 2000000000
+		FROM_CONVO = msg.peer_id >= 2000000000
+
+		# Если у пользователя есть группа-диалог, то сообщение будет отправлено именно туда:
+		dialogue = await self.telehooper_bot.getDialogueGroupByServiceDialogueID(msg.peer_id)
+
+		# Если такая диалог-группа не была найдена, то ничего не делаем.
+		if not dialogue:
+			return
+
+		# В ином случаем, отправляем беззвучное сообщение юзеру:
+
+		await self.telehooper_bot.sendMessage(
+			user,
+			f"<b>Вы</b>: {msg.text or ''}",
+			dialogue.group.id,
+			is_silent=True,
+			read_button=False
+		)
+
 	async def onMessageEdit(self, user: "TelehooperUser", msg):
 		await super().onMessageEdit(user)
 

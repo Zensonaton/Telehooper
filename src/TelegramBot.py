@@ -310,7 +310,7 @@ class Telehooper:
 
 		return True
 
-	async def sendMessage(self, user: TelehooperUser, text: str | None, chat_id: int | None = None, attachments: list[Utils.File] | None = [], reply_to: int | None = None, allow_sending_temp_messages: bool = True, return_only_first_element: bool = True, read_button: bool = True, disable_preview: bool = False):
+	async def sendMessage(self, user: TelehooperUser, text: str | None, chat_id: int | None = None, attachments: list[Utils.File] | None = [], reply_to: int | None = None, allow_sending_temp_messages: bool = True, return_only_first_element: bool = True, read_button: bool = True, disable_preview: bool = False, is_silent: bool = False):
 		"""
 		Отправляет сообщение в Telegram.
 		"""
@@ -411,7 +411,8 @@ class Telehooper:
 				tempMessages = await self.TGBot.send_media_group(
 					chat_id, 
 					tempMediaGroup, 
-					reply_to_message_id=reply_to
+					reply_to_message_id=reply_to,
+					disable_notification=is_silent
 				)
 
 				if not tempImageFileID:
@@ -490,7 +491,7 @@ class Telehooper:
 						# В сообщении может быть только одно голосовое сообщение.
 
 						return _return(
-							await self.TGBot.send_voice(chat_id, cache if cache else attachment.aiofile, reply_to_message_id=reply_to, reply_markup=keyboard)
+							await self.TGBot.send_voice(chat_id, cache if cache else attachment.aiofile, reply_to_message_id=reply_to, reply_markup=keyboard, disable_notification=is_silent)
 						)
 					elif attachment.type == "video":
 						tempMediaGroup.attach(
@@ -499,7 +500,7 @@ class Telehooper:
 					elif attachment.type == "sticker":
 						# В сообщении может быть только один стикер.
 						
-						msg = await self.TGBot.send_sticker(chat_id, sticker=cache if cache else attachment.aiofile, reply_to_message_id=reply_to, reply_markup=keyboard)
+						msg = await self.TGBot.send_sticker(chat_id, sticker=cache if cache else attachment.aiofile, reply_to_message_id=reply_to, reply_markup=keyboard, disable_notification=is_silent)
 
 						# Кэшируем стикер:
 						self.saveCachedResource(
@@ -523,7 +524,8 @@ class Telehooper:
 				mediaMessages = await self.TGBot.send_media_group(
 					chat_id, 
 					tempMediaGroup, 
-					reply_to_message_id=reply_to
+					reply_to_message_id=reply_to,
+					disable_notification=is_silent
 				)
 				
 				# Кэшируем всё, что есть:
@@ -550,7 +552,8 @@ class Telehooper:
 				text, 
 				reply_to_message_id=reply_to, 
 				reply_markup=keyboard,
-				disable_web_page_preview=disable_preview
+				disable_web_page_preview=disable_preview,
+				disable_notification=is_silent
 			)
 		)
 
