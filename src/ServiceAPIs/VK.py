@@ -548,6 +548,8 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 	async def onNewOutcomingMessage(self, user: "TelehooperUser", msg: Message):
 		await super().onNewOutcomingMessage(user)
 
+		return
+
 		FROM_USER = msg.peer_id < 2000000000
 		FROM_CONVO = msg.peer_id >= 2000000000
 
