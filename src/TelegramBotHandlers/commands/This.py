@@ -301,13 +301,19 @@ async def VKDialogueSelector(query: CallbackQuery) -> bool:
 		elif dialogue.isGroup:
 			pfpURL = (await user.vkAPI.groups.get_by_id(group_id=dialogue.absID, fields=["photo_max_orig"]))[0].photo_max_orig # type: ignore
 		else:
-			pfpURL = dialogue.photoURL
+			pfpURL = dialogue.photoURL or "https://vk.com/images/camera_400.png"
 
 		async with aiohttp.ClientSession() as session:
 			async with session.get(pfpURL) as response:
-				await query.message.chat.set_photo(aiogram.types.InputFile(io.BytesIO(await response.read())))
-	except Exception as e:
-		logger.error("Не удалось загрузить картинку профиля: %s", e)
+				await query.message.chat.set_photo(
+					aiogram.types.InputFile(
+						io.BytesIO(
+							await response.read()
+						)
+					)
+				)
+	except Exception as error:
+		logger.error(f"Не удалось загрузить картинку профиля: {error}")
 
 	# Меняем описание диалога:
 	try:
