@@ -195,9 +195,7 @@ async def DialogueConvertMenuCallback(query: CallbackQuery):
 	ALL_CONDITIONS_ARE_MET = all(CONDITIONS_MET)
 
 	if not ALL_CONDITIONS_ARE_MET:
-		# TODO: Отправить маленькое сообщение, где будет написано о недостающих условиях.
-
-		return await query.answer("Не все условия для преобразования были соблюдены, отправь команду снова.")
+		return await query.answer("Ошибка ⚠️\n\n1. У тебя есть права админа?\n2. У этого бота есть права админа?", True)
 
 	await ConvertGroupToDialogueCallback(query)
 
