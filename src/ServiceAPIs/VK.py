@@ -558,8 +558,12 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 		if not dialogue:
 			return
 
-		# В ином случаем, отправляем беззвучное сообщение юзеру:
+		# Если это сообщение было отправлено через Telegram, то ничего не делаем:
+		res = self.getMessageDataByServiceMID(user, msg.id)
+		if res and res.sentViaTelegram:
+			return
 
+		# В ином случаем, отправляем беззвучное сообщение юзеру:
 		await self.telehooper_bot.sendMessage(
 			user,
 			f"<b>Вы</b>: {msg.text or ''}",
