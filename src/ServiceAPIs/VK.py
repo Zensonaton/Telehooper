@@ -9,7 +9,7 @@ import math
 import os
 from asyncio import AbstractEventLoop, Task
 import time
-from typing import TYPE_CHECKING, Any, List, Literal, cast
+from typing import TYPE_CHECKING, Any, Dict, List, Literal, cast
 
 import aiogram
 import aiohttp
@@ -25,6 +25,7 @@ from vkbottle_types.objects import MessagesGraffiti
 from vkbottle_types.responses.groups import GroupsGroupFull
 from vkbottle_types.responses.messages import MessagesConversationWithMessage
 from vkbottle_types.responses.users import UsersUserFull
+from vkbottle_types.objects import MessagesMessageAction, MessagesMessageActionStatus
 
 from .Base import BaseTelehooperAPI, LatestMessage, MappedMessage
 
@@ -137,6 +138,60 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 
 		await self.onDisconnect(user)
 
+	async def onConvoAction(self, user: "TelehooperUser", msg: Message):
+		await super().onConvoAction(user)
+
+		msg.action = cast(MessagesMessageAction, msg.action)
+
+		FROM_USER = msg.peer_id < 2000000000
+		FROM_CONVO = msg.peer_id >= 2000000000
+
+		# Если у пользователя есть группа-диалог, то сообщение будет отправлено именно туда:
+		dialogue = await self.telehooper_bot.getDialogueGroupByServiceDialogueID(msg.peer_id)
+
+		# Если такая диалог-группа не была найдена, то ничего не делаем.
+		if not dialogue:
+			return
+
+		victimNameWithLink = None
+		if msg.action.member_id:
+			res = await self.ensureGetUserInfo(user, msg.action.member_id)
+			victimNameWithLink = f"<a href=\"https://vk.com/{res['Domain']}\">{res['FullName']}</a>"
+
+		userNameWithLink = None
+		if msg.from_id:
+			res = await self.ensureGetUserInfo(user, msg.from_id)
+			userNameWithLink = f"<a href=\"https://vk.com/{res['Domain']}\">{res['FullName']}</a>"
+
+		# Готовим сообщение с текстом события:
+		messages = {
+			MessagesMessageActionStatus.CHAT_PHOTO_UPDATE: 						f"Пользователь <b>{userNameWithLink}</b> <b>обновил(-а)</b> фотографию беседы",
+			MessagesMessageActionStatus.CHAT_PHOTO_REMOVE: 						f"Пользователь <b>{userNameWithLink}</b> <b>удалил(-а)</b> фотографию беседы",
+			MessagesMessageActionStatus.CHAT_CREATE: 							f"Пользователь <b>{userNameWithLink}</b> создал(-а) <b>новую беседу</b>: <b>«{msg.action.text}»</b>",
+			MessagesMessageActionStatus.CHAT_TITLE_UPDATE: 						f"Пользователь <b>{userNameWithLink}</b> <b>изменил(-а)</b> имя беседы на <b>«{msg.action.text}»</b>",
+			MessagesMessageActionStatus.CHAT_INVITE_USER: 						f"Пользователь <b>{userNameWithLink}</b> <b>добавил(-а)</b> пользователя <b>{victimNameWithLink}</b>",
+			MessagesMessageActionStatus.CHAT_KICK_USER: 						f"Пользователь <b>{userNameWithLink}</b> <b>удалил(-а)</b> пользователя <b>{victimNameWithLink}</b> из беседы",
+			MessagesMessageActionStatus.CHAT_INVITE_USER_BY_LINK: 				f"Пользователь <b>{victimNameWithLink}</b> <b>присоеденился(-ась)</b> к беседе используя <b>пригласительную ссылку</b>",
+			MessagesMessageActionStatus.CHAT_INVITE_USER_BY_MESSAGE_REQUEST: 	f"Пользователь <b>{victimNameWithLink}</b> <b>присоденился(-ась)</b> к беседе используя <b>запрос</b>",
+			MessagesMessageActionStatus.CHAT_PIN_MESSAGE: 						f"Пользователь <b>{userNameWithLink}</b> <b>закрепил(-а)</b> сообщение",
+			MessagesMessageActionStatus.CHAT_UNPIN_MESSAGE: 					f"Пользователь <b>{userNameWithLink}</b> <b>открепил(-а)</b> закреплённое сообщение",
+			MessagesMessageActionStatus.CHAT_SCREENSHOT: 						f"Пользователь <b>{victimNameWithLink}</b> сделал(-а) <b>скриншот чата</b>", # какого хуя
+			MessagesMessageActionStatus.CONVERSATION_STYLE_UPDATE: 				f"Стиль чата был <b>обновлён</b> пользователем <b>{userNameWithLink}</b>"
+		}
+		message = messages.get(
+			msg.action.type, 
+			f"Ошибка, неизвестный тип события в беседе: {msg.action.type}. Пожалуйста, зарепорти меня на <a href=\"https://github.com/Zensonaton/Telehooper/issues\">Issues</a> проекта"
+		)
+
+		# Отправляем готовое сообщение:
+		await self.telehooper_bot.sendMessage(
+			user,
+			f"ℹ️   {message}   ℹ️",
+			dialogue.group.id,
+			read_button=False,
+			disable_preview=True
+		)
+
 	async def runPolling(self, user: "TelehooperUser") -> Task:
 		"""
 		Запускает Polling для получения сообщений.
@@ -155,7 +210,14 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 			Вызывается при получении нового сообщения.
 			"""
 
-			await self.onNewMessage(user, msg)
+			if msg.action:
+				# Произошло какое-то событие.
+
+				await self.onConvoAction(user, msg)
+			else:
+				# Было получено обычное сообщение.
+
+				await self.onNewMessage(user, msg)
 
 		@user.vkUser.error_handler.register_error_handler(vkbottle.VKAPIError[5])
 		async def _errorHandler(error: vkbottle.VKAPIError):
@@ -1015,7 +1077,7 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 
 		return await user.vkAPI.messages.mark_as_read(start_message_id=message_id, peer_id=chat_id)
 
-	async def getBaseUserInfo(self, user: "TelehooperUser", user_id: int):
+	async def getBaseUserInfo(self, user: "TelehooperUser", user_id: int) -> Dict[str, Any]:
 		await super().getBaseUserInfo(user)
 
 		return (await self.getBaseUserInfoMultiple(user, [user_id]))[0]

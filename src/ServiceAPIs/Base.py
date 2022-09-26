@@ -133,6 +133,13 @@ class BaseTelehooperAPI:
 
 		self._checkAvailability()
 
+	async def onConvoAction(self, user: "TelehooperUser"):
+		"""
+		Вызывается при каком-либо специфичном для бесед событии, например, изменении имени или удаления участника.
+		"""
+
+		self._checkAvailability()
+
 	async def reconnect(self, user: "TelehooperUser"):
 		"""
 		Вызывается для переподключения (восстановления сессии). Почти тоже самое что и `connect()`, но этот метод 'тише', поскольку ничего не отправляет пользователю.
