@@ -1028,18 +1028,21 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 	async def getBaseUserInfoMultiple(self, user: "TelehooperUser", user_ids: List[int | str]):
 		await super().getBaseUserInfoMultiple(user)
 
-		res = []
-		for index in range(math.ceil(len(user_ids) / 1000)):
+		result_users: List[UsersUserFull] = []
+		real_user_ids = [int(i) for i in user_ids if int(i) > 0]
+		other_user_ids = [abs(int(i)) for i in user_ids if int(i) < 0]
+		return_list = []
+
+		# Сначала достаём пользователей:
+		for index in range(math.ceil(len(real_user_ids) / 1000)):
 			# Сделано что бы избавиться от лимита в 1000 пользователей максимум.
 
-			res.extend(await user.vkAPI.users.get(
-				user_ids=user_ids[index * 1000 : (index + 1) * 1000],
+			result_users.extend(await user.vkAPI.users.get(
+				user_ids=cast(List[int | str], real_user_ids[index * 1000 : (index + 1) * 1000]),
 				fields=["activities", "about", "blacklisted", "blacklisted_by_me", "books", "bdate", "can_be_invited_group", "can_post", "can_see_all_posts", "can_see_audio", "can_send_friend_request", "can_write_private_message", "career", "common_count", "connections", "contacts", "city", "country", "crop_photo", "domain", "education", "exports", "followers_count", "friend_status", "has_photo", "has_mobile", "home_town", "photo_100", "photo_200", "photo_200_orig", "photo_400_orig", "photo_50", "sex", "site", "schools", "screen_name", "status", "verified", "games", "interests", "is_favorite", "is_friend", "is_hidden_from_feed", "last_seen", "maiden_name", "military", "movies", "music", "nickname", "occupation", "online", "personal", "photo_id", "photo_max", "photo_max_orig", "quotes", "relation", "relatives", "timezone", "tv", "universities"]
 			))
 
-		return_list = []
-
-		for data in res:
+		for data in result_users:
 			last_seen_timestamp = data.last_seen or 0
 			if last_seen_timestamp:
 				last_seen_timestamp = last_seen_timestamp.time or 0
@@ -1047,11 +1050,40 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 			return_list.append({
 				"FirstName": data.first_name,
 				"LastName": data.last_name,
+				"FullName": f"{data.first_name} {data.last_name}",
 				"LastOnline": last_seen_timestamp,
 				"ID": data.id,
 				"Domain": data.domain,
-				"Photo": data.photo_max or "https://vk.com/images/camera_400.png"
+				"Photo": data.photo_max or "https://vk.com/images/camera_400.png",
+				"IsAUser": True,
+				"IsAGroup": False
 			})
+
+		# А потом группы:
+		result_groups: List[GroupsGroupFull] = []
+
+		for index in range(math.ceil(len(other_user_ids) / 500)):
+			# Сделано что бы избавиться от лимита в 500 групп.
+
+			result_groups.extend(await user.vkAPI.groups.get_by_id(
+				group_ids=cast(List[int | str], other_user_ids[index * 500 : (index + 1) * 500]),
+				fields=["city", "country", "place", "description", "wiki_page", "market", "members_count", "counters", "start_date", "finish_date", "can_post", "can_see_all_posts", "activity", "status", "contacts", "links", "fixed_post", "verified", "site", "ban_info", "cover"]
+			))
+
+		for data in result_groups:
+			return_list.append({
+				"FirstName": data.name,
+				"LastName": "",
+				"FullName": f"{data.name}",
+				"LastOnline": None,
+				"ID": data.id,
+				"Domain": data.screen_name,
+				"Photo": data.photo_max or "https://vk.com/images/camera_400.png",
+				"IsAUser": False,
+				"IsAGroup": True
+			})
+
+
 
 		return return_list
 
