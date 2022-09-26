@@ -777,12 +777,7 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 			if not start_chat_activities:
 				return
 
-			dialogue = await self.getDialogueGroupByServiceDialogueID(chat_id)
-
-			if not dialogue:
-				return
-
-			await self.startDialogueActivity(user, dialogue.group.id, action)
+			await self.startDialogueActivity(user, chat_id, action)
 
 		attachmentsList: List[str] = []
 
