@@ -519,7 +519,7 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 			# Получаем инфу о отправителе:
 
 			sender = await self.telehooper_bot.vkAPI.ensureGetUserInfo(user, msg.from_id)
-			msgPrefix = f"<b>{sender['FirstName']} {sender['LastName']}</b>: "
+			msgPrefix = f"<b>{sender['FullName']}</b>: "
 
 		# Удаляем предыдущую клавиатуру:
 		latest = self.telehooper_bot.vkAPI.getLatestMessageID(
@@ -611,7 +611,7 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 			# Получаем инфу о отправителе:
 
 			sender = await self.telehooper_bot.vkAPI.ensureGetUserInfo(user, MSGUSERID)
-			msgPrefix = f"<b>{sender['FirstName']} {sender['LastName']}</b>: "
+			msgPrefix = f"<b>{sender['FullName']}</b>: "
 
 		# В ином случае, редактируем:
 		await self.telehooper_bot.editMessage(user, msgPrefix + MSGTEXT.replace("<", "&lt;"), res.telegramDialogueID, res.telegramMID)
