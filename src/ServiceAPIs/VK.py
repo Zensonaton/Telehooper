@@ -141,10 +141,19 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 	async def onConvoAction(self, user: "TelehooperUser", msg: Message):
 		await super().onConvoAction(user)
 
-		msg.action = cast(MessagesMessageAction, msg.action)
-
-		FROM_USER = msg.peer_id < 2000000000
-		FROM_CONVO = msg.peer_id >= 2000000000
+		victimNameWithLink = None
+		userNameWithLink = None
+		actionType = "CALL_ENDED"
+		actionText = None
+		actionMemberID = 0
+		actionFromID = 0
+		if msg.action:
+			actionType = msg.action.type
+			actionText = msg.action.text
+			actionMemberID = msg.action.member_id
+			actionFromID = msg.from_id
+		else:
+			actionMemberID = msg.attachments[0].group_call_in_progress.initiator_id # type: ignore
 
 		# Если у пользователя есть группа-диалог, то сообщение будет отправлено именно туда:
 		dialogue = await self.telehooper_bot.getDialogueGroupByServiceDialogueID(msg.peer_id)
@@ -153,22 +162,20 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 		if not dialogue:
 			return
 
-		victimNameWithLink = None
-		if msg.action.member_id:
-			res = await self.ensureGetUserInfo(user, msg.action.member_id)
+		if actionMemberID:
+			res = await self.ensureGetUserInfo(user, actionMemberID)
 			victimNameWithLink = f"<a href=\"https://vk.com/{res['Domain']}\">{res['FullName']}</a>"
 
-		userNameWithLink = None
-		if msg.from_id:
-			res = await self.ensureGetUserInfo(user, msg.from_id)
+		if actionFromID:
+			res = await self.ensureGetUserInfo(user, actionFromID)
 			userNameWithLink = f"<a href=\"https://vk.com/{res['Domain']}\">{res['FullName']}</a>"
 
 		# Готовим сообщение с текстом события:
 		messages = {
 			MessagesMessageActionStatus.CHAT_PHOTO_UPDATE: 						f"Пользователь <b>{userNameWithLink}</b> <b>обновил(-а)</b> фотографию беседы",
 			MessagesMessageActionStatus.CHAT_PHOTO_REMOVE: 						f"Пользователь <b>{userNameWithLink}</b> <b>удалил(-а)</b> фотографию беседы",
-			MessagesMessageActionStatus.CHAT_CREATE: 							f"Пользователь <b>{userNameWithLink}</b> создал(-а) <b>новую беседу</b>: <b>«{msg.action.text}»</b>",
-			MessagesMessageActionStatus.CHAT_TITLE_UPDATE: 						f"Пользователь <b>{userNameWithLink}</b> <b>изменил(-а)</b> имя беседы на <b>«{msg.action.text}»</b>",
+			MessagesMessageActionStatus.CHAT_CREATE: 							f"Пользователь <b>{userNameWithLink}</b> создал(-а) <b>новую беседу</b>: <b>«{actionText}»</b>",
+			MessagesMessageActionStatus.CHAT_TITLE_UPDATE: 						f"Пользователь <b>{userNameWithLink}</b> <b>изменил(-а)</b> имя беседы на <b>«{actionText}»</b>",
 			MessagesMessageActionStatus.CHAT_INVITE_USER: 						f"Пользователь <b>{userNameWithLink}</b> <b>добавил(-а)</b> пользователя <b>{victimNameWithLink}</b>",
 			MessagesMessageActionStatus.CHAT_KICK_USER: 						f"Пользователь <b>{userNameWithLink}</b> <b>удалил(-а)</b> пользователя <b>{victimNameWithLink}</b> из беседы",
 			MessagesMessageActionStatus.CHAT_INVITE_USER_BY_LINK: 				f"Пользователь <b>{victimNameWithLink}</b> <b>присоеденился(-ась)</b> к беседе используя <b>пригласительную ссылку</b>",
@@ -176,11 +183,12 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 			MessagesMessageActionStatus.CHAT_PIN_MESSAGE: 						f"Пользователь <b>{userNameWithLink}</b> <b>закрепил(-а)</b> сообщение",
 			MessagesMessageActionStatus.CHAT_UNPIN_MESSAGE: 					f"Пользователь <b>{userNameWithLink}</b> <b>открепил(-а)</b> закреплённое сообщение",
 			MessagesMessageActionStatus.CHAT_SCREENSHOT: 						f"Пользователь <b>{victimNameWithLink}</b> сделал(-а) <b>скриншот чата</b>", # какого хуя
-			MessagesMessageActionStatus.CONVERSATION_STYLE_UPDATE: 				f"Стиль чата был <b>обновлён</b> пользователем <b>{userNameWithLink}</b>"
+			MessagesMessageActionStatus.CONVERSATION_STYLE_UPDATE: 				f"Пользователь <b>{userNameWithLink}</b> <b>обновил</b> стиль чата",
+			"CALL_ENDED":														f"Пользователь <b>{victimNameWithLink}</b> начал(-а) <b>вызов ВКонтакте</b>. Присоедениться можно <a href=\"https://vk.com/call/join/{msg.attachments[0].group_call_in_progress.join_link}\">по ссылке</a>" # type: ignore
 		}
 		message = messages.get(
-			msg.action.type, 
-			f"Ошибка, неизвестный тип события в беседе: {msg.action.type}. Пожалуйста, зарепорти меня на <a href=\"https://github.com/Zensonaton/Telehooper/issues\">Issues</a> проекта"
+			actionType, # type: ignore
+			f"Ошибка, неизвестный тип события в беседе: {actionType}. Пожалуйста, зарепорти меня на <a href=\"https://github.com/Zensonaton/Telehooper/issues\">Issues</a> проекта"
 		)
 
 		# Отправляем готовое сообщение:
@@ -210,7 +218,7 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 			Вызывается при получении нового сообщения.
 			"""
 
-			if msg.action:
+			if msg.action or (msg.attachments and msg.attachments[0].group_call_in_progress):
 				# Произошло какое-то событие.
 
 				await self.onConvoAction(user, msg)
