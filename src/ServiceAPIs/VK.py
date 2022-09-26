@@ -141,19 +141,37 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 	async def onConvoAction(self, user: "TelehooperUser", msg: Message):
 		await super().onConvoAction(user)
 
+		# Не смотри вниз, так будет лучше.
 		victimNameWithLink = None
 		userNameWithLink = None
 		actionType = "CALL_ENDED"
 		actionText = None
 		actionMemberID = 0
 		actionFromID = 0
+		replyMessageID = None
+		groupChatJoinLink = None
 		if msg.action:
 			actionType = msg.action.type
 			actionText = msg.action.text
 			actionMemberID = msg.action.member_id
 			actionFromID = msg.from_id
+			replyMessageID = None
+			if msg.action.conversation_message_id:
+				res = (await user.vkAPI.messages.get_by_conversation_message_id(
+						msg.peer_id,
+						[cast(int, msg.action.conversation_message_id)]
+					)).items[0].id # type: ignore
+
+				replyMessageID = self.getMessageDataByServiceMID(
+					user,
+					res
+				)
+			if replyMessageID:
+				replyMessageID = replyMessageID.telegramMID
+
 		else:
 			actionMemberID = msg.attachments[0].group_call_in_progress.initiator_id # type: ignore
+			groupChatJoinLink = msg.attachments[0].group_call_in_progress.join_link # type: ignore
 
 		# Если у пользователя есть группа-диалог, то сообщение будет отправлено именно туда:
 		dialogue = await self.telehooper_bot.getDialogueGroupByServiceDialogueID(msg.peer_id)
@@ -184,7 +202,7 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 			MessagesMessageActionStatus.CHAT_UNPIN_MESSAGE: 					f"Пользователь <b>{userNameWithLink}</b> <b>открепил(-а)</b> закреплённое сообщение",
 			MessagesMessageActionStatus.CHAT_SCREENSHOT: 						f"Пользователь <b>{victimNameWithLink}</b> сделал(-а) <b>скриншот чата</b>", # какого хуя
 			MessagesMessageActionStatus.CONVERSATION_STYLE_UPDATE: 				f"Пользователь <b>{userNameWithLink}</b> <b>обновил</b> стиль чата",
-			"CALL_ENDED":														f"Пользователь <b>{victimNameWithLink}</b> начал(-а) <b>вызов ВКонтакте</b>. Присоедениться можно <a href=\"https://vk.com/call/join/{msg.attachments[0].group_call_in_progress.join_link}\">по ссылке</a>" # type: ignore
+			"CALL_ENDED":														f"Пользователь <b>{victimNameWithLink}</b> начал(-а) <b>вызов ВКонтакте</b>. Присоедениться можно <a href=\"https://vk.com/call/join/{groupChatJoinLink}\">по ссылке</a>"
 		}
 		message = messages.get(
 			actionType, # type: ignore
@@ -194,10 +212,11 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 		# Отправляем готовое сообщение:
 		await self.telehooper_bot.sendMessage(
 			user,
-			f"ℹ️   {message}   ℹ️",
+			f"ℹ️  {message}  ℹ️",
 			dialogue.group.id,
 			read_button=False,
-			disable_preview=True
+			disable_preview=True,
+			reply_to=replyMessageID
 		)
 
 	async def runPolling(self, user: "TelehooperUser") -> Task:
