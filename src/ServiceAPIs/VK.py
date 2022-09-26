@@ -257,6 +257,14 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 			
 		@user.vkUser.on.raw_event(vkbottle.UserEventType.MESSAGE_EDIT) # type: ignore
 		async def _onMessageEdit(msg):
+			# Уродливая проверка, поскольку ВК по какой-то причине, "редактирует" сообщение при его закрепе.
+			# Господи, вы могли придумать что-то поумнее, например, флаг сообщения редактировать?
+			#
+			# В моём случае, ничего не будет происходить, если "редактирование" имеет
+			# поле "pinned_at", и разница между текущим и этим временем менее 2 секунды.
+			if len(msg.object) >= 7 and isinstance(msg.object[7], dict) and (int(time.time()) - int(msg.object[7].get("pinned_at", 0)) <= 2):
+				return
+
 			await self.onMessageEdit(user, msg)
 
 		@user.vkUser.on.raw_event(vkbottle.UserEventType.DIALOG_TYPING_STATE) # type: ignore
