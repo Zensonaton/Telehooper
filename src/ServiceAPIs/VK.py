@@ -647,7 +647,7 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 		# Отправляем сообщение и сохраняем в ДБ:
 		telegramMessage = cast(aiogram.types.Message, await self.telehooper_bot.sendMessage(
 			user=user,
-			text=msgPrefix + (msg.text.replace("<", "&lt;") or "<i>пустой текст у сообщения?</i>") + (f"\n\n<i>🔁 Пересланные сообщения:</i>\n{fwd_messages_str}" if fwd_messages_str else ""),
+			text=msgPrefix + (msg.text.replace("<", "&lt;") or "ㅤ") + (f"\n\n<i>🔁 Пересланные сообщения:</i>\n{fwd_messages_str}" if fwd_messages_str else ""),
 			chat_id=dialogue.group.id,
 			attachments=fileAttachments,
 			reply_to=replyMessageID,
