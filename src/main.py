@@ -28,7 +28,7 @@ IS_DEBUG = Utils.parseStrAsBoolean(os.environ.get("DEBUG", "false"))
 
 os.makedirs("Logs", exist_ok=True)
 logger.remove()
-logger.add("Logs/TGBot.log", catch=True, level="DEBUG" if IS_DEBUG else "INFO")
+logger.add("Logs/TGBot.log", catch=True, level="DEBUG" if IS_DEBUG else "INFO", rotation="1 week")
 logger.add(sys.stdout, colorize=True, backtrace=IS_DEBUG, diagnose=IS_DEBUG, catch=True, level="DEBUG" if IS_DEBUG else "INFO")
 
 # Проверяем на наличие всех необходимых env-переменных:
