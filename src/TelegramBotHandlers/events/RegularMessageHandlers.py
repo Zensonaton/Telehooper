@@ -125,7 +125,7 @@ async def RegularMessageHandlers(msg: MessageType):
 
 				MEDIA_GROUPS[msg.media_group_id].append(msg.photo[-1])
 		else:
-			# await TELEHOOPER.vkAPI.startDialogueActivity(user, dialogue.serviceDialogueID, "photo")
+			await TELEHOOPER.vkAPI.startDialogueActivity(user, dialogue.serviceDialogueID, "photo")
 
 			downloaded: BytesIO = BytesIO()
 			downloaded = await msg.photo[-1].download(destination_file=downloaded)
@@ -144,7 +144,7 @@ async def RegularMessageHandlers(msg: MessageType):
 			
 			return
 
-		# await TELEHOOPER.vkAPI.startDialogueActivity(user, dialogue.serviceDialogueID, "photo")
+		await TELEHOOPER.vkAPI.startDialogueActivity(user, dialogue.serviceDialogueID, "photo")
 
 		attachments.append(
 			Utils.File(
@@ -154,8 +154,7 @@ async def RegularMessageHandlers(msg: MessageType):
 			)
 		)
 	elif msg.voice:
-		# await TELEHOOPER.vkAPI.startDialogueActivity(user, dialogue.serviceDialogueID, "audiomessage")
-		pass
+		await TELEHOOPER.vkAPI.startDialogueActivity(user, dialogue.serviceDialogueID, "audiomessage")
 
 		attachments.append(
 			Utils.File(
@@ -165,8 +164,7 @@ async def RegularMessageHandlers(msg: MessageType):
 			)
 		)
 	elif msg.video:
-		# await TELEHOOPER.vkAPI.startDialogueActivity(user, dialogue.serviceDialogueID, "video")
-		pass
+		await TELEHOOPER.vkAPI.startDialogueActivity(user, dialogue.serviceDialogueID, "video")
 
 		attachments.append(
 			Utils.File(
@@ -175,8 +173,16 @@ async def RegularMessageHandlers(msg: MessageType):
 				uid=msg.video.file_unique_id
 			)
 		)
+	elif msg.document:
+		attachments.append(
+			Utils.File(
+				await msg.document.download(destination_file=io.BytesIO()),
+				file_type="file",
+				uid=msg.document.file_unique_id,
+				filename=msg.document.file_name
+			)
+		)
 	else:
-		# await TELEHOOPER.vkAPI.startDialogueActivity(user, dialogue.serviceDialogueID, "typing")
 		pass
 
 	if not shouldSendMessage:

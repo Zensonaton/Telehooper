@@ -552,6 +552,20 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 						f"sticker{vkAttachment.graffiti.owner_id}_{vkAttachment.graffiti.id}_{vkAttachment.graffiti.access_key}" # type: ignore
 					)
 				)
+			elif TYPE == "doc":
+				# Документ.
+				URL: str = vkAttachment.doc.url # type: ignore
+
+				fileAttachments.append(
+					Utils.File(
+						URL, 
+						"file",
+						f"doc{vkAttachment.doc.owner_id}_{vkAttachment.doc.id}_{vkAttachment.doc.access_key}", # type: ignore
+						vkAttachment.doc.title # type: ignore
+					)
+				)
+			else:
+				raise Exception(f"Неизвестный тип вложения: {TYPE}")
 
 		# Ответ на сообщение, либо же "пересланное" сообщение, но в одном экземляре.
 		replyMessageID = None
@@ -1029,6 +1043,10 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 
 						async with session.post(uploadVideoData["upload_url"], data=data) as response:
 							uploadRes = f"video{uploadVideoData['owner_id']}_{uploadVideoData['video_id']}_{uploadVideoData['access_key']}"
+				elif file.type == "file":
+					await _chatAction(chat_id, "file")
+
+					uploadRes = await vkbottle.DocMessagesUploader(user.vkAPI).upload(title=file.filename, file_source=file.bytes) # type: ignore
 				else:
 					raise Exception(f"Неподдерживаемый тип: {file.type}")
 

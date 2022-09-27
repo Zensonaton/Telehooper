@@ -481,9 +481,7 @@ class Telehooper:
 					if not attachment.ready and not cache:
 						await attachment.parse()
 
-					MEDIA_TYPES = ["photo", "document", "animation"]
-
-					if attachment.type in MEDIA_TYPES:
+					if attachment.type in ["photo", "animation"]:
 						tempMediaGroup.attach(
 							aiogram.types.InputMedia(media=cache if cache else attachment.aiofile, caption=text if index == 0 else None)
 						)
@@ -497,10 +495,14 @@ class Telehooper:
 						tempMediaGroup.attach(
 							aiogram.types.InputMediaVideo(media=cache if cache else attachment.aiofile, caption=text if index == 0 else None)
 						)
+					elif attachment.type == "file":
+						tempMediaGroup.attach(
+							aiogram.types.InputMediaDocument(media=cache if cache else attachment.aiofile, caption=text if index == 0 else None)
+						)
 					elif attachment.type == "sticker":
 						# В сообщении может быть только один стикер.
 						
-						msg = await self.TGBot.send_sticker(chat_id, sticker=cache if cache else attachment.aiofile, reply_to_message_id=reply_to, reply_markup=keyboard, disable_notification=is_silent)
+						msg = await self.TGBot.send_sticker(chat_id, sticker=cache if cache else attachment.aiofile, reply_to_message_id=reply_to, reply_markup=keyboard)
 
 						# Кэшируем стикер:
 						self.saveCachedResource(

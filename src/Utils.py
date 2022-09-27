@@ -262,11 +262,11 @@ class File:
 	filename: str | None
 	uid: str | None
 
-	type: Literal["photo", "sticker", "voice", "video"]
+	type: Literal["photo", "sticker", "voice", "video", "file"]
 
 	ready: bool = False
 
-	def __init__(self, path_url_bytes_file: str | InputFile | io.IOBase | _bytes, file_type: Literal["photo", "sticker", "voice", "video"] = "photo", uid: str | None = None) -> None:
+	def __init__(self, path_url_bytes_file: str | InputFile | io.IOBase | _bytes, file_type: Literal["photo", "sticker", "voice", "video", "file"] = "photo", uid: str | None = None, filename: str | None = None) -> None:
 		self.type = file_type
 		self.uid = uid
 
@@ -274,7 +274,7 @@ class File:
 		self.path = None
 		self.aiofile = None
 		self.bytes = None
-		self.filename = None
+		self.filename = filename
 
 		if isinstance(path_url_bytes_file, str):
 			if isURL(path_url_bytes_file):
@@ -302,15 +302,18 @@ class File:
 			async with aiohttp.ClientSession() as session:
 				async with session.get(self.url) as response:
 					self.bytes = await response.read()
-					self.filename = response.headers.get("Content-Disposition", "filename=unknown").split("filename=")[-1].strip('"')[-1]
+					
+					if not self.filename:
+						self.filename = response.headers.get("Content-Disposition", "filename=unknown").split("filename=")[-1].strip('"')[-1]
 		elif self.path:
 			assert os.path.exists(self.path), f"Файл {self.path} не существует в системе"
 
 			self.bytes = open(self.path, "rb").read()
-			self.filename = os.path.basename(self.path)
+			if not self.filename:
+				self.filename = os.path.basename(self.path)
 
 		if self.bytes and not self.aiofile:
-			self.aiofile = InputFile(io.BytesIO(self.bytes))
+			self.aiofile = InputFile(io.BytesIO(self.bytes), filename=self.filename)
 
 
 		self.ready = True
