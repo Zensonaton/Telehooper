@@ -303,6 +303,10 @@ class Telehooper:
 			await update.message.answer(f"⚠️ Данную команду можно использовать только {(await update.bot.get_me()).get_mention('в личном диалоге с ботом', as_html=True)}.")
 		elif isinstance(exception, Exceptions.CommandAllowedOnlyInBotDialogue):
 			await update.message.answer("⚠️ Данную команду можно использовать только в диалоге подключённого сервиса.\n\n⚙️ Используй команду /help, что бы узнать, как создать диалог сервиса.")
+		elif isinstance(exception, aiogram.utils.exceptions.FileIsTooBig):
+			await update.message.answer("⚠️ У меня не удалось загрузить данный файл, поскольку он слишком большой.")
+		elif isinstance(exception, aiogram.utils.exceptions.MessageNotModified):
+			logger.warning("Неудачная попытка отредактировать сообщение.")
 		else:
 			logger.exception(exception)
 
