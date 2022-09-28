@@ -174,7 +174,7 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 			groupChatJoinLink = msg.attachments[0].group_call_in_progress.join_link # type: ignore
 
 		# Если у пользователя есть группа-диалог, то сообщение будет отправлено именно туда:
-		dialogue = await self.telehooper_bot.getDialogueGroupByServiceDialogueID(msg.peer_id)
+		dialogue = await self.telehooper_bot.getDialogueGroupByServiceDialogueID(msg.peer_id, user.TGUser.id)
 
 		# Если такая диалог-группа не была найдена, то ничего не делаем.
 		if not dialogue:
@@ -466,7 +466,7 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 		FROM_CONVO = msg.peer_id >= 2000000000
 
 		# Если у пользователя есть группа-диалог, то сообщение будет отправлено именно туда:
-		dialogue = await self.telehooper_bot.getDialogueGroupByServiceDialogueID(msg.peer_id)
+		dialogue = await self.telehooper_bot.getDialogueGroupByServiceDialogueID(msg.peer_id, user.TGUser.id)
 
 		# Если такая диалог-группа не была найдена, то ничего не делаем.
 		if not dialogue:
@@ -751,7 +751,7 @@ class VKTelehooperAPI(BaseTelehooperAPI):
 		await super().onDialogueActivity(user)
 
 		# Ищем диалог в Telegram:
-		res = await self.getDialogueGroupByServiceDialogueID(chat_id)
+		res = await self.getDialogueGroupByServiceDialogueID(chat_id, user.TGUser.id)
 		if not res:
 			return
 

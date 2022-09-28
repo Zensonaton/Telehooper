@@ -165,7 +165,8 @@ class Telehooper:
 						"AddDate": datetime.datetime.now(),
 						"LatestMessageID": None,
 						"LatestServiceMessageID": None,
-						"PinnedMessageID": group.group.pinned_message.message_id
+						"PinnedMessageID": group.group.pinned_message.message_id,
+						"AssociatedTelegramUser": group.creatorUserID
 					}
 				}
 			},
@@ -204,10 +205,11 @@ class Telehooper:
 					# Если группы нет в кэше, то создаём новую:
 					newDialogue = DialogueGroup(
 						await self.TGBot.get_chat(dialogue["TelegramGroupID"]),
-						dialogue["ID"]
+						dialogue["ID"],
+						int(dialogue["AssociatedTelegramUser"])
 					)
 					newList.append(newDialogue)
-			except:
+			except Exception as error:
 				# Бота исключили из группы.
 
 				# TODO: Удалить из БД.
@@ -220,7 +222,7 @@ class Telehooper:
 
 		return self.dialogueGroupsList
 
-	async def getDialogueGroupByTelegramGroup(self, telegram_group: aiogram.types.Chat | int) -> DialogueGroup | None:
+	async def getDialogueGroupByTelegramGroup(self, telegram_group: int) -> DialogueGroup | None:
 		"""
 		Возвращает диалог-группу по ID группы Telegram, либо же `None`, если ничего не было найдено.
 		"""
@@ -236,7 +238,7 @@ class Telehooper:
 
 		return None
 
-	async def getDialogueGroupByServiceDialogueID(self, service_dialogue_id: aiogram.types.Chat | int) -> DialogueGroup | None:
+	async def getDialogueGroupByServiceDialogueID(self, service_dialogue_id: int, telegram_user_id: int) -> DialogueGroup | None:
 		"""
 		Возвращает диалог-группу по её ID в сервисе, либо же `None`, если ничего не было найдено.
 		"""
@@ -244,7 +246,7 @@ class Telehooper:
 		await self.retrieveDialogueListFromDB()
 
 		for group in self.dialogueGroupsList:
-			if group.serviceDialogueID == service_dialogue_id:
+			if group.serviceDialogueID == service_dialogue_id and group.creatorUserID == telegram_user_id:
 				return group
 
 		return None
@@ -717,19 +719,19 @@ class TelehooperUser:
 		self.isVKConnected = False
 		self.APIstorage = TelehooperAPIStorage()
 
-	async def getDialogueGroupByTelegramGroup(self, telegram_group: aiogram.types.Chat | int) -> DialogueGroup | None:
+	async def getDialogueGroupByTelegramGroup(self, telegram_group: int) -> DialogueGroup | None:
 		"""
 		Возвращает диалог-группу по ID группы Telegram, либо же `None`, если ничего не было найдено.
 		"""
 
 		return await self.telehooperBot.getDialogueGroupByTelegramGroup(telegram_group)
 
-	async def getDialogueGroupByServiceDialogueID(self, service_dialogue_id: int) -> DialogueGroup | None:
+	async def getDialogueGroupByServiceDialogueID(self, service_dialogue_id: int, telegram_user_id: int) -> DialogueGroup | None:
 		"""
 		Возвращает диалог-группу по ID группы Telegram, либо же `None`, если ничего не было найдено.
 		"""
 
-		return await self.telehooperBot.getDialogueGroupByServiceDialogueID(service_dialogue_id)
+		return await self.telehooperBot.getDialogueGroupByServiceDialogueID(service_dialogue_id, telegram_user_id)
 
 	def getDialoguePin(self, telegram_group: aiogram.types.Chat | int):
 		return self.telehooperBot.getDialoguePin("VK", telegram_group)

@@ -23,12 +23,14 @@ class DialogueGroup:
 	group: aiogram.types.Chat
 	serviceType: int
 	serviceDialogueID: int
+	creatorUserID: int
 
 
-	def __init__(self, group: aiogram.types.Chat, service_dialogue_id: int) -> None:
+	def __init__(self, group: aiogram.types.Chat, service_dialogue_id: int, telegram_creator_user_id: int, service_type: int = MAPIServiceType.VK) -> None:
 		self.group = group
-		self.serviceType = MAPIServiceType.VK
+		self.serviceType = service_type
 		self.serviceDialogueID = service_dialogue_id
+		self.creatorUserID = telegram_creator_user_id
 
 	def __str__(self) -> str:
 		return f"<DialogueGroup serviceID:{self.serviceType} ID:{self.serviceDialogueID}>"
@@ -401,11 +403,11 @@ class BaseTelehooperAPI:
 
 		return LatestMessage(res["LatestMessageID"], res["LatestServiceMessageID"])
 
-	async def getDialogueGroupByTelegramGroup(self, telegram_group: aiogram.types.Chat | int) -> DialogueGroup | None:
+	async def getDialogueGroupByTelegramGroup(self, telegram_group: int) -> DialogueGroup | None:
 		return await self.telehooper_bot.getDialogueGroupByTelegramGroup(telegram_group)
 
-	async def getDialogueGroupByServiceDialogueID(self, service_dialogue_id: aiogram.types.Chat | int) -> DialogueGroup | None:
-		return await self.telehooper_bot.getDialogueGroupByServiceDialogueID(service_dialogue_id)
+	async def getDialogueGroupByServiceDialogueID(self, service_dialogue_id: int, telegram_user_id: int) -> DialogueGroup | None:
+		return await self.telehooper_bot.getDialogueGroupByServiceDialogueID(service_dialogue_id, telegram_user_id)
 
 	def _checkAvailability(self):
 		"""

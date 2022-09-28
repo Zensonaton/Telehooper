@@ -47,7 +47,7 @@ async def This(msg: MessageType):
 	if msg.chat.type == "private":
 		raise CommandAllowedOnlyInGroup()
 
-	await DP.throttle(CThrottle.THIS_DIALOGUE, rate=30, user_id=msg.from_user.id)
+	# await DP.throttle(CThrottle.THIS_DIALOGUE, rate=30, user_id=msg.from_user.id)
 
 	user = await TELEHOOPER.getBotUser(msg.from_user.id)
 	dialogue = await user.getDialogueGroupByTelegramGroup(msg.chat.id)
@@ -321,7 +321,11 @@ async def VKDialogueSelector(query: CallbackQuery) -> bool:
 
 	# Добавляем диалог-группу в базу:
 	TELEHOOPER.addDialogueGroup(
-		DialogueGroup(await TELEHOOPER.TGBot.get_chat(query.message.chat.id), VK_ID)
+		DialogueGroup(
+			await TELEHOOPER.TGBot.get_chat(query.message.chat.id),
+			VK_ID,
+			user.TGUser.id
+		)
 	)
 
 	# Отправляем сообщения о успешной конвертации.
