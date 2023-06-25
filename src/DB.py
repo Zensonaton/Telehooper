@@ -110,7 +110,7 @@ def get_default_user(user: types.User, version: int = utils.get_bot_version()) -
 
 	return {
 		"_ver": version,
-		"ID": 0,
+		"ID": user.id,
 		"Username": user.username,
 		"Name": user.full_name,
 		"CreationDate": utils.get_timestamp()
