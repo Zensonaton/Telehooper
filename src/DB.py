@@ -1,53 +1,126 @@
 # coding: utf-8
 
-# Файл для соеденинения с MongoDB.
-
-from __future__ import annotations
-
 import os
-import urllib.parse
 
-from pymongo.mongo_client import MongoClient
+from aiocouch import CouchDB, Database, Document
+from aiocouch.exception import NotFoundError
+from aiogram import types
+from loguru import logger
+
+import utils
+from config import config
 
 
-def getDatabase(host: str = "localhost", port: int = 27017, user: str | None = None, pwd: str | None = None, auth_source: str | None = None) -> MongoClient:
+couchdb: CouchDB | None = None
+DB: Database | None = None
+
+async def get_db(db_name: str | None = None, check_auth: bool = False, force_new: bool = False) -> Database:
 	"""
-	Пытается подключиться к MongoDB-базе данных.
-	"""
-
-	connectionUri = f"mongodb://{host}:{port}"
-	if pwd and user and auth_source:
-		connectionUri = f"mongodb://{user}:{urllib.parse.quote(pwd, safe='')}@{host}:{port}/?authSource={auth_source}"
-
-	return MongoClient(connectionUri)
-
-def getCollection(database: MongoClient, database_name: str, collection: str):
-	"""
-	Пытается подключиться к коллекции.
+	Возвращает объект для работы с базой данных.
 	"""
 
-	return database[database_name][collection]
+	global DB, couchdb
 
-def getDefaultDatabase() -> MongoClient:
+
+	if db_name is None:
+		db_name = config.couchdb_name
+
+	if couchdb is None:
+		couchdb = CouchDB(
+			config.couchdb_host,
+			user=config.couchdb_user,
+			password=config.couchdb_password
+		)
+
+
+	if check_auth:
+		await couchdb.check_credentials()
+
+	if DB and not force_new:
+		return DB
+
+	try:
+		DB = await couchdb[db_name]
+	except NotFoundError:
+		logger.warning(f"База данных \"{db_name}\" не была найдена, поэтому она была создана. Учтите, что вам **необходимо** должным образом защитить эту базу данных.")
+
+		await couchdb.create(db_name)
+
+		DB = await couchdb[db_name]
+
+
+	return DB
+
+async def get_user(user: types.User, create_by_default: bool = True) -> Document:
 	"""
-	Пытается автоматически вытащить все данные из .env файла и подключиться к базе данных.
+	Возвращает данные пользователя из базы данных.
+
+	Если `create_by_default` равен `True`, то пользователь будет создан, если он не был найден, в противном случае будет вызвана ошибка.
 	"""
 
-	return getDatabase(
-		host=os.environ["MONGODB_HOST"],
-		port=int(os.environ["MONGODB_PORT"]),
-		user=os.environ["MONGODB_USER"],
-		pwd=os.environ["MONGODB_PWD"],
-		auth_source=os.environ["MONGODB_DBNAME"]
-	)
+	db = await get_db()
 
-def getDefaultCollection():
+	id = str(user.id)
+
+	try:
+		return await db["user_" + id]
+	except NotFoundError:
+		if not create_by_default:
+			raise NotFoundError(f"Пользователь с ID {id} не был найден в базе данных.")
+
+		# Пользователь не был найден, поэтому мы создаем его.
+		user_db = await db.create(
+			"user_" + id,
+			False,
+			get_default_user(user)
+		)
+		await user_db.save()
+
+		return user_db
+
+async def get_global(create_by_default: bool = True) -> Document:
 	"""
-	Пытается автоматически вытащить все данные из .env файла и подключиться к коллекции.
+	Возвращает глобальную запись из БД.
+
+	Если `create_by_default` равен `True`, то глобальная запись будет создана, если она не был найдена, в противном случае будет вызвана ошибка.
 	"""
 
-	return getCollection(
-		database=getDefaultDatabase(),
-		database_name=os.environ["MONGODB_DBNAME"],
-		collection=os.environ["MONGODB_COLLECTION"]
-	)
+	db = await get_db()
+
+	try:
+		return await db["global"]
+	except NotFoundError:
+		if not create_by_default:
+			raise NotFoundError(f"Глобальная запись не была найдена в базе данных.")
+
+		# Глобальная запись не была найдена, поэтому мы создаем её.
+		global_db = await db.create(
+			"global",
+			False,
+			get_default_global()
+		)
+		await global_db.save()
+
+		return global_db
+
+def get_default_user(user: types.User, version: int = utils.get_bot_version()) -> dict:
+	"""
+	Возвращает шаблон пользователя для сохранения в базу данных.
+	"""
+
+	return {
+		"_ver": version,
+		"ID": 0,
+		"Username": user.username,
+		"Name": user.full_name,
+		"CreationDate": utils.get_timestamp()
+	}
+
+def get_default_global(version: int = utils.get_bot_version()) -> dict:
+	"""
+	Возвращает шаблон глобальной записи для сохранения в базу данных.
+	"""
+
+	return {
+		"_ver": version
+	}

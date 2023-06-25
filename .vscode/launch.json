@@ -2,7 +2,7 @@
 	// Use IntelliSense to learn about possible attributes.
 	// Hover to view descriptions of existing attributes.
 	// For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
-	
+
 	"version": "0.2.0",
 	"configurations": [
 		{
@@ -11,15 +11,6 @@
 			"request": "launch",
 			"program": "${workspaceFolder}/src/main.py",
 			"console": "integratedTerminal"
-		},
-
-		{
-			"name": "Python: Запустить скрипт для быстрого создания Telegram-групп",
-			"type": "python",
-			"request": "launch",
-			"program": "${workspaceFolder}/src/GroupsCreator/main.py",
-			"console": "integratedTerminal",
-			"cwd": "${workspaceFolder}/src/GroupsCreator"
 		},
 
 		{

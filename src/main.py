@@ -1,164 +1,41 @@
 # coding: utf-8
 
-# Основной файл бота.
-
-from __future__ import annotations
-
 import asyncio
-import json
-import os
-import sys
 
-import aiogram
-import dotenv
 from loguru import logger
+from telegram import bot
+from logger import init_logger
+from config import config
 
-import Consts
-import TelegramBot as TGBot
-import Utils
-from Consts import AccountDisconnectType
-from DB import getDefaultCollection
-from ServiceAPIs.VK import VKTelehooperAPI
+from DB import get_db
 
-# Загружаем .env файл.
-dotenv.load_dotenv()
 
-# Логирование.
-IS_DEBUG = Utils.parseStrAsBoolean(os.environ.get("DEBUG", "false"))
-
-os.makedirs("Logs", exist_ok=True)
-logger.remove()
-logger.add("Logs/TGBot.log", catch=True, level="DEBUG" if IS_DEBUG else "INFO", rotation="1 week")
-logger.add(sys.stdout, colorize=True, backtrace=IS_DEBUG, diagnose=IS_DEBUG, catch=True, level="DEBUG" if IS_DEBUG else "INFO")
-
-# Проверяем на наличие всех необходимых env-переменных:
-for envVar in Consts.REQUIREDENVVARS:
-	if envVar not in os.environ:
-		raise Exception(f"Не найдена важная переменная окружения в файле .env \"{envVar}\". {Consts.REQUIREDENVVARS[envVar]}")
-
-# Сохраняем значения env-переменных:
-TELEGRAM_BOT_TOKEN = os.environ["TOKEN"]
-
-# Подключаемся к ДБ:
-DB = getDefaultCollection()
-
-# Достаём значения опциональных env-переменных.
-SKIP_UPDATES = Utils.parseStrAsBoolean(os.environ.get("SKIP_TELEGRAM_UPDATES", True))
-
-# Создаём Telegram-бота:
-TELEHOOPER = TGBot.Telehooper(
-	TELEGRAM_BOT_TOKEN
-)
-
-async def onBotStart(dp: aiogram.Dispatcher) -> None:
+async def bot_init() -> None:
 	"""
 	Функция, запускающаяся ПОСЛЕ запуска Telegram-бота.
 	"""
 
-	global DB, TELEHOOPER
+	# Логирование.
+	init_logger(debug=config.debug)
 
-	if DB.find_one({"_id": "_global"}) is None:
-		DB.update_one(
-			{
-				"_id": "_global"
-			}, 
-			
-			{
-				"$set": {
-					"_id": "_global",
-					"TempDownloadImageFileID": None,
-					"ServiceDialogues": {
-						"VK": []
-					},
-					"ResourceCache": {
-						"VK": {}
-					},
-					"UsersCache": {
-						"VK": {}
-					}
-				}
-			},
-			
-			upsert=True
-		)
+	logger.info("Привет, мир! Запускаем Telehooper...")
 
-	logger.info("Бот запущен успешно!")
+	# Инициализируем Router'ы.
+	logger.info("Подготавливаюсь к запуску бота...")
+	bot.init_handlers()
 
-	# Производим восстановление всех сессий:
-	logger.info("Пытаюсь авторизовать всех пользователей подключённых сервисов...")
+	# CouchDB.
+	logger.info("Пытаюсь подключиться к базе данных CouchDB...")
+	await get_db(check_auth=True)
 
-	# Подключаем сервисы как API:
-	TELEHOOPER.vkAPI = VKTelehooperAPI(TELEHOOPER)
-
-	# Извлекаем из ДБ список всех активных сессий ВК:
-	for doc in DB.find({"Services.VK.Auth": True}):
-		if doc["Services"]["VK"]["Auth"]:
-			logger.debug(f"Обнаружен авторизованный в ВК пользователь с TID {doc['_id']}, авторизовываю...")
-
-			user: TGBot.TelehooperUser | None = None 
-			try:
-				# Авторизуемся, и после авторизации обязательно запускаем Polling для получения новых сообщений.
-
-				user = await TELEHOOPER.getBotUser(int(doc["_id"]))
-				
-				await TELEHOOPER.vkAPI.reconnect(user, Utils.decryptWithEnvKey(doc["Services"]["VK"]["Token"]))
-			except Exception as error:
-				# Что-то пошло не так, и мы не смогли восстановить сессию пользователя.
-
-				logger.error(f"Ошибка авторизации пользователя с TID {doc['_id']}: {error}")
-
-				if user and user:
-					await TELEHOOPER.vkAPI.disconnect(user, AccountDisconnectType.ERRORED)
-
-				# TODO: Другое сообщение.
-				await TELEHOOPER.TGBot.send_message(int(doc['_id']), "<b>Аккаунт был отключён от Telehooper</b> ⚠️\n\nПосле собственной перезагрузки, я не сумел переподключиться к аккаунту ВКонтакте. Если бот был отключён от ВКонтакте специально, например, путём отключения всех приложений/сессий в настройках безопасности, то волноваться незачем. В ином случае, ты можешь снова переподключить аккаунт, воспользовавшись командою /me.")
-
-	# Авторизуем всех остальных 'миниботов' для функции мультибота:
-	helperbots = os.environ.get("HELPER_BOTS", "[]")
-
-	try:
-		helperbots = json.loads(helperbots)
-	except Exception as error:
-		logger.warning(f"У меня не удалось загрузить переменную среды \"HELPER_BOTS\" как JSON-объект: {error}")
-	else:
-		logger.info(f"Было обнаружено {len(helperbots)} 'миниботов' в настройках переменных среды, пытаюсь авторизовать их...")
-		loop = asyncio.get_event_loop()
-
-		for index, token in enumerate(helperbots, start=1):
-			try:
-				MINIBOT = TGBot.Minibot(TELEHOOPER, token)
-				MINIBOT.initTelegramBot()
-
-				loop.create_task(MINIBOT.DP.start_polling(), name=f"Multibot-{index+1}")
-				logger.debug(f"Мультибот #{index}/{len(helperbots)} был запущен!")
-			except Exception as error:
-				logger.warning(f"Мультибота #{index} не удалось подключить: {error}")
-	finally:
-		logger.info("Завершил подключение миниботов.")
-
-	logger.info(f"Запускаю фоновую задачу по обновлению данных пользователей в БД с частотой в {Utils.seconds_to_userfriendly_string(Consts.VK_USERS_GET_AUTOUPDATE_SECS)}...")
-	TELEHOOPER.vkAPI.runBackgroundTasks(
-		asyncio.get_event_loop()
-	)
+	# Бот.
+	logger.info("Все проверки перед запуском прошли успешно! Запускаем Telegram-бота...")
+	await bot.dispatcher.start_polling(bot.bot)
 
 # Запускаем бота.
 if __name__ == "__main__":
-	# Проверяем древо настроек:
-	logger.info("Проверяем правильность древа настроек.")
-	TELEHOOPER.settingsHandler.testIntegrity()
-
-	logger.info("Запускаю бота.")
-	TELEHOOPER.initTelegramBot()
-
-	# Загружаем основного бота:
 	loop = asyncio.new_event_loop()
 	asyncio.set_event_loop(loop)
 
-	aiogram.utils.executor.start_polling(
-		dispatcher=TELEHOOPER.DP,
-		on_startup=onBotStart,
-		skip_updates=SKIP_UPDATES,
-		loop=loop,
-	)
-
-# TODO: Поддержка супер групп
+	# Запускаем.
+	loop.run_until_complete(bot_init())
