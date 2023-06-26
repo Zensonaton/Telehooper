@@ -5,6 +5,7 @@ import hashlib
 import re
 import time
 from typing import Any
+from aiogram.types import User as TelegramUser
 
 from cryptography.fernet import Fernet
 
@@ -190,3 +191,18 @@ def seconds_to_userfriendly_string(seconds, max=2, minutes=True, hours=True, day
 		if maxCount > 0: newStr.append(fstring); maxCount -= 1
 		else: break
 	return ", ".join(newStr)
+
+def get_telegram_logging_info(user: TelegramUser | None) -> str:
+	"""
+	Возвращает строку с информацией о пользователе для логирования. Используется в случае каких-либо ошибок для логирования.
+
+	Пример вывода функции: `Full user name (@username, ID 123456)`
+	"""
+
+	if user is None:
+		return "Unknown Telegram user"
+
+	if user.username is None:
+		return f"{user.full_name} (ID {user.id})"
+
+	return f"{user.full_name} (@{user.username}, ID {user.id})"

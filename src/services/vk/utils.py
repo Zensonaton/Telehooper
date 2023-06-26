@@ -4,7 +4,7 @@ import random
 import re
 
 
-def extractAccessTokenFromFullURL(url: str) -> str:
+def extract_access_token_from_url(url: str) -> str:
 	"""
 	Извлекает ACCESS_TOKEN из URL. Используется для ВКонтакте-авторизации.
 	"""
@@ -15,7 +15,7 @@ def extractAccessTokenFromFullURL(url: str) -> str:
 
 	raise Exception("Не удалось извлечь ACCESS_TOKEN из URL.")
 
-def extractUserIDFromFullURL(url: str) -> int:
+def extract_user_id_from_url(url: str) -> int:
 	"""
 	Извлекает USER_ID из URL. Используется для ВКонтакте-авторизации.
 	"""
@@ -26,14 +26,14 @@ def extractUserIDFromFullURL(url: str) -> int:
 
 	raise Exception("Не удалось извлечь USER_ID из URL.")
 
-def generateVKRandomID() -> int:
+def random_id() -> int:
 	"""
 	Создаёт случайный ID для отправки сообщений во ВКонтакте.
 	"""
 
 	return random.randint(-2147483647, 2147483648)
 
-def getVKMessageFlags(flags: int) -> tuple[bool, bool, bool, bool, bool, bool, bool, bool, bool, bool, bool, bool, bool]:
+def get_message_flags(flags: int) -> tuple[bool, bool, bool, bool, bool, bool, bool, bool, bool, bool, bool, bool, bool]:
 	"""
 	Выдаёт tuple с флагами сообщения. [Документация ВК](https://vk.com/dev/using_longpoll_3).
 
