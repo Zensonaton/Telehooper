@@ -1,17 +1,12 @@
 # coding: utf-8
 
-import asyncio
 import importlib
-import io
 import os
 import pkgutil
-from typing import cast
 
-from aiocouch import Document
-import aiofiles
 from aiogram import Bot, Dispatcher
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, InputFile
 from loguru import logger
+
 from config import config
 
 
