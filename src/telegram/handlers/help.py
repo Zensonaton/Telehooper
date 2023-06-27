@@ -1,6 +1,7 @@
 # coding: utf-8
 
 from typing import cast
+
 from aiogram import Bot as BotT
 from aiogram import Router as RouterT
 from aiogram import types
@@ -8,7 +9,7 @@ from aiogram.filters import Command, CommandObject, Text
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 import utils
-from consts import FAQ_INFO
+from consts import FAQ_INFO, CommandButtons
 
 
 Bot: BotT = None # type: ignore
@@ -23,9 +24,6 @@ def init(bot: BotT) -> RouterT:
 
 
 	Bot = bot
-
-	Router.message(Command("help", "info", "faq"))(help_handler)
-	Router.callback_query(Text(startswith="faq-page"))(help_inline_handler)
 
 	return Router
 
@@ -63,14 +61,15 @@ async def help_message(msg: types.Message, edit_message: bool = False, selected:
 			disable_web_page_preview=True
 		)
 
-
-async def help_handler(msg: types.Message, command: CommandObject) -> None:
+@Router.message(Command("help", "info", "faq"))
+@Router.message(Text(CommandButtons.HELP))
+async def help_handler(msg: types.Message, command: CommandObject | None = None) -> None:
 	"""
 	Handler для команды /help.
 	"""
 
 	selected = 0
-	if command.args:
+	if command and command.args:
 		args = command.args.split()
 
 		if args[0].isdigit():
@@ -85,6 +84,7 @@ async def help_handler(msg: types.Message, command: CommandObject) -> None:
 		selected=cast(int, selected)
 	)
 
+@Router.callback_query(Text(startswith="faq-page"))
 async def help_inline_handler(query: types.CallbackQuery) -> None:
 	"""
 	Handler для Inline-команды /help.

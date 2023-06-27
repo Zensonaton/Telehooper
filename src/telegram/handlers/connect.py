@@ -7,6 +7,7 @@ from aiogram import Router as RouterT
 from aiogram import types
 from aiogram.filters import Command, Text
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+from consts import CommandButtons
 
 from services.vk.connect_handler import Router as VKRouter
 
@@ -62,6 +63,7 @@ async def connect_message(msg: types.Message, edit_message: bool = False) -> Non
 		)
 
 @Router.message(Command("connect"))
+@Router.message(Text(CommandButtons.CONNECT))
 async def connect_handler(msg: types.Message) -> None:
 	"""
 	Handler для команды /connect.
