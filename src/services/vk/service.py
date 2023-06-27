@@ -6,7 +6,7 @@ from typing import cast
 import aiohttp
 from pydantic import SecretStr
 
-from service_api_base import BaseTelehooperServiceAPI
+from services.service_api_base import BaseTelehooperServiceAPI
 from services.vk.exceptions import AccountDeactivatedException, BaseVKAPIException
 from services.vk.utils import random_id
 
