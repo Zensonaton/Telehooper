@@ -24,6 +24,9 @@ async def bot_init() -> None:
 	logger.info("Подготавливаюсь к запуску бота...")
 	bot.init_handlers()
 
+	# Устанавливаем команды.
+	await bot.set_commands()
+
 	# CouchDB.
 	logger.info("Пытаюсь подключиться к базе данных CouchDB...")
 	await get_db(check_auth=True)

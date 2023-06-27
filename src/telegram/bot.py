@@ -1,13 +1,16 @@
 # coding: utf-8
 
+import asyncio
 import importlib
 import os
 import pkgutil
 
 from aiogram import Bot, Dispatcher
 from loguru import logger
+from aiogram.types import BotCommand, BotCommandScopeDefault, BotCommandScopeAllGroupChats
 
 from config import config
+from consts import COMMANDS, COMMANDS_USERS_GROUPS
 
 
 bot = Bot(
@@ -58,3 +61,42 @@ def init_handlers() -> None:
 			logger.exception(f"Не удалось загрузить handler'ы из модуля {module_name}:", error)
 
 	logger.debug("Загружаю все middleware'ы для Telegram-бота")
+
+async def set_commands(use_async: bool = True) -> None:
+	"""
+	Устанавливает команды для бота.
+
+	:param use_async: Асинхронная установка команд.
+	"""
+
+	async def _set_commands() -> None:
+		# TODO: Поддержка языков.
+
+		await bot.set_my_commands(
+			commands=[
+				BotCommand(
+					command=command,
+					description=description
+				) for command, description in COMMANDS.items()
+			],
+			scope=BotCommandScopeDefault(
+				type="default"
+			)
+		)
+
+		await bot.set_my_commands(
+			commands=[
+				BotCommand(
+					command=command,
+					description=description
+				) for command, description in COMMANDS_USERS_GROUPS.items()
+			],
+			scope=BotCommandScopeAllGroupChats(
+				type="all_group_chats"
+			)
+		)
+
+	if use_async:
+		asyncio.create_task(_set_commands())
+	else:
+		await _set_commands()

@@ -203,3 +203,22 @@ FAQ_INFO = {
 		" • Баг-репорты и предложения: <a href=\"https://github.com/Zensonaton/Telehooper/issues\">Github Issues</a>.\n"
 	)
 }
+
+COMMANDS = {
+	"start": "Стартовая команда бота",
+	"help": "Помощь по боту",
+	"settings": "Настройки бота",
+	"me": "Просмотр профиля и управление подключёнными сервисами"
+}
+
+COMMANDS_USERS_GROUPS = {
+	**COMMANDS,
+
+	"this": "Конвертирование данной группы в диалог сервиса"
+}
+
+COMMANDS_USERS_GROUPS_CONVERTED = {
+	**COMMANDS,
+
+	"this": "Управление данным диалогом"
+}
