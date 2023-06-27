@@ -24,10 +24,9 @@ def init(bot: BotT) -> RouterT:
 
 	Bot = bot
 
-	Router.callback_query(Text(startswith="do-nothing"))(do_nothing_handler)
-
 	return Router
 
+@Router.callback_query(Text(startswith="do-nothing"))
 async def do_nothing_handler(query: types.CallbackQuery) -> None:
 	"""
 	Handler для Inline-команды "do nothing".
