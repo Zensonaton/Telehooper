@@ -110,10 +110,15 @@ def get_default_user(user: types.User, version: int = utils.get_bot_version()) -
 
 	return {
 		"_ver": version,
-		"ID": user.id,
-		"Username": user.username,
-		"Name": user.full_name,
-		"CreationDate": utils.get_timestamp()
+		"ID": user.id, # ID пользователя.
+		"Username": user.username, # Имя пользователя.
+		"Name": user.full_name, # Полное имя пользователя.
+		"CreationDate": utils.get_timestamp(), # Дата того, когда пользователь впервые написал боту.
+		"BotBanned": False, # Заблокировал ли данный пользователь бота?
+		"SettingsOverriden": {}, # Переопределённые настройки.
+		"Connections": { # Подключённые сервисы.
+			# Данный объект пуст, он пополняется при подключении сервисов.
+		}
 	}
 
 def get_default_global(version: int = utils.get_bot_version()) -> dict:
