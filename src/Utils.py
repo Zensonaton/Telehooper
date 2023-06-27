@@ -192,7 +192,7 @@ def seconds_to_userfriendly_string(seconds, max=2, minutes=True, hours=True, day
 		else: break
 	return ", ".join(newStr)
 
-def get_telegram_logging_info(user: TelegramUser | None) -> str:
+def get_telegram_logging_info(user: TelegramUser | None, use_url: bool = False) -> str:
 	"""
 	Возвращает строку с информацией о пользователе для логирования. Используется в случае каких-либо ошибок для логирования.
 
@@ -205,4 +205,6 @@ def get_telegram_logging_info(user: TelegramUser | None) -> str:
 	if user.username is None:
 		return f"{user.full_name} (ID {user.id})"
 
-	return f"{user.full_name} (@{user.username}, ID {user.id})"
+	username_or_link = f"https://t.me/{user.username}" if use_url else f"@{user.username}"
+
+	return f"{user.full_name} ({username_or_link}, ID {user.id})"
