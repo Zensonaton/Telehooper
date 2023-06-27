@@ -1,3 +1,3 @@
-# Платформа Whatsapp для бота Telehooper
+# Сервис Whatsapp для бота Telehooper
 
 Текущий статус: не реализовано.

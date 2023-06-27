@@ -1,3 +1,3 @@
-# Платформа Discord для бота Telehooper
+# Сервис Discord для бота Telehooper
 
 Текущий статус: не реализовано.
