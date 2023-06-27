@@ -10,6 +10,7 @@ from aiogram.filters import Text
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from loguru import logger
 from pydantic import SecretStr
+from DB import get_user
 from services.vk.service import INVISIBLE_CHARACTER, VKAPI
 import utils
 from config import config
@@ -84,9 +85,28 @@ async def connect_vk_token_handler(msg: types.Message) -> None:
 
 		return
 
-	token = SecretStr(token)
+	user = await get_user(cast(types.User, msg.from_user))
+
+	if user["Connections"].get("VK"):
+		# TODO: Автоматически отключать предыдущий аккаунт ВКонтакте, если он был подключён.
+		# Либо же дать такую опцию пользователю.
+
+		await msg.answer(
+			"<b>⚠️ Ошибка подключения сервиса ВКонтакте</b>.\n"
+			"\n"
+			f"К Telehooper уже <a href=\"vk.com/id{user['Connections']['VK']['ID']}\">подключён аккаунт ВКонтакте</a>. Вы не можете подключить сразу несколько аккаунтов одного типа к Telehooper.\n"
+			"\n"
+			"ℹ️ Для подключения нового аккаунта Вы можете можете отключить старый, для этого пропишите команду /me.",
+			disable_web_page_preview=True
+		)
+
+		return
+
+	# TODO: Проверка на то, что аккаунт заморожен/заблокирован.
 
 	# Всё в порядке.
+	token = SecretStr(token)
+
 	try:
 		await msg.delete()
 	except:
@@ -104,6 +124,18 @@ async def connect_vk_token_handler(msg: types.Message) -> None:
 	# Пытаемся авторизоваться.
 	try:
 		auth_result = await auth_token(cast(types.User, msg.from_user), token)
+
+		# Сохраняем в базу данных сессию пользователя.
+		# TODO: НЕ сохранять в БД информацию о подключении, если на это есть настройка.
+		user["Connections"]["VK"] = {
+			"Token": utils.encrypt_with_env_key(token.get_secret_value()),
+			"ConnectedAt": utils.get_timestamp(),
+			"LastActivityAt": utils.get_timestamp(),
+			"ID": auth_result["id"],
+			"OwnedDialogues": {}
+		}
+
+		await user.save()
 	except Exception as error:
 		logger.exception(f"Ошибка при авторизации у пользователя Telegram {utils.get_telegram_logging_info(msg.from_user)}: {error}")
 
@@ -134,9 +166,7 @@ async def connect_vk_token_handler(msg: types.Message) -> None:
 				caption=_text
 			)
 		else:
-			await msg.answer(
-				_text
-			)
+			await msg.answer(_text)
 
 async def auth_token(user: types.User, token: SecretStr) -> dict:
 	"""

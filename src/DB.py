@@ -109,7 +109,7 @@ def get_default_user(user: types.User, version: int = utils.get_bot_version()) -
 	"""
 
 	return {
-		"_ver": version,
+		"DocVer": version,
 		"ID": user.id, # ID пользователя.
 		"Username": user.username, # Имя пользователя.
 		"Name": user.full_name, # Полное имя пользователя.
@@ -127,5 +127,5 @@ def get_default_global(version: int = utils.get_bot_version()) -> dict:
 	"""
 
 	return {
-		"_ver": version
+		"DocVer": version
 	}
