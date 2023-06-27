@@ -1,14 +1,9 @@
 # coding: utf-8
 
-from typing import cast
 from aiogram import Bot as BotT
 from aiogram import Router as RouterT
 from aiogram import types
-from aiogram.filters import Command, CommandObject, Text
-from aiogram.utils.keyboard import InlineKeyboardBuilder
-
-import utils
-from consts import FAQ_INFO
+from aiogram.filters import Text
 
 
 Bot: BotT = None # type: ignore
