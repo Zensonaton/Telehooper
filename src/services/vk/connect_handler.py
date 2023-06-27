@@ -10,10 +10,12 @@ from aiogram.filters import Text
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from loguru import logger
 from pydantic import SecretStr
-from DB import get_user
-from services.vk.service import INVISIBLE_CHARACTER, VKAPI
+
 import utils
 from config import config
+from DB import get_user
+from services.vk.exceptions import AccountDeactivatedException
+from services.vk.service import INVISIBLE_CHARACTER, VKAPI
 
 from . import utils as vk_utils
 from .consts import VK_OAUTH_URL
@@ -102,8 +104,6 @@ async def connect_vk_token_handler(msg: types.Message) -> None:
 
 		return
 
-	# TODO: Проверка на то, что аккаунт заморожен/заблокирован.
-
 	# Всё в порядке.
 	token = SecretStr(token)
 
@@ -136,6 +136,16 @@ async def connect_vk_token_handler(msg: types.Message) -> None:
 		}
 
 		await user.save()
+	except AccountDeactivatedException as error:
+		await msg.answer(
+			"<b>⚠️ Ошибка подключения сервиса ВКонтакте</b>.\n"
+			"\n"
+			"К сожалению, Ваша страница ВКонтакте является удалённой, замороженной или заблокированной, либо же у аккаунта ВКонтакте не подтверждён номер телефона.\n"
+			"\n"
+			"ℹ️ Если это утверждение не является правдой, то в таком случае создайте Github Issue, ссылку можно найти в команде <code>/faq 6</code>.",
+		)
+
+		return
 	except Exception as error:
 		logger.exception(f"Ошибка при авторизации у пользователя Telegram {utils.get_telegram_logging_info(msg.from_user)}: {error}")
 
@@ -179,6 +189,10 @@ async def auth_token(user: types.User, token: SecretStr) -> dict:
 
 	# Получаем информацию о пользователе.
 	user_info = await vk_api.get_self_info()
+
+	if "deactivated" in user_info:
+		raise AccountDeactivatedException(user_info["deactivated"])
+
 	user_id = user_info["id"]
 
 	# Отправляем сообщение в ЛС к специальному боту, если это разрешено.
@@ -194,6 +208,10 @@ async def auth_token(user: types.User, token: SecretStr) -> dict:
 					"(техническое поле: telehooperSuccessAuth)"
 				)
 			)
+		except AccountDeactivatedException as error:
+			# Ничего не делаем. Данная ошибка обрабатывается в другом месте.
+
+			raise error
 		except Exception as error:
 			logger.exception(f"Ошибка при отправке сообщения в ЛС к боту Telehooper (id {config.vkbot_notifier_id}): {error}")
 

@@ -7,6 +7,7 @@ import aiohttp
 from pydantic import SecretStr
 
 from service_api_base import BaseTelehooperServiceAPI
+from services.vk.exceptions import AccountDeactivatedException, BaseVKAPIException
 from services.vk.utils import random_id
 
 
@@ -32,6 +33,25 @@ class VKAPI:
 		self.token = token
 		self.version = api_version
 
+	def _parse_response(self, response: dict) -> dict:
+		"""
+		Парсит ответ от ВКонтакте.
+		"""
+
+		if response.get("error"):
+			code = response["error"]["error_code"]
+			message = response["error"]
+
+			if code in [3610, 17]:
+				raise AccountDeactivatedException(message=message)
+			else:
+				raise BaseVKAPIException(
+					error_code=code,
+					message=message
+				)
+
+		return response["response"]
+
 	async def _get_(self, method: str, params: dict[str, str | int | bool] | None = None) -> dict:
 		"""
 		Выполняет GET-запрос к API ВКонтакте.
@@ -48,12 +68,7 @@ class VKAPI:
 
 		async with aiohttp.ClientSession() as session:
 			async with session.get(f"https://api.vk.com/method/{method}", params=params) as response:
-				response_json = await response.json()
-
-				if response_json.get("error"):
-					raise Exception(response_json["error"]["error_msg"])
-
-				return response_json["response"]
+				return self._parse_response(await response.json())
 
 	async def _post_(self, method: str, params: dict[str, str | int | bool] | None = None) -> dict:
 		"""
@@ -71,12 +86,7 @@ class VKAPI:
 
 		async with aiohttp.ClientSession() as session:
 			async with session.post(f"https://api.vk.com/method/{method}", params=params) as response:
-				response_json = await response.json()
-
-				if response_json.get("error"):
-					raise Exception(response_json["error"]["error_msg"])
-
-				return response_json["response"]
+				return self._parse_response(await response.json())
 
 	async def account_getProfileInfo(self) -> dict:
 		"""
