@@ -6,11 +6,16 @@ import os
 import pkgutil
 
 from aiogram import Bot, Dispatcher
+from aiogram.types import (BotCommand, BotCommandScopeAllGroupChats,
+                           BotCommandScopeDefault)
 from loguru import logger
-from aiogram.types import BotCommand, BotCommandScopeDefault, BotCommandScopeAllGroupChats
+from pydantic import SecretStr
 
 from config import config
 from consts import COMMANDS, COMMANDS_USERS_GROUPS
+from DB import get_db
+from services.vk.service import VKServiceAPI
+import utils
 
 
 bot = Bot(
@@ -100,3 +105,31 @@ async def set_commands(use_async: bool = True) -> None:
 		asyncio.create_task(_set_commands())
 	else:
 		await _set_commands()
+
+async def reconnect_services(use_async: bool = True) -> None:
+	"""
+	Переподключает сервисы.
+
+	:param use_async: Асинхронное переподключение.
+	"""
+
+	async def _reconnect_services() -> None:
+		db = await get_db()
+
+		async for user in db.docs(prefix="user_"):
+			telegram_user = (await bot.get_chat_member(user["ID"], user["ID"])).user
+
+			if "VK" in user["Connections"]:
+				await VKServiceAPI(
+					token=SecretStr(
+						utils.decryptWithEnvKey(
+							user["Connections"]["VK"]["Token"]
+						)
+					),
+					user=telegram_user
+				).start_listening()
+
+	if use_async:
+		asyncio.create_task(_reconnect_services())
+	else:
+		await _reconnect_services()

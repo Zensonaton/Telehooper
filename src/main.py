@@ -20,16 +20,20 @@ async def bot_init() -> None:
 
 	logger.info("Привет, мир! Запускаем Telehooper...")
 
+	# CouchDB.
+	logger.info("Пытаюсь подключиться к базе данных CouchDB...")
+	await get_db(check_auth=True)
+
 	# Инициализируем Router'ы.
 	logger.info("Подготавливаюсь к запуску бота...")
 	bot.init_handlers()
 
+	# Восстанавливаем сессии сервисов.
+	logger.info("Восстанавливаю сессии сервисов...")
+	await bot.reconnect_services()
+
 	# Устанавливаем команды.
 	await bot.set_commands()
-
-	# CouchDB.
-	logger.info("Пытаюсь подключиться к базе данных CouchDB...")
-	await get_db(check_auth=True)
 
 	# Бот.
 	logger.info("Все проверки перед запуском прошли успешно! Запускаем Telegram-бота...")
