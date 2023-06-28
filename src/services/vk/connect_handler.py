@@ -14,8 +14,10 @@ from pydantic import SecretStr
 import utils
 from config import config
 from DB import get_user
+from services.vk.consts import VK_INVISIBLE_CHARACTER
 from services.vk.exceptions import AccountDeactivatedException
-from services.vk.service import INVISIBLE_CHARACTER, VKAPI
+from services.vk.service import VKServiceAPI
+from services.vk.vk_api.api import VKAPI
 
 from . import utils as vk_utils
 from .consts import VK_OAUTH_URL
@@ -144,8 +146,6 @@ async def connect_vk_token_handler(msg: types.Message) -> None:
 			"\n"
 			"ℹ️ Если это утверждение не является правдой, то в таком случае создайте Github Issue, ссылку можно найти в команде <code>/faq 6</code>.",
 		)
-
-		return
 	except Exception as error:
 		logger.exception(f"Ошибка при авторизации у пользователя Telegram {utils.get_telegram_logging_info(msg.from_user)}: {error}")
 
@@ -156,8 +156,6 @@ async def connect_vk_token_handler(msg: types.Message) -> None:
 			"\n"
 			"ℹ️ Если данная проблема повторяется, в таком случае создайте Github Issue у репозитория Telehooper, ссылку можно найти в команде <code>/faq 6</code>.",
 		)
-
-		return
 	else:
 		_text = (
 			"<b>✅ Подключение ВКонтакте — успех</b>.\n"
@@ -177,6 +175,14 @@ async def connect_vk_token_handler(msg: types.Message) -> None:
 			)
 		else:
 			await msg.answer(_text)
+
+		# Запускаем прослушивание событий.
+		# TODO: Как-то по другому использовать ServiceAPI?
+		await VKServiceAPI(
+			token=token,
+			user=cast(types.User, msg.from_user)
+		).start_listening()
+
 
 async def auth_token(user: types.User, token: SecretStr) -> dict:
 	"""
@@ -219,25 +225,25 @@ async def auth_token(user: types.User, token: SecretStr) -> dict:
 	await vk_api.messages_send(
 		peer_id=user_id,
 		message=(
-			f"⚠️ ВАЖНАЯ ИНФОРМАЦИЯ ⚠️ {INVISIBLE_CHARACTER * 15}\n"
+			f"⚠️ ВАЖНАЯ ИНФОРМАЦИЯ ⚠️ {VK_INVISIBLE_CHARACTER * 15}\n"
 			"\n"
 			"Привет! 🙋\n"
 			"Если Вы видите это сообщение, то в таком случае значит, что Telegram-бот под названием «Telehooper» был успешно подключён к Вашей странице ВКонтакте. Пользователь, который подключился к вашей странице ВКонтакте сумеет делать следующее:\n"
-			f"{INVISIBLE_CHARACTER}• Читать все получаемые и отправляемые сообщения.\n"
-			f"{INVISIBLE_CHARACTER}• Отправлять сообщения.\n"
-			f"{INVISIBLE_CHARACTER}• Смотреть список диалогов.\n"
-			f"{INVISIBLE_CHARACTER}• Просматривать список Ваших друзей, отправлять им сообщения.\n"
+			f"{VK_INVISIBLE_CHARACTER}• Читать все получаемые и отправляемые сообщения.\n"
+			f"{VK_INVISIBLE_CHARACTER}• Отправлять сообщения.\n"
+			f"{VK_INVISIBLE_CHARACTER}• Смотреть список диалогов.\n"
+			f"{VK_INVISIBLE_CHARACTER}• Просматривать список Ваших друзей, отправлять им сообщения.\n"
 			"\n"
 			"Telegram-пользователь, который подключил бота к Вашей странице:\n"
-			f"{INVISIBLE_CHARACTER}• {utils.get_telegram_logging_info(user, use_url=True)}.\n"
+			f"{VK_INVISIBLE_CHARACTER}• {utils.get_telegram_logging_info(user, use_url=True)}.\n"
 			"\n"
 			"⚠ Если это были не Вы, то срочно в настройках подключённых приложений (https://vk.com/settings?act=apps) отключи приложение «Kate Mobile», либо же в этот же диалог пропиши команду «logoff», (без кавычек) и если же тут появится сообщение о успешном отключении, то значит, что бот был отключён.\n"
 			"После отключения срочно меняй пароль от ВКонтакте, поскольку произошедшее значит, что кто-то сумел войти в Ваш аккаунт ВКонтакте, либо же Вы забыли выйти с чужого компьютера!\n"
 			"\n"
 			"ℹ️ В этом диалоге можно делать следующее для управления Telehooper'ом; все команды прописываются без «кавычек»:\n"
-			f"{INVISIBLE_CHARACTER}• Проверить, подключён ли Telehooper: «test».\n"
-			f"{INVISIBLE_CHARACTER}• Отправить тестовое сообщение в Telegram: «ping».\n"
-			f"{INVISIBLE_CHARACTER}• Отключить аккаунт ВКонтакте от Telehooper: «logoff»."
+			f"{VK_INVISIBLE_CHARACTER}• Проверить, подключён ли Telehooper: «test».\n"
+			f"{VK_INVISIBLE_CHARACTER}• Отправить тестовое сообщение в Telegram: «ping».\n"
+			f"{VK_INVISIBLE_CHARACTER}• Отключить аккаунт ВКонтакте от Telehooper: «logoff»."
 		)
 	)
 

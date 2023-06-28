@@ -5,3 +5,4 @@ VK_OAUTH_URL = "https://oauth.vk.com/authorize?client_id=2685278&scope=69634&red
 VK_USERS_GET_AUTOUPDATE_SECS = 12 * 60 * 60
 VK_USER_INACTIVE_SECS = 7 * 24 * 60 * 60
 
+VK_INVISIBLE_CHARACTER = "&#12288;"
