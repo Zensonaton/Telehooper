@@ -7,7 +7,8 @@ from loguru import logger
 from pydantic import SecretStr
 
 from services.service_api_base import BaseTelehooperServiceAPI
-from services.vk.vk_api.api import VKAPI, VKAPILongpoll
+from services.vk.vk_api.api import VKAPI
+from services.vk.vk_api.longpoll import VKAPILongpoll
 
 
 class VKServiceAPI(BaseTelehooperServiceAPI):
@@ -24,10 +25,11 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 	async def start_listening(self) -> asyncio.Task:
 		async def _handle_updates() -> None:
-			api = VKAPI(self.token)
-			longpoll = VKAPILongpoll(api)
+			longpoll = VKAPILongpoll(
+				VKAPI(self.token)
+			)
 
-			async for event in longpoll.listen_for_raw_updates():
-				logger.debug(f"Got event from longpoll: {event}")
+			async for event in longpoll.listen_for_updates():
+				logger.debug(f"Got event with type {event.__class__.__name__} and data {event.event_data}")
 
 		return asyncio.create_task(_handle_updates())
