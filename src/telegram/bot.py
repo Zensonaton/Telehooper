@@ -11,11 +11,11 @@ from aiogram.types import (BotCommand, BotCommandScopeAllGroupChats,
 from loguru import logger
 from pydantic import SecretStr
 
+import utils
 from config import config
 from consts import COMMANDS, COMMANDS_USERS_GROUPS
 from DB import get_db
 from services.vk.service import VKServiceAPI
-import utils
 
 
 bot = Bot(
@@ -48,22 +48,18 @@ def init_handlers() -> None:
 	for _, module_name, _ in pkgutil.iter_modules([os.path.join(os.path.dirname(__file__), "handlers")]):
 		logger.debug(f"Запускаю handler'ы из модуля {module_name}...")
 
-		module = importlib.import_module(f"telegram.handlers.{module_name}")
-
-		# Проверяем, есть ли в модуле функция `init()`.
-		if not hasattr(module, "init"):
-			logger.warning(f"В модуле {module_name} нет функции init(), данный модуль будет пропущен!")
-
-			continue
-
 		# Пытаемся инициализировать модуль.
 		try:
-			router = module.init(bot)
-
-			if router:
-				dispatcher.include_router(router)
+			module = importlib.import_module(f"telegram.handlers.{module_name}")
 		except Exception as error:
 			logger.exception(f"Не удалось загрузить handler'ы из модуля {module_name}:", error)
+
+			continue
+		else:
+			if "router" not in dir(module):
+				raise Exception(f"Модуль {module_name} не содержит переменную 'router'.")
+
+			dispatcher.include_router(module.router)
 
 	logger.debug("Загружаю все middleware'ы для Telegram-бота")
 

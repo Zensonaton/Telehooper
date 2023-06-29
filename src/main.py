@@ -3,11 +3,11 @@
 import asyncio
 
 from loguru import logger
-from telegram import bot
-from logger import init_logger
-from config import config
 
+from config import config
 from DB import get_db
+from logger import init_logger
+from telegram import bot
 
 
 async def bot_init() -> None:
@@ -37,7 +37,10 @@ async def bot_init() -> None:
 
 	# Бот.
 	logger.info("Все проверки перед запуском прошли успешно! Запускаем Telegram-бота...")
-	await bot.dispatcher.start_polling(bot.bot)
+	await bot.dispatcher.start_polling(
+		bot.bot,
+		allowed_updates=bot.dispatcher.resolve_used_update_types()
+	)
 
 # Запускаем бота.
 if __name__ == "__main__":

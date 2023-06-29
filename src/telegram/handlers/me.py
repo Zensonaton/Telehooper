@@ -1,34 +1,19 @@
 # coding: utf-8
 
-from aiogram import Bot as BotT
-from aiogram import Router as RouterT
-from aiogram import types
+from aiogram import Router, types
 from aiogram.filters import Command, Text
 
 import utils
 from consts import CommandButtons
 
 
-Bot: BotT = None # type: ignore
-Router = RouterT()
+router = Router()
 
-def init(bot: BotT) -> RouterT:
+@router.message(Command("me"))
+@router.message(Text(CommandButtons.ME))
+async def me_command_handler(msg: types.Message) -> None:
 	"""
-	Загружает все Handler'ы из этого модуля.
-	"""
-
-	global Bot
-
-
-	Bot = bot
-
-	return Router
-
-@Router.message(Command("me"))
-@Router.message(Text(CommandButtons.ME))
-async def me_handler(msg: types.Message) -> None:
-	"""
-	Handler для команды /me.
+	Handler для команды `/me`.
 	"""
 
 	# TODO: Сделать показ того, что страница ВК подключена.

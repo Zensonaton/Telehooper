@@ -71,8 +71,8 @@ async def get_user(user: types.User, create_by_default: bool = True) -> Document
 		# Пользователь не был найден, поэтому мы создаем его.
 		user_db = await db.create(
 			"user_" + id,
-			False,
-			get_default_user(user)
+			exists_ok=False,
+			data=get_default_user(user)
 		)
 		await user_db.save()
 
@@ -96,8 +96,8 @@ async def get_global(create_by_default: bool = True) -> Document:
 		# Глобальная запись не была найдена, поэтому мы создаем её.
 		global_db = await db.create(
 			"global",
-			False,
-			get_default_global()
+			exists_ok=False,
+			data=get_default_global()
 		)
 		await global_db.save()
 
@@ -110,6 +110,7 @@ def get_default_user(user: types.User, version: int = utils.get_bot_version()) -
 
 	return {
 		"DocVer": version,
+
 		"ID": user.id, # ID пользователя.
 		"Username": user.username, # Имя пользователя.
 		"Name": user.full_name, # Полное имя пользователя.
@@ -128,4 +129,36 @@ def get_default_global(version: int = utils.get_bot_version()) -> dict:
 
 	return {
 		"DocVer": version
+	}
+
+async def get_group(chat: int | types.Chat) -> Document:
+	"""
+	Возвращает информацию о группе из базы данных. Учтите, что данный метод не создаёт группу, если она не была найдена.
+	"""
+
+	db = await get_db()
+
+	return await db[f"group_{chat.id if isinstance(chat, types.Chat) else chat}"]
+
+def get_default_group(chat: types.Chat, creator: types.User, status_message: types.Message, admin_rights: bool = False, version: int = utils.get_bot_version()) -> dict:
+	"""
+	Возвращает шаблон группы для сохранения в базу данных.
+	"""
+
+	return {
+		"DocVer": version,
+
+		"ID": chat.id, # ID группы.
+		"Creator": creator.id, # ID создателя группы.
+		"CreatedAt": utils.get_timestamp(), # Дата создания группы.
+		"LastActivityAt": utils.get_timestamp(), # Дата последней активности в группе.
+		"UserJoinedWarning": False, # Было ли предупреждение о том, что в группу добавили стороннего пользователя?
+		"StatusMessageID": status_message.message_id, # ID (статусного) сообщения, которое было отправлено при добавлении бота в группу.
+		"AdminRights": admin_rights, # Были ли боту выданы права администратора?
+		"Chats": { # Информация о подключённых чатах/группах в данной группе.
+
+		},
+		"Services": { # Информация о сервисах в данной группе.
+
+		}
 	}

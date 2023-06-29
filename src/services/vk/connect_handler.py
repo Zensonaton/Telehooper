@@ -3,9 +3,7 @@
 import asyncio
 from typing import cast
 
-from aiogram import F
-from aiogram import Router as RouterT
-from aiogram import types
+from aiogram import F, Router, types
 from aiogram.filters import Text
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from loguru import logger
@@ -23,22 +21,24 @@ from . import utils as vk_utils
 from .consts import VK_OAUTH_URL
 
 
-Router = RouterT()
+router = Router()
 
-@Router.callback_query(Text("connect vk"), F.message.as_("message"))
-async def connect_vk_handler(query: types.CallbackQuery, message: types.Message) -> None:
+@router.callback_query(Text("/connect vk"), F.message.as_("msg"))
+async def connect_vk_inline_handler(_: types.CallbackQuery, msg: types.Message) -> None:
 	"""
-	Inline Handler для команды /connect: Вызывается, когда пользователь нажал на кнопку "ВКонтакте".
+	Inline Callback Handler для команды `/connect`.
+
+	Вызывается при выборе "ВКонтакте" в команде `/connect`.
 	"""
 
 	keyboard = InlineKeyboardMarkup(inline_keyboard=[
 		[
-			InlineKeyboardButton(text="🔙 Назад", callback_data="connect"),
+			InlineKeyboardButton(text="🔙 Назад", callback_data="/connect"),
 			InlineKeyboardButton(text="🔗 Авторизоваться", url=VK_OAUTH_URL)
 		]
 	])
 
-	await message.edit_text(
+	await msg.edit_text(
 		"<b>🌐 Подключение сервиса — ВКонтакте</b>.\n"
 		"\n"
 		"Для подключения ВКонтакте нужно сделать следующее:\n"
@@ -54,27 +54,12 @@ async def connect_vk_handler(query: types.CallbackQuery, message: types.Message)
 		reply_markup=keyboard
 	)
 
-@Router.message(Text(startswith="https://oauth.vk.com/authorize"))
-async def connect_vk_wrong_url(msg: types.Message) -> None:
-	"""
-	Handler для команды /connect: Вызывается, если пользователь отправил не ту ссылку на авторизацию ВКонтакте.
-	"""
-
-	await msg.answer(
-		"<b>⚠️ Ошибка подключения сервиса ВКонтакте</b>.\n"
-		"\n"
-		"Упс, похоже, что Вы по-ошибке отправили не ту ссылку. 👀\n"
-		"\n"
-		f"Перейдя <a href=\"{VK_OAUTH_URL}\">на страницу с авторизацией</a>, Вам необходимо нажать на кнопку «Разрешить», и ссылку с адресной строки браузера отправить сюда. Ссылка, которую нужно отправить мне имеет следующий вид:\n"
-		"<code>https://oauth.vk.com/blank.html#access_token=vk1.a.0xBADD...CAFEexpires_in=0&user_id=123456</code>\n"
-		"\n"
-		"ℹ️ Если у Вас возникли проблемы, то постарайтесь снова прочитать содержимое информации у команды /connect.",
-	)
-
-@Router.message(Text(startswith="https://oauth.vk.com/blank.html#access_token="))
+@router.message(Text(startswith="https://oauth.vk.com/blank.html#access_token="))
 async def connect_vk_token_handler(msg: types.Message) -> None:
 	"""
-	Handler для команды /connect: Вызывается, когда пользователь отправил токен ВКонтакте.
+	Handler для команды `/connect`.
+
+	Вызывается, когда пользователь отправил токен ВКонтакте.
 	"""
 
 	token = vk_utils.extract_access_token_from_url(msg.text or "")
@@ -125,7 +110,7 @@ async def connect_vk_token_handler(msg: types.Message) -> None:
 
 	# Пытаемся авторизоваться.
 	try:
-		auth_result = await auth_token(cast(types.User, msg.from_user), token)
+		auth_result = await authorize_by_token(cast(types.User, msg.from_user), token)
 
 		# Сохраняем в базу данных сессию пользователя.
 		# TODO: НЕ сохранять в БД информацию о подключении, если на это есть настройка.
@@ -183,8 +168,26 @@ async def connect_vk_token_handler(msg: types.Message) -> None:
 			user=cast(types.User, msg.from_user)
 		).start_listening()
 
+@router.message(Text(startswith="https://oauth.vk.com/authorize"))
+async def connect_vk_wrong_url_handler(msg: types.Message) -> None:
+	"""
+	Handler для команды `/connect`.
 
-async def auth_token(user: types.User, token: SecretStr) -> dict:
+	Вызывается, если пользователь отправил ссылку, которая не имеет токен ВКонтакте.
+	"""
+
+	await msg.answer(
+		"<b>⚠️ Ошибка подключения сервиса ВКонтакте</b>.\n"
+		"\n"
+		"Упс, похоже, что Вы по-ошибке отправили не ту ссылку. 👀\n"
+		"\n"
+		f"Перейдя <a href=\"{VK_OAUTH_URL}\">на страницу с авторизацией</a>, Вам необходимо нажать на кнопку «Разрешить», и ссылку с адресной строки браузера отправить сюда. Ссылка, которую нужно отправить мне имеет следующий вид:\n"
+		"<code>https://oauth.vk.com/blank.html#access_token=vk1.a.0xBADD...CAFEexpires_in=0&user_id=123456</code>\n"
+		"\n"
+		"ℹ️ Если у Вас возникли проблемы, то постарайтесь снова прочитать содержимое информации у команды /connect.",
+	)
+
+async def authorize_by_token(user: types.User, token: SecretStr) -> dict:
 	"""
 	Пытается авторизоваться через токен ВКонтакте. Данный метод отправляет сообщения в чат "Избранное" во ВКонтакте, а так же в ЛС к специальному боту, для оповещения (что бы пользователь получил уведомление).
 

@@ -2,9 +2,7 @@
 
 from typing import cast
 
-from aiogram import Bot as BotT
-from aiogram import Router as RouterT
-from aiogram import types
+from aiogram import Router, types
 from aiogram.filters import Command, CommandObject, Text
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
@@ -12,24 +10,11 @@ import utils
 from consts import FAQ_INFO, CommandButtons
 
 
-Bot: BotT = None # type: ignore
-Router = RouterT()
+router = Router()
 
-def init(bot: BotT) -> RouterT:
+async def help_command_message(msg: types.Message, edit_message: bool = False, selected: int = 0) -> None:
 	"""
-	Загружает все Handler'ы из этого модуля.
-	"""
-
-	global Bot
-
-
-	Bot = bot
-
-	return Router
-
-async def help_message(msg: types.Message, edit_message: bool = False, selected: int = 0) -> None:
-	"""
-	Сообщение для команды /help.
+	Сообщение для команды `/help`.
 	"""
 
 	selected_key = list(FAQ_INFO.keys())[selected]
@@ -43,7 +28,7 @@ async def help_message(msg: types.Message, edit_message: bool = False, selected:
 		builder.add(
 			types.InlineKeyboardButton(
 				text=f"👉 {key} 👈" if is_current else key,
-				callback_data="do-nothing" if is_current else f"faq-page {index}"
+				callback_data="do-nothing" if is_current else f"/help {index}"
 			)
 		)
 	builder.adjust(1)
@@ -61,11 +46,11 @@ async def help_message(msg: types.Message, edit_message: bool = False, selected:
 			disable_web_page_preview=True
 		)
 
-@Router.message(Command("help", "info", "faq"))
-@Router.message(Text(CommandButtons.HELP))
-async def help_handler(msg: types.Message, command: CommandObject | None = None) -> None:
+@router.message(Command("help", "info", "faq"))
+@router.message(Text(CommandButtons.HELP))
+async def help_command_handler(msg: types.Message, command: CommandObject | None = None) -> None:
 	"""
-	Handler для команды /help.
+	Handler для команды `/help`.
 	"""
 
 	selected = 0
@@ -79,15 +64,17 @@ async def help_handler(msg: types.Message, command: CommandObject | None = None)
 				len(FAQ_INFO) - 1
 			)
 
-	await help_message(
+	await help_command_message(
 		msg,
 		selected=cast(int, selected)
 	)
 
-@Router.callback_query(Text(startswith="faq-page"))
-async def help_inline_handler(query: types.CallbackQuery) -> None:
+@router.callback_query(Text(startswith="/help"))
+async def help_page_inline_handler(query: types.CallbackQuery) -> None:
 	"""
-	Handler для Inline-команды /help.
+	Inline Callback Handler для команды `/help`.
+
+	Вызывается при выборе страницы.
 	"""
 
 	page = utils.clamp(
@@ -96,7 +83,7 @@ async def help_inline_handler(query: types.CallbackQuery) -> None:
 		len(FAQ_INFO) - 1
 	)
 
-	await help_message(
+	await help_command_message(
 		cast(types.Message, query.message),
 		edit_message=True,
 		selected=int(page)

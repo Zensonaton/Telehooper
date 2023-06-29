@@ -1,33 +1,18 @@
 # coding: utf-8
 
-from aiogram import Bot as BotT
-from aiogram import Router as RouterT
-from aiogram import types
+from aiogram import Router, types
 from aiogram.filters import Command, Text
 
 from consts import CommandButtons
 
 
-Bot: BotT = None # type: ignore
-Router = RouterT()
+router = Router()
 
-def init(bot: BotT) -> RouterT:
+@router.message(Command("settings"))
+@router.message(Text(CommandButtons.SETTINGS))
+async def settings_command_handler(msg: types.Message) -> None:
 	"""
-	Загружает все Handler'ы из этого модуля.
-	"""
-
-	global Bot
-
-
-	Bot = bot
-
-	return Router
-
-@Router.message(Command("settings"))
-@Router.message(Text(CommandButtons.SETTINGS))
-async def me_handler(msg: types.Message) -> None:
-	"""
-	Handler для команды /settings.
+	Handler для команды `/settings`.
 	"""
 
 	await msg.answer(

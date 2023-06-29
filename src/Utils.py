@@ -5,8 +5,8 @@ import hashlib
 import re
 import time
 from typing import Any
-from aiogram.types import User as TelegramUser
 
+from aiogram.types import User as TelegramUser
 from cryptography.fernet import Fernet
 
 from config import config

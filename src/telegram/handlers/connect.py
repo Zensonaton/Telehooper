@@ -2,36 +2,20 @@
 
 from typing import cast
 
-from aiogram import Bot as BotT
-from aiogram import Router as RouterT
-from aiogram import types
+from aiogram import Router, types
 from aiogram.filters import Command, Text
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+
 from consts import CommandButtons
+from services.vk.connect_handler import router as VKRouter
 
-from services.vk.connect_handler import Router as VKRouter
 
+router = Router()
+router.include_router(VKRouter)
 
-Bot: BotT = None # type: ignore
-Router = RouterT()
-
-def init(bot: BotT) -> RouterT:
+async def connect_command_message(msg: types.Message, edit_message: bool = False) -> None:
 	"""
-	Загружает все Handler'ы из этого модуля.
-	"""
-
-	global Bot
-
-
-	Bot = bot
-
-	Router.include_router(VKRouter)
-
-	return Router
-
-async def connect_message(msg: types.Message, edit_message: bool = False) -> None:
-	"""
-	Сообщение для команды /connect.
+	Сообщение для команды `/connect`.
 	"""
 
 	_text = (
@@ -44,9 +28,7 @@ async def connect_message(msg: types.Message, edit_message: bool = False) -> Non
 	)
 
 	keyboard = InlineKeyboardMarkup(inline_keyboard=[
-		[
-			InlineKeyboardButton(text="ВКонтакте", callback_data="connect vk")
-		]
+		[InlineKeyboardButton(text="ВКонтакте", callback_data="/connect vk")]
 	])
 
 	if edit_message:
@@ -62,22 +44,24 @@ async def connect_message(msg: types.Message, edit_message: bool = False) -> Non
 			reply_markup=keyboard
 		)
 
-@Router.message(Command("connect"))
-@Router.message(Text(CommandButtons.CONNECT))
-async def connect_handler(msg: types.Message) -> None:
+@router.message(Command("connect"))
+@router.message(Text(CommandButtons.CONNECT))
+async def connect_command_handler(msg: types.Message) -> None:
 	"""
-	Handler для команды /connect.
+	Handler для команды `/connect`.
 	"""
 
-	await connect_message(msg)
+	await connect_command_message(msg)
 
-@Router.callback_query(Text("connect"))
+@router.callback_query(Text("/connect"))
 async def connect_inline_handler(query: types.CallbackQuery) -> None:
 	"""
-	Inline Handler для команды /connect: Вызывается, когда пользователь нажал на кнопку "назад".
+	Inline Handler для команды `/connect`.
+
+	Вызывается, когда пользователь нажал на кнопку "Назад".
 	"""
 
-	await connect_message(
+	await connect_command_message(
 		cast(types.Message, query.message),
 		edit_message=True
 	)

@@ -1,32 +1,17 @@
 # coding: utf-8
 
-from aiogram import Bot as BotT
-from aiogram import Router as RouterT
-from aiogram import types
+from aiogram import Router, types
 from aiogram.filters import Command
 
 from consts import CommandButtons
 
 
-Bot: BotT = None # type: ignore
-Router = RouterT()
+router = Router()
 
-def init(bot: BotT) -> RouterT:
-	"""
-	Загружает все Handler'ы из этого модуля.
-	"""
-
-	global Bot
-
-
-	Bot = bot
-
-	return Router
-
-@Router.message(Command("start"))
+@router.message(Command("start"))
 async def start_handler(msg: types.Message) -> None:
 	"""
-	Handler для команды /start.
+	Handler для команды `/start`.
 	"""
 
 	kbd_buttons = [

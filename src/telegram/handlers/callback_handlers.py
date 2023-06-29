@@ -1,30 +1,17 @@
 # coding: utf-8
 
-from aiogram import Bot as BotT
-from aiogram import Router as RouterT
-from aiogram import types
+from aiogram import Router, types
 from aiogram.filters import Text
 
 
-Bot: BotT = None # type: ignore
-Router = RouterT()
+router = Router()
 
-def init(bot: BotT) -> RouterT:
+@router.callback_query(Text("do-nothing"))
+async def do_nothing_inline_handler(query: types.CallbackQuery) -> None:
 	"""
-	Загружает все Handler'ы из этого модуля.
-	"""
+	Inline Callback Handler для `do-nothing`.
 
-	global Bot
-
-
-	Bot = bot
-
-	return Router
-
-@Router.callback_query(Text(startswith="do-nothing"))
-async def do_nothing_handler(query: types.CallbackQuery) -> None:
-	"""
-	Handler для Inline-команды "do nothing".
+	Делает абсолютно ничего, кроме вызова `query.answer()`, что бы спрятать "часики" в клиенте Telegram.
 	"""
 
 	await query.answer()
