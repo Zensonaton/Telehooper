@@ -104,7 +104,15 @@ async def this_command_handler(msg: types.Message):
 	Handler для команды `/this`.
 	"""
 
-	# TODO: Проверка, что команда была вызвана в группе.
+	# Проверка, что команда была вызвана в группе.
+	if msg.chat.type == "private":
+		await msg.reply(
+			"<b>⚠️ Ошибка выполнения команды</b>.\n"
+			"\n"
+			"Данная команда может быть вызвана только в группе, к которой Вы хотите подключить сервис.\n"
+		)
+
+		return
 
 	await group_convert_message(msg.chat.id, cast(types.User, msg.from_user), called_from_command=True)
 
