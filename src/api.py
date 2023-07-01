@@ -6,8 +6,10 @@ from aiogram.types import Chat, User
 
 from DB import get_db, get_group
 from DB import get_user as db_get_user
+from exceptions import DisallowedInDebugException
 from services.service_api_base import BaseTelehooperServiceAPI
 from services.vk.service import VKServiceAPI
+from config import config
 
 
 # Да, я знаю что это плохой способ. Знаю. Ни к чему другому, адекватному я не пришёл.
@@ -81,12 +83,25 @@ class TelehooperUser:
 
 		return self._get_connection("VK")
 
-	def has_role(self, role: str) -> bool:
+	def has_role(self, role: str, allow_any: bool = True) -> bool:
 		"""
 		Проверяет, есть ли у пользователя роль `role`.
+
+		:param role: Роль, которую нужно проверить.
+		:param allow_any: Если `True`, то при наличии роли `*` у пользователя возвращается `True`.
 		"""
 
+		if allow_any and "*" in self.roles:
+			return True
+
 		return role.lower() in [i.lower() for i in self.roles]
+
+	async def restrict_in_debug(self) -> None:
+		"""
+		Вызывает Exception, если включён debug-режим у бота, а пользователь не имеет роли "tester".
+		"""
+
+		await TelehooperAPI.restrict_in_debug(self)
 
 class TelehooperGroup:
 	"""
@@ -172,3 +187,24 @@ class TelehooperAPI:
 			await get_group(chat_id),
 			chat if isinstance(chat, Chat) else (await (bot).get_chat(chat_id))
 		)
+
+	@staticmethod
+	async def restrict_in_debug(user: TelehooperUser | User | None) -> None:
+		"""
+		Вызывает Exception, если включён debug-режим у бота, а пользователь не имеет роли "tester".
+		"""
+
+		_exc = DisallowedInDebugException("Вы не можете пользоваться данным функционалом бота при запущенном debug-режиме. Если Вы разработчик — обратитесь к консоли бота.")
+
+		if not user:
+			raise _exc
+
+		if isinstance(user, User):
+			user = await TelehooperAPI.get_user(user)
+
+		if not config.debug:
+			return
+
+
+		if not user.has_role("tester"):
+			raise _exc

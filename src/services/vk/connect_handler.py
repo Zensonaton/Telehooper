@@ -79,6 +79,8 @@ async def connect_vk_token_handler(msg: types.Message) -> None:
 
 	user = await TelehooperAPI.get_user(msg.from_user)
 
+	await user.restrict_in_debug()
+
 	if user.rawDocument["Connections"].get("VK"):
 		# TODO: Автоматически отключать предыдущий аккаунт ВКонтакте, если он был подключён.
 		# Либо же дать такую опцию пользователю.

@@ -5,6 +5,7 @@ from typing import cast
 from aiogram import Router, types
 from aiogram.filters import Command, Text
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+from api import TelehooperAPI
 
 from consts import CommandButtons
 from services.vk.connect_handler import router as VKRouter
@@ -50,6 +51,8 @@ async def connect_command_handler(msg: types.Message) -> None:
 	"""
 	Handler для команды `/connect`.
 	"""
+
+	await TelehooperAPI.restrict_in_debug(msg.from_user)
 
 	await connect_command_message(msg)
 

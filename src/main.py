@@ -20,6 +20,13 @@ async def bot_init() -> None:
 
 	logger.info("Привет, мир! Запускаем Telehooper...")
 
+	# Проверяем на debug-режим.
+	if config.debug:
+		logger.warning("Вы запустили Telehooper в debug-режиме!")
+		logger.warning("Debug-режим используется ТОЛЬКО во время разработки бота.")
+		logger.warning("Если Вы являетесь обычным пользователем, то пожалуйста, перезапустите бота без debug-режима, удалив поле \"debug\" в Вашем файле \".env\".")
+		logger.warning("В Debug-режиме, у пользователей без роли \"tester\" не будет возможности пользоваться ботом.")
+
 	# CouchDB.
 	logger.info("Пытаюсь подключиться к базе данных CouchDB...")
 	await get_db(check_auth=True)
