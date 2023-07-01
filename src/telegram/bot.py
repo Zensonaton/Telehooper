@@ -10,6 +10,7 @@ from aiogram.types import (BotCommand, BotCommandScopeAllGroupChats,
                            BotCommandScopeDefault)
 from loguru import logger
 from pydantic import SecretStr
+from api import TelehooperUser
 
 import utils
 from config import config
@@ -114,16 +115,20 @@ async def reconnect_services(use_async: bool = True) -> None:
 
 		async for user in db.docs(prefix="user_"):
 			telegram_user = (await bot.get_chat_member(user["ID"], user["ID"])).user
+			telehooper_user = TelehooperUser(user, telegram_user)
 
 			if "VK" in user["Connections"]:
-				await VKServiceAPI(
+				vkServiceAPI = VKServiceAPI(
 					token=SecretStr(
-						utils.decryptWithEnvKey(
+						utils.decrypt_with_env_key(
 							user["Connections"]["VK"]["Token"]
 						)
 					),
-					user=telegram_user
-				).start_listening()
+					vk_user_id=user["Connections"]["VK"]["ID"]
+				)
+				telehooper_user.save_connection(vkServiceAPI)
+
+				await vkServiceAPI.start_listening()
 
 	if use_async:
 		asyncio.create_task(_reconnect_services())

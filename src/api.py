@@ -1,12 +1,17 @@
 # coding: utf-8
 
 from aiocouch import Document
+from aiogram import Bot
 from aiogram.types import Chat, User
 
 from DB import get_db, get_group
 from DB import get_user as db_get_user
-from telegram.bot import get_bot
+from services.service_api_base import BaseTelehooperServiceAPI
+from services.vk.service import VKServiceAPI
 
+
+# Да, я знаю что это плохой способ. Знаю. Ни к чему другому, адекватному я не пришёл.
+_saved_connections = {}
 
 class TelehooperUser:
 	"""
@@ -35,6 +40,42 @@ class TelehooperUser:
 		self.botBanned = rawDocument["BotBanned"]
 		self.settingsOverriden = rawDocument["SettingsOverriden"]
 		self.connections = rawDocument["Connections"]
+
+	def _get_service_store_name(self, name: str) -> str:
+		"""
+		Возвращает название ключа в словаре `connections` для сохранения API сервиса.
+		"""
+
+		return f"{self.id}-{name}"
+
+	def save_connection(self, service_api: BaseTelehooperServiceAPI) -> None:
+		"""
+		Сохраняет ServiceAPI в объект пользователя.
+
+		После сохранения в память, извлечь API можно через методы по типу `get_vk_connection`.
+		"""
+
+		_saved_connections[self._get_service_store_name(service_api.service_name)] = service_api
+
+	def _get_connection(self, name: str) -> VKServiceAPI | None:
+		"""
+		Возвращает ServiceAPI из объекта пользователя.
+
+		Если API не был сохранён, возвращается None.
+
+		Рекомендуется использовать методы по типу `get_vk_connection`.
+		"""
+
+		return _saved_connections.get(self._get_service_store_name(name))
+
+	def get_vk_connection(self) -> VKServiceAPI | None:
+		"""
+		Возвращает ServiceAPI для ВКонтакте из объекта пользователя.
+
+		Если API не был сохранён, возвращается None.
+		"""
+
+		return self._get_connection("VK")
 
 class TelehooperGroup:
 	"""
@@ -90,8 +131,12 @@ class TelehooperAPI:
 		Возвращает объект TelehooperUser, либо None, если данного пользователя нет в БД, или же если он не писал боту.
 		"""
 
+		bot = Bot.get_current()
+		if not bot:
+			return
+
 		try:
-			user = (await (get_bot()).get_chat_member(user_id, user_id)).user
+			user = (await (bot).get_chat_member(user_id, user_id)).user
 
 			return TelehooperUser(
 				await (await get_db())[f"user_{user_id}"],
@@ -108,7 +153,11 @@ class TelehooperAPI:
 
 		chat_id = chat if isinstance(chat, int) else chat.id
 
+		bot = Bot.get_current()
+		if not bot:
+			return
+
 		return TelehooperGroup(
 			await get_group(chat_id),
-			chat if isinstance(chat, Chat) else (await (get_bot()).get_chat(chat_id))
+			chat if isinstance(chat, Chat) else (await (bot).get_chat(chat_id))
 		)

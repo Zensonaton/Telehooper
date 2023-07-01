@@ -11,6 +11,8 @@ from services.vk.exceptions import (AccountDeactivatedException,
 from services.vk.utils import random_id
 
 
+ALL_USER_FIELDS = "activities, about, blacklisted, blacklisted_by_me, books, bdate, can_be_invited_group, can_post, can_see_all_posts, can_see_audio, can_send_friend_request, can_write_private_message, career, common_count, connections, contacts, city, country, crop_photo, domain, education, exports, followers_count, friend_status, has_photo, has_mobile, home_town, photo_100, photo_200, photo_200_orig, photo_400_orig, photo_50, sex, site, schools, screen_name, status, verified, games, interests, is_favorite, is_friend, is_hidden_from_feed, last_seen, maiden_name, military, movies, music, nickname, occupation, online, personal, photo_id, photo_max, photo_max_orig, quotes, relation, relatives, timezone, tv, universities"
+
 class VKAPI:
 	"""
 	API для использования методов ВКонтакте.
@@ -103,9 +105,7 @@ class VKAPI:
 		:param user_ids: Список ID пользователей. Если не указано, то будет использован ID текущего пользователя.
 		"""
 
-		fields = "activities, about, blacklisted, blacklisted_by_me, books, bdate, can_be_invited_group, can_post, can_see_all_posts, can_see_audio, can_send_friend_request, can_write_private_message, career, common_count, connections, contacts, city, country, crop_photo, domain, education, exports, followers_count, friend_status, has_photo, has_mobile, home_town, photo_100, photo_200, photo_200_orig, photo_400_orig, photo_50, sex, site, schools, screen_name, status, verified, games, interests, is_favorite, is_friend, is_hidden_from_feed, last_seen, maiden_name, military, movies, music, nickname, occupation, online, personal, photo_id, photo_max, photo_max_orig, quotes, relation, relatives, timezone, tv, universities"
-
-		data: dict[str, Any] = {"fields": fields}
+		data: dict[str, Any] = {"fields": ALL_USER_FIELDS}
 		if user_ids:
 			data["user_ids"] = ",".join(map(str, user_ids))
 
@@ -140,3 +140,15 @@ class VKAPI:
 		"""
 
 		return await self._post_("messages.getLongPollServer")
+
+	async def messages_getConversations(self, offset: int = 0, count: int = 200, extended: bool = True) -> dict:
+		"""
+		Выдаёт список из бесед пользователя. API: `messages.getConversations`.
+		"""
+
+		return await self._get_("messages.getConversations", {
+			"offset": offset,
+			"count": count,
+			"extended": 1 if extended else 0,
+			"fields": ALL_USER_FIELDS
+		})

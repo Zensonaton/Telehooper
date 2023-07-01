@@ -10,8 +10,8 @@ from loguru import logger
 from pydantic import SecretStr
 
 import utils
+from api import TelehooperAPI
 from config import config
-from DB import get_user
 from services.vk.consts import VK_INVISIBLE_CHARACTER
 from services.vk.exceptions import AccountDeactivatedException
 from services.vk.service import VKServiceAPI
@@ -74,16 +74,19 @@ async def connect_vk_token_handler(msg: types.Message) -> None:
 
 		return
 
-	user = await get_user(cast(types.User, msg.from_user))
+	if not msg.from_user:
+		return
 
-	if user["Connections"].get("VK"):
+	user = await TelehooperAPI.get_user(msg.from_user)
+
+	if user.rawDocument["Connections"].get("VK"):
 		# TODO: Автоматически отключать предыдущий аккаунт ВКонтакте, если он был подключён.
 		# Либо же дать такую опцию пользователю.
 
 		await msg.answer(
 			"<b>⚠️ Ошибка подключения сервиса ВКонтакте</b>.\n"
 			"\n"
-			f"К Telehooper уже <a href=\"vk.com/id{user['Connections']['VK']['ID']}\">подключён аккаунт ВКонтакте</a>. Вы не можете подключить сразу несколько аккаунтов одного типа к Telehooper.\n"
+			f"К Telehooper уже <a href=\"vk.com/id{user.rawDocument['Connections']['VK']['ID']}\">подключён аккаунт ВКонтакте</a>. Вы не можете подключить сразу несколько аккаунтов одного типа к Telehooper.\n"
 			"\n"
 			"ℹ️ Для подключения нового аккаунта Вы можете можете отключить старый, для этого пропишите команду /me.",
 			disable_web_page_preview=True
@@ -114,7 +117,7 @@ async def connect_vk_token_handler(msg: types.Message) -> None:
 
 		# Сохраняем в базу данных сессию пользователя.
 		# TODO: НЕ сохранять в БД информацию о подключении, если на это есть настройка.
-		user["Connections"]["VK"] = {
+		user.rawDocument["Connections"]["VK"] = {
 			"Token": utils.encrypt_with_env_key(token.get_secret_value()),
 			"ConnectedAt": utils.get_timestamp(),
 			"LastActivityAt": utils.get_timestamp(),
@@ -122,7 +125,7 @@ async def connect_vk_token_handler(msg: types.Message) -> None:
 			"OwnedDialogues": {}
 		}
 
-		await user.save()
+		await user.rawDocument.save()
 	except AccountDeactivatedException as error:
 		await msg.answer(
 			"<b>⚠️ Ошибка подключения сервиса ВКонтакте</b>.\n"
@@ -161,12 +164,14 @@ async def connect_vk_token_handler(msg: types.Message) -> None:
 		else:
 			await msg.answer(_text)
 
-		# Запускаем прослушивание событий.
-		# TODO: Как-то по другому использовать ServiceAPI?
-		await VKServiceAPI(
+		# Создаём объект сервиса, а так же сохраняем его в память пользователя Telehooper.
+		vkServiceAPI = VKServiceAPI(
 			token=token,
-			user=cast(types.User, msg.from_user)
-		).start_listening()
+			vk_user_id=auth_result["id"]
+		)
+		user.save_connection(vkServiceAPI)
+
+		await vkServiceAPI.start_listening()
 
 @router.message(Text(startswith="https://oauth.vk.com/authorize"))
 async def connect_vk_wrong_url_handler(msg: types.Message) -> None:

@@ -106,7 +106,7 @@ def encrypt_with_env_key(input: str) -> str:
 	# Ключ шифрования есть, тогда шифруем:
 	return Fernet(config.token_encryption_key.get_secret_value()).encrypt(input.encode()).decode()
 
-def decryptWithEnvKey(input: str) -> str:
+def decrypt_with_env_key(input: str) -> str:
 	"""
 	Расшифровывает строку `input` ключём шифрования из `.env`-файла.
 	"""
@@ -121,7 +121,7 @@ def decryptWithEnvKey(input: str) -> str:
 	# Ключ шифрования есть, тогда расшифровываем:
 	return Fernet(config.token_encryption_key.get_secret_value()).decrypt(input.encode()).decode()
 
-def encryptWithKey(input: str, key: str) -> str:
+def encrypt_with_key(input: str, key: str) -> str:
 	"""
 	Шифрует строку `input` с ключём `key`.
 	"""
@@ -135,7 +135,7 @@ def encryptWithKey(input: str, key: str) -> str:
 		input.encode()
 	).decode()
 
-def decryptWithKey(input: str, key: str) -> str:
+def decrypt_with_key(input: str, key: str) -> str:
 	"""
 	Расшифровывает строку `input` с ключём `key`.
 	"""
@@ -149,14 +149,14 @@ def decryptWithKey(input: str, key: str) -> str:
 		input.encode()
 	).decode()
 
-def md5hash(input: str) -> str:
+def md5_hash(input: str) -> str:
 	"""
 	Выдаёт MD5-хэш строки.
 	"""
 
 	return hashlib.md5(input.encode()).hexdigest()
 
-def sha256hash(input: str) -> str:
+def sha256_hash(input: str) -> str:
 	"""
 	Выдаёт SHA256-хэш строки.
 	"""
