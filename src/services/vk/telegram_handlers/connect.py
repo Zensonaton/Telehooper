@@ -17,8 +17,8 @@ from services.vk.exceptions import AccountDeactivatedException
 from services.vk.service import VKServiceAPI
 from services.vk.vk_api.api import VKAPI
 
-from . import utils as vk_utils
-from .consts import VK_OAUTH_URL
+from .. import utils as vk_utils
+from ..consts import VK_OAUTH_URL
 
 
 router = Router()

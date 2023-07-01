@@ -8,7 +8,7 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from api import TelehooperAPI
 
 from consts import CommandButtons
-from services.vk.connect_handler import router as VKRouter
+from services.vk.telegram_handlers.connect import router as VKRouter
 
 
 router = Router()

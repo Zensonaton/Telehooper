@@ -6,9 +6,9 @@ from typing import cast
 from aiogram import F, Router, types
 from aiogram.filters import Text
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
-from api import TelehooperAPI
 
 import utils
+from api import TelehooperAPI
 
 
 router = Router()

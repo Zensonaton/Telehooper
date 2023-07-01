@@ -7,7 +7,7 @@ from aiogram.filters import Command, Text
 
 from consts import CommandButtons
 from DB import get_group, get_user
-from services.vk.this_handler import router as VKRouter
+from services.vk.telegram_handlers.this import router as VKRouter
 
 
 router = Router()
