@@ -42,8 +42,9 @@ async def bot_init() -> None:
 	# Устанавливаем команды.
 	await bot.set_commands()
 
-	# Бот.
+	# Запускаем самого Telegram-бота.
 	logger.info("Все проверки перед запуском прошли успешно! Запускаем Telegram-бота...")
+	await bot.bot.delete_webhook(drop_pending_updates=True)
 	await bot.dispatcher.start_polling(
 		bot.bot,
 		allowed_updates=bot.dispatcher.resolve_used_update_types()
