@@ -117,7 +117,7 @@ def get_default_user(user: types.User, version: int = utils.get_bot_version()) -
 		"CreationDate": utils.get_timestamp(), # Дата того, когда пользователь впервые написал боту.
 		"BotBanned": False, # Заблокировал ли данный пользователь бота?
 		"SettingsOverriden": {}, # Переопределённые настройки.
-		"KnownLanguage": user.language_code or "en", # Язык пользователя. Иногда может быть неизвестен.
+		"KnownLanguage": user.language_code, # Язык пользователя. Иногда может быть неизвестен.
 		"Roles": [], # Роли пользователя.
 		"Connections": { # Подключённые сервисы.
 			# Данный объект пуст, он пополняется при подключении сервисов.

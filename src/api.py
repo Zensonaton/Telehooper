@@ -24,6 +24,8 @@ class TelehooperUser:
 	creationDate: int
 	botBanned: bool
 	settingsOverriden: dict
+	knownLanguage: str | None
+	roles: list[str]
 	connections: dict
 
 	rawDocument: Document
@@ -39,6 +41,8 @@ class TelehooperUser:
 		self.creationDate = rawDocument["CreationDate"]
 		self.botBanned = rawDocument["BotBanned"]
 		self.settingsOverriden = rawDocument["SettingsOverriden"]
+		self.knownLanguage = rawDocument["KnownLanguage"]
+		self.roles = rawDocument["Roles"]
 		self.connections = rawDocument["Connections"]
 
 	def _get_service_store_name(self, name: str) -> str:
@@ -76,6 +80,13 @@ class TelehooperUser:
 		"""
 
 		return self._get_connection("VK")
+
+	def has_role(self, role: str) -> bool:
+		"""
+		Проверяет, есть ли у пользователя роль `role`.
+		"""
+
+		return role.lower() in [i.lower() for i in self.roles]
 
 class TelehooperGroup:
 	"""
