@@ -56,9 +56,13 @@ async def group_convert_message(chat_id: int, user: types.User, message_to_edit:
 			)
 		)
 
+		return
+
 	keyboard = types.InlineKeyboardMarkup(
 		inline_keyboard=[
 			[
+				# TODO: Убедиться, что сервис и вправду подключён.
+
 				types.InlineKeyboardButton(text="ВКонтакте", callback_data="/this vk")
 			]
 		]
