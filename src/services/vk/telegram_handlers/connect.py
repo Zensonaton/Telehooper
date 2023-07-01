@@ -169,7 +169,8 @@ async def connect_vk_token_handler(msg: types.Message) -> None:
 		# Создаём объект сервиса, а так же сохраняем его в память пользователя Telehooper.
 		vkServiceAPI = VKServiceAPI(
 			token=token,
-			vk_user_id=auth_result["id"]
+			vk_user_id=auth_result["id"],
+			user=user
 		)
 		user.save_connection(vkServiceAPI)
 

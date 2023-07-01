@@ -1,15 +1,21 @@
 # coding: utf-8
 
 import asyncio
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
-from aiogram.types import User
+from aiogram import Bot
 from loguru import logger
 from pydantic import SecretStr
 
-from services.service_api_base import BaseTelehooperServiceAPI, ServiceDialogue
+from DB import get_user
+from services.service_api_base import (BaseTelehooperServiceAPI,
+                                       ServiceDialogue,
+                                       ServiceDisconnectReason)
 from services.vk.vk_api.api import VKAPI
 from services.vk.vk_api.longpoll import VKAPILongpoll
+
+if TYPE_CHECKING:
+	from api import TelehooperUser
 
 
 class VKServiceAPI(BaseTelehooperServiceAPI):
@@ -22,11 +28,13 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 	vkAPI: VKAPI
 
 	_cachedDialogues = []
+	_longPollTask: asyncio.Task | None = None
 
-	def __init__(self, token: SecretStr, vk_user_id: int) -> None:
-		super().__init__("VK", vk_user_id)
+	def __init__(self, token: SecretStr, vk_user_id: int, user: "TelehooperUser") -> None:
+		super().__init__("VK", vk_user_id, user)
 
 		self.token = token
+		self.user = user
 
 		self.vkAPI = VKAPI(self.token)
 
@@ -37,7 +45,8 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 			async for event in longpoll.listen_for_updates():
 				logger.debug(f"Got event with type {event.__class__.__name__} and data {event.event_data}")
 
-		return asyncio.create_task(_handle_updates())
+		self._longPollTask = asyncio.create_task(_handle_updates())
+		return self._longPollTask
 
 	async def get_list_of_dialogues(self, force_update: bool = False, retrieve_all: bool = False, limit: int | None = 800, skip_ids: list[int] = []) -> list[ServiceDialogue]:
 		if not force_update and self._cachedDialogues:
@@ -141,3 +150,21 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 	def has_cached_list_of_dialogues(self) -> bool:
 		return bool(self._cachedDialogues)
+
+	async def disconnect_service(self, reason: ServiceDisconnectReason = ServiceDisconnectReason.INITIATED_BY_USER) -> None:
+		db_user = await get_user(self.user.telegramUser)
+
+		if "VK" not in db_user["Connections"]:
+			return
+
+		# Удаляем из БД.
+		del db_user["Connections"]["VK"]
+
+		await db_user.save()
+
+		# Удаляем VKServiceAPI из памяти.
+		self.user.remove_vk_connection()
+
+		# Отключаем longpoll.
+		if self._longPollTask:
+			self._longPollTask.cancel()

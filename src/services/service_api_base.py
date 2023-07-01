@@ -1,5 +1,12 @@
 # coding: utf-8
 
+import enum
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+	from api import TelehooperUser
+
+
 class ServiceDialogue:
 	"""
 	Класс, обозначающий диалог из сервиса.
@@ -24,15 +31,26 @@ class ServiceDialogue:
 		self.is_pinned = is_pinned
 		self.is_muted = is_muted
 
+class ServiceDisconnectReason(enum.Enum):
+	"""
+	Причина отключения сервиса от Telehooper.
+	"""
+
+	INITIATED_BY_USER = "by-user"
+	EXTERNAL = "external"
+	ERRORED = "errored"
+	ISSUED_BY_ADMIN = "by-admin"
+
 class BaseTelehooperServiceAPI:
 	"""
 	Базовый API для сервисов Telehooper.
 	"""
 
+	user: "TelehooperUser"
 	service_name: str
 	service_user_id: int
 
-	def __init__(self, service_name: str, service_id: int) -> None:
+	def __init__(self, service_name: str, service_id: int, user: "TelehooperUser") -> None:
 		"""
 		Инициализирует данный Service API.
 
@@ -64,6 +82,15 @@ class BaseTelehooperServiceAPI:
 	def has_cached_list_of_dialogues(self) -> bool:
 		"""
 		Возвращает, есть ли в кэше список диалогов.
+		"""
+
+		raise NotImplementedError
+
+	async def disconnect_service(self, reason: ServiceDisconnectReason) -> None:
+		"""
+		Отключает сервис от Telehooper.
+
+		:param reason: Причина отключения.
 		"""
 
 		raise NotImplementedError

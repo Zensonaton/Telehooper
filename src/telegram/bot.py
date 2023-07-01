@@ -11,6 +11,8 @@ from aiogram.types import (BotCommand, BotCommandScopeAllGroupChats,
 from loguru import logger
 from pydantic import SecretStr
 from api import TelehooperUser
+from services.service_api_base import ServiceDisconnectReason
+from services.vk.exceptions import TokenRevokedException
 
 import utils
 from config import config
@@ -117,18 +119,76 @@ async def reconnect_services(use_async: bool = True) -> None:
 			telegram_user = (await bot.get_chat_member(user["ID"], user["ID"])).user
 			telehooper_user = TelehooperUser(user, telegram_user)
 
-			if "VK" in user["Connections"]:
-				vkServiceAPI = VKServiceAPI(
-					token=SecretStr(
-						utils.decrypt_with_env_key(
-							user["Connections"]["VK"]["Token"]
-						)
-					),
-					vk_user_id=user["Connections"]["VK"]["ID"]
-				)
-				telehooper_user.save_connection(vkServiceAPI)
+			try:
+				if "VK" in user["Connections"]:
+					vkServiceAPI = None
 
-				await vkServiceAPI.start_listening()
+					try:
+						vkServiceAPI = VKServiceAPI(
+							token=SecretStr(
+								utils.decrypt_with_env_key(
+									user["Connections"]["VK"]["Token"]
+								)
+							),
+							vk_user_id=user["Connections"]["VK"]["ID"],
+							user=telehooper_user
+						)
+						telehooper_user.save_connection(vkServiceAPI)
+
+						# Проверяем токен.
+						await vkServiceAPI.vkAPI.get_self_info()
+
+						await vkServiceAPI.start_listening()
+					except TokenRevokedException as error:
+						assert vkServiceAPI
+
+						# Совершаем отключение.
+						await vkServiceAPI.disconnect_service(ServiceDisconnectReason.ERRORED)
+
+						# Отправляем сообщение.
+						await bot.send_message(
+							chat_id=user["ID"],
+							text=(
+								"<b>⚠️ Потеряно соединение с ВКонтакте</b>.\n"
+								"\n"
+								"Telehooper потерял соединение со страницей «ВКонтакте», поскольку владелец страницы отозвал доступ к ней через настройки «Приватности» страницы.\n"
+								"\n"
+								"ℹ️ Вы можете повторно подключиться к «ВКонтакте», используя команду /connect.\n"
+							)
+						)
+					except Exception as error:
+						logger.exception(f"Не удалось запустить LongPoll для пользователя {user['ID']}:", error)
+
+						# В некоторых случаях, сам объект VKServiceAPI может быть None,
+						# например, если не удалось расшифровать токен.
+						# В таких случаях нам необходимо сделать отключение, при помощи
+						# фейкового объекта VKServiceAPI.
+						if vkServiceAPI is None:
+							vkServiceAPI = VKServiceAPI(
+								token=None, # type: ignore
+								vk_user_id=user["Connections"]["VK"]["ID"],
+								user=telehooper_user
+							)
+
+						# Совершаем отключение.
+						await vkServiceAPI.disconnect_service(ServiceDisconnectReason.ERRORED)
+
+						# Отправляем сообщение.
+						await bot.send_message(
+							chat_id=user["ID"],
+							text=(
+								"<b>⚠️ Произошла ошибка при работе с ВКонтакте</b>.\n"
+								"\n"
+								"К сожалению, ввиду ошибки бота, у Telehooper не удалось востановить соединение с Вашей страницей «ВКонтакте».\n"
+								"Вы не сможете отправлять или получать сообщения из этого сервиса до тех пор, пока Вы не переподключитесь к нему.\n"
+								"\n"
+								"ℹ️ Вы можете повторно подключиться к сервису «ВКонтакте», используя команду /connect.\n"
+							)
+						)
+			except Exception as error:
+				logger.exception(f"Не удалось переподключить сервисы для пользователя {user['ID']}:", error)
+
+
 
 	if use_async:
 		asyncio.create_task(_reconnect_services())

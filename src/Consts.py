@@ -74,16 +74,6 @@ SETTINGS = {
 	}
 }
 
-class AccountDisconnectType:
-	"""
-	Причина отключения аккаунта от бота.
-	"""
-
-	INITIATED_BY_USER = "by-user"
-	EXTERNAL = "external"
-	ERRORED = "errored"
-	ISSUED_BY_ADMIN = "by-admin"
-
 FAQ_INFO = {
 	"1. Основная информация": (
 		"<b>1. Основная информация</b>.\n"

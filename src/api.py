@@ -74,6 +74,13 @@ class TelehooperUser:
 
 		return _saved_connections.get(self._get_service_store_name(name))
 
+	def _remove_connection(self, name: str) -> None:
+		"""
+		Удаляет ServiceAPI из объекта пользователя.
+		"""
+
+		_saved_connections.pop(self._get_service_store_name(name), None)
+
 	def get_vk_connection(self) -> VKServiceAPI | None:
 		"""
 		Возвращает ServiceAPI для ВКонтакте из объекта пользователя.
@@ -82,6 +89,13 @@ class TelehooperUser:
 		"""
 
 		return self._get_connection("VK")
+
+	def remove_vk_connection(self) -> None:
+		"""
+		Удаляет ServiceAPI для ВКонтакте из объекта пользователя.
+		"""
+
+		self._remove_connection("VK")
 
 	def has_role(self, role: str, allow_any: bool = True) -> bool:
 		"""

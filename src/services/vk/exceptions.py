@@ -30,3 +30,15 @@ class AccountDeactivatedException(BaseVKAPIException):
 		"""
 
 		super().__init__(error_code=error_code, message=message)
+
+class TokenRevokedException(BaseVKAPIException):
+	"""
+	Исключение, которое вызывается, если токен ВКонтакте был отозван владельцем страницы.
+	"""
+
+	def __init__(self, error_code: int = 5, message: str = "Токен ВКонтакте отозван.") -> None:
+		"""
+		Инициализация исключения.
+		"""
+
+		super().__init__(error_code=error_code, message=message)
