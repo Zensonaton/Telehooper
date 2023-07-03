@@ -10,10 +10,13 @@ from exceptions import DisallowedInDebugException
 from services.service_api_base import BaseTelehooperServiceAPI
 from services.vk.service import VKServiceAPI
 from config import config
+from settings import SETTINGS_TREE, SettingsHandler
 
 
 # Да, я знаю что это плохой способ. Знаю. Ни к чему другому, адекватному я не пришёл.
 _saved_connections = {}
+
+settings = SettingsHandler(SETTINGS_TREE)
 
 class TelehooperUser:
 	"""
