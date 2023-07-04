@@ -1,9 +1,9 @@
 # coding: utf-8
 
-import json
-from typing import Any
+from typing import Any, cast
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from loguru import logger
+from requests.structures import CaseInsensitiveDict
 
 
 SETTING_EMOJI = "⚙️"
@@ -50,6 +50,7 @@ SETTINGS_TREE = {
 				"\n"
 				"Увидеть как это выглядит можно в следующем сообщении, которое будет автоматически закреплено."
 			),
+			"ButtonType": "range",
 			"Default": 5,
 			"Min": 1,
 			"Max": 20,
@@ -158,17 +159,17 @@ class SettingsHandler:
 				if type(value) != dict:
 					continue
 
-				is_folder = "Documentation" in value
+				is_value = "Documentation" in value
 
-				if is_folder:
+				if is_value:
 					for name, key_type in SETTINGS_KEYS.items():
 						if name not in value:
 							raise ValueError(f"Настройка {name} не содержит свойство {name}.")
 
 						if key_type and type(value[name]) != key_type:
 							raise ValueError(f"Значение настройки {name} не является {key_type}.")
-
-				_check(value)
+				else:
+					_check(value)
 
 		_check(self.settings)
 
@@ -185,6 +186,10 @@ class SettingsHandler:
 		 3. `ParentPath` — путь к родительской папке,
 		 4. `Path` — полный путь к настройке.
 		 5. `PathSplitted` — список путей к настройке, разделённый по точкам.
+
+		Настройки (`IsValue`):
+		 1. `DependsOn` — список зависимостей настройки. (если не существовал)
+		 2. `ButtonType` — тип кнопок для изменения этой настройки. (если не существовал; тип определяется из поля `Default`)
 		"""
 
 		known_paths = []
@@ -207,8 +212,15 @@ class SettingsHandler:
 				value["Path"] = new_path
 				value["PathSplitted"] = new_path.split(".")
 
-				if is_value and "DependsOn" not in value:
-					value["DependsOn"] = []
+				if is_value:
+					if "DependsOn" not in value:
+						value["DependsOn"] = []
+
+					if "ButtonType" not in value:
+						if type(value["Default"]) != bool:
+							raise ValueError(f"Не удалось определить тип кнопок (ButtonType) для настройки {new_path}. Значение Default={value['Default']}.")
+
+						value["ButtonType"] = "bool"
 
 				known_paths.append(new_path)
 
@@ -220,7 +232,52 @@ class SettingsHandler:
 		# Сохраняем список всех путей.
 		self.settings["Paths"] = known_paths
 
-	def get_keyboard(self, path: str | None = None) -> InlineKeyboardMarkup:
+	def get_buttons_by_setting_type(self, setting: dict, current_value) -> list[InlineKeyboardButton]:
+		"""
+		Возвращает кнопки клавиатуры в зависимости от типа настройки.
+		"""
+
+		return_list = []
+		buttons = {}
+
+		if setting["ButtonType"] == "bool":
+			current_value = cast(bool, current_value)
+
+			buttons = {
+				f"✔️ Включить": True,
+				f"✖️ Выключить": False
+			}
+		elif setting["ButtonType"] == "range":
+			current_value = cast(int, current_value)
+			step = setting.get("Step", 1)
+
+			buttons = {
+				"⏪": setting["Min"],
+				"◀️": None if current_value - step < setting["Min"] else current_value - step,
+				str(current_value): None,
+				"▶️": None if current_value + step > setting["Max"] else current_value + step,
+				"⏩": setting["Max"]
+			}
+		else:
+			raise ValueError(f"Неизвестный тип кнопок для настройки {setting['Path']}.")
+
+		for text, value in buttons.items():
+			callback_data = value
+			is_equal = value == current_value
+
+			if is_equal:
+				callback_data = None
+
+			return_list.append(
+				InlineKeyboardButton(
+					text=text.upper() if is_equal else text,
+					callback_data="do-nothing" if callback_data == None else f"/settings set {setting['Path']} {callback_data}"
+				)
+			)
+
+		return return_list
+
+	def get_keyboard(self, path: str | None = None, user_settings: dict | None = None) -> InlineKeyboardMarkup:
 		"""
 		Возвращает клавиатуру для древа настроек, по заданному пути `path` (если указан).
 		"""
@@ -230,6 +287,9 @@ class SettingsHandler:
 		if path is None:
 			path = ""
 
+		if user_settings is None:
+			user_settings = {}
+
 		path_splitted = path.split(".")
 		if path_splitted[-1] == "":
 			path_splitted = path_splitted[:-1]
@@ -237,7 +297,8 @@ class SettingsHandler:
 		parent = ".".join(path_splitted[:-1])
 		level = len(path_splitted)
 
-		setting = {key.lower(): value for key, value in self.settings.items()}
+		setting = self.settings
+		settings_caseins = CaseInsensitiveDict(setting)
 
 		for part in path_splitted:
 			if not part:
@@ -245,24 +306,30 @@ class SettingsHandler:
 
 			lower_part = part.lower()
 
-			if lower_part not in setting:
+			if lower_part not in settings_caseins:
 				break
 
-			setting = {key.lower(): value for key, value in setting[lower_part].items()}
+			setting = settings_caseins[part]
+			settings_caseins = CaseInsensitiveDict(setting)
 
-		for value in setting.values():
-			if not isinstance(value, dict):
-				continue
+		if setting.get("IsValue"):
+			keyboard_buttons.append(
+				self.get_buttons_by_setting_type(setting, user_settings.get(path, setting["Default"]))
+			)
+		else:
+			for value in setting.values():
+				if not isinstance(value, dict):
+					continue
 
-			if not "Name" in value:
-				continue
+				if not "Name" in value:
+					continue
 
-			keyboard_buttons.append([
-				InlineKeyboardButton(
-					text=f"{CLOSED_FOLDER_EMOJI if value['IsFolder'] else SETTING_EMOJI} {value['Name']}",
-					callback_data=f"/settings {value['Path']}"
-				)
-			])
+				keyboard_buttons.append([
+					InlineKeyboardButton(
+						text=f"{CLOSED_FOLDER_EMOJI if value['IsFolder'] else SETTING_EMOJI} {value['Name']}",
+						callback_data=f"/settings {value['Path']}"
+					)
+				])
 
 		upper_keyboard = [InlineKeyboardButton(text="ㅤ", callback_data="do-nothing")]
 
@@ -337,3 +404,12 @@ class SettingsHandler:
 			setting = setting[part]
 
 		return setting
+
+	def get_default_setting_value(self, path: str) -> Any:
+		"""
+		Возвращает значение по умолчанию для настройки по пути `path`.
+
+		Если настройка не существует то вызывается исключение `KeyError`.
+		"""
+
+		return self.get_setting(path)["Default"]

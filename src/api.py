@@ -1,5 +1,6 @@
 # coding: utf-8
 
+from typing import Any
 from aiocouch import Document
 from aiogram import Bot
 from aiogram.types import Chat, User
@@ -39,16 +40,32 @@ class TelehooperUser:
 	def __init__(self, rawDocument: Document, telegramUser: User) -> None:
 		self.rawDocument = rawDocument
 		self.telegramUser = telegramUser
+		self._parse_document(rawDocument)
 
-		self.id = rawDocument["ID"]
-		self.username = rawDocument["Username"]
-		self.name = rawDocument["Name"]
-		self.creationDate = rawDocument["CreationDate"]
-		self.botBanned = rawDocument["BotBanned"]
-		self.settingsOverriden = rawDocument["SettingsOverriden"]
-		self.knownLanguage = rawDocument["KnownLanguage"]
-		self.roles = rawDocument["Roles"]
-		self.connections = rawDocument["Connections"]
+	def _parse_document(self, user: Document) -> None:
+		"""
+		Парсит значение документа пользователя в объект пользователя.
+		"""
+
+		self.id = user["ID"]
+		self.username = user["Username"]
+		self.name = user["Name"]
+		self.creationDate = user["CreationDate"]
+		self.botBanned = user["BotBanned"]
+		self.settingsOverriden = user["SettingsOverriden"]
+		self.knownLanguage = user["KnownLanguage"]
+		self.roles = user["Roles"]
+		self.connections = user["Connections"]
+
+	async def refresh_document(self) -> Document:
+		"""
+		Обновляет документ пользователя из БД.
+		"""
+
+		self.rawDocument = await db_get_user(self.telegramUser)
+		self._parse_document(self.rawDocument)
+
+		return self.rawDocument
 
 	def _get_service_store_name(self, name: str) -> str:
 		"""
@@ -119,6 +136,40 @@ class TelehooperUser:
 		"""
 
 		await TelehooperAPI.restrict_in_debug(self)
+
+	async def get_setting(self, path: str, force_refresh: bool = False) -> Any:
+		"""
+		Возвращает значение настройки по пути `path`.
+
+		Вызывает исключение, если настройка не найдена.
+		"""
+
+		if force_refresh:
+			await self.refresh_document()
+
+		return self.settingsOverriden.get(path, settings.get_default_setting_value(path))
+
+	async def save_setting(self, path: str, new_value: Any) -> None:
+		"""
+		Сохраняет настройку по пути `path` в БД. Если новое значение настройки не отличается от значения по-умолчанию, то бот не сохранит данную запись.
+
+		Вызовет исключение, если настройка не существует.
+		"""
+
+		is_default = settings.get_default_setting_value(path) == new_value
+
+		if is_default:
+			self.rawDocument["SettingsOverriden"].pop(path, None)
+			self.settingsOverriden = self.rawDocument["SettingsOverriden"]
+			await self.rawDocument.save()
+
+			return
+
+		self.rawDocument["SettingsOverriden"].update({
+			path: new_value
+		})
+		self.settingsOverriden = self.rawDocument["SettingsOverriden"]
+		await self.rawDocument.save()
 
 class TelehooperGroup:
 	"""

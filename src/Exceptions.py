@@ -34,3 +34,10 @@ class DisallowedInDebugException(ValueError):
 	"""
 
 	pass
+
+class SettingNotFoundException(ValueError):
+	"""
+	Вызывается, если настройка не была найдена.
+	"""
+
+	pass
