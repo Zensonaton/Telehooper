@@ -142,7 +142,7 @@ async def get_group(chat: int | types.Chat) -> Document:
 
 	return await db[f"group_{chat.id if isinstance(chat, types.Chat) else chat}"]
 
-def get_default_group(chat: types.Chat, creator: types.User, status_message: types.Message, admin_rights: bool = False, version: int = utils.get_bot_version()) -> dict:
+def get_default_group(chat: types.Chat, creator: types.User, status_message: types.Message, admin_rights: bool = False, topics_enabled: bool = False, version: int = utils.get_bot_version()) -> dict:
 	"""
 	Возвращает шаблон группы для сохранения в базу данных.
 	"""
@@ -157,6 +157,7 @@ def get_default_group(chat: types.Chat, creator: types.User, status_message: typ
 		"UserJoinedWarning": False, # Было ли предупреждение о том, что в группу добавили стороннего пользователя?
 		"StatusMessageID": status_message.message_id, # ID (статусного) сообщения, которое было отправлено при добавлении бота в группу.
 		"AdminRights": admin_rights, # Были ли боту выданы права администратора?
+		"TopicsEnabled": topics_enabled, # Включены ли темы (топики) в группе?
 		"Chats": { # Информация о подключённых чатах/группах в данной группе.
 
 		},

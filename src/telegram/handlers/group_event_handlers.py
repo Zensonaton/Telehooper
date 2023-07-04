@@ -49,7 +49,8 @@ async def on_telehooper_added_in_chat_handler(event: types.ChatMemberUpdated, bo
 		chat=event.chat,
 		creator=event.from_user,
 		status_message=status_message,
-		admin_rights=False # TODO: Случай, если бота каким-то образом добавили в группу, а у него уже есть права админа.
+		topics_enabled=status_message.is_topic_message or False,
+		admin_rights=False # TODO: Проверка на наличие прав администратора?
 	)
 
 	# Небольшой костыль на случай, если группа уже сохранена в БД бота.
