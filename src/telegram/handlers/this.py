@@ -45,16 +45,25 @@ async def group_convert_message(chat_id: int, user: types.User, message_to_edit:
 	db_user = await get_user(user)
 
 	if not db_user["Connections"]:
-		await bot.send_message(
-			chat_id,
-			text=(
-				"<b>🫂 Группа-диалог</b>.\n"
-				"\n"
-				"Вы попытались подключить группу к сервису, но у Вас нет ни одного подключённого сервиса. 😔\n"
-				"\n"
-				"ℹ️ Вы можете подключить сервисы к Telehooper, воспользовавшись командой /connect."
-			)
+		_text = (
+			"<b>🫂 Группа-диалог</b>.\n"
+			"\n"
+			f"{'' if called_from_command else 'Отлично! Права администратора были получены, однако, '}Вы попытались подключить группу к сервису, но у Вас нет ни одного подключённого сервиса. 😔\n"
+			"\n"
+			"ℹ️ Вы можете подключить сервис к Telehooper, воспользовавшись командой /connect."
 		)
+
+		if message_to_edit:
+			await bot.edit_message_text(
+				text=_text,
+				chat_id=chat_id,
+				message_id=message_to_edit.message_id if isinstance(message_to_edit, types.Message) else message_to_edit
+			)
+		else:
+			await bot.send_message(
+				chat_id,
+				text=_text
+			)
 
 		return
 

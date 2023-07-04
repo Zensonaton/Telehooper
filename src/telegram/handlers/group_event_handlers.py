@@ -19,10 +19,6 @@ async def on_telehooper_added_in_chat_handler(event: types.ChatMemberUpdated, bo
 	Отправляет информацию о преобразовании группы в группу-диалог и прочую полезную информацию.
 	"""
 
-	# Проверка на возможность отправки сообщений в группу.
-	if not event.new_chat_member.can_send_messages:
-		return
-
 	# Проверяем, что в группу добавили именно Telehooper.
 	if event.new_chat_member.user.id != bot.id:
 		return
