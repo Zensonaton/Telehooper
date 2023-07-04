@@ -123,6 +123,27 @@ async def reconnect_services(use_async: bool = True) -> None:
 				if "VK" in user["Connections"]:
 					vkServiceAPI = None
 
+					# Проверка, что токен установлен.
+					# Токен может отсутствовать, если настройка Security.
+					if not user["Connections"]["VK"]["Token"]:
+						# Удаляем сервис из БД.
+						user["Connections"].pop("VK")
+						await user.save()
+
+						# Отправляем сообщение.
+						await bot.send_message(
+							chat_id=user["ID"],
+							text=(
+								"<b>⚠️ Потеряно соединение с ВКонтакте</b>.\n"
+								"\n"
+								"Telehooper потерял соединение со страницей «ВКонтакте», поскольку настройка <i>⚙️ Хранение токенов в БД</i> (<code>/s Security.StoreTokens</code>) была выставлена в значение «выключено»."
+								"\n"
+								"ℹ️ Вы можете повторно подключиться к «ВКонтакте», используя команду /connect.\n"
+							)
+						)
+
+						continue
+
 					try:
 						vkServiceAPI = VKServiceAPI(
 							token=SecretStr(

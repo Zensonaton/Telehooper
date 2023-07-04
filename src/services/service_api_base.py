@@ -40,6 +40,7 @@ class ServiceDisconnectReason(enum.Enum):
 	EXTERNAL = "external"
 	ERRORED = "errored"
 	ISSUED_BY_ADMIN = "by-admin"
+	TOKEN_NOT_STURED = "no-token"
 
 class BaseTelehooperServiceAPI:
 	"""
