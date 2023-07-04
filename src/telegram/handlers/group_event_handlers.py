@@ -43,20 +43,23 @@ async def on_telehooper_added_in_chat_handler(event: types.ChatMemberUpdated, bo
 		reply_markup=keyboard
 	)
 
-	# TODO: Проверка что данный объект в БД уже существует.
-
 	db = await get_db()
 
+	data = get_default_group(
+		chat=event.chat,
+		creator=event.from_user,
+		status_message=status_message,
+		admin_rights=False # TODO: Случай, если бота каким-то образом добавили в группу, а у него уже есть права админа.
+	)
+
+	# Небольшой костыль на случай, если группа уже сохранена в БД бота.
 	group_db = await db.create(
 		f"group_{event.chat.id}",
-		exists_ok=False,
-		data=get_default_group(
-			chat=event.chat,
-			creator=event.from_user,
-			status_message=status_message,
-			admin_rights=False # TODO: Случай, если бота каким-то образом добавили в группу, а у него уже есть права админа.
-		)
+		exists_ok=True,
+		data=data
 	)
+	group_db.update(data=data)
+
 	await group_db.save()
 
 @router.chat_member(ChatMemberUpdatedFilter(member_status_changed=JOIN_TRANSITION))
