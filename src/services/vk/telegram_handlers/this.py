@@ -100,7 +100,6 @@ async def this_vk_messages_separated_inline_handler(query: types.CallbackQuery, 
 	Вызывается при нажатии пользователем кнопку "Хочу читать новости/посты из групп" в команде `/this`.
 	"""
 
-	# TODO: Система страниц, сохранение диалогов в память.
 	# TODO: Возможность написать юзеру в ВК через никнейм/ссылку.
 
 	assert msg.from_user
