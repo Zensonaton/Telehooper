@@ -267,11 +267,11 @@ class TelehooperAPI:
 		if not user:
 			raise _exc
 
-		if isinstance(user, User):
-			user = await TelehooperAPI.get_user(user)
-
 		if not config.debug:
 			return
+
+		if isinstance(user, User):
+			user = await TelehooperAPI.get_user(user)
 
 
 		if not user.has_role("tester"):
