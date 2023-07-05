@@ -16,7 +16,7 @@ def init_logger(debug: bool = False) -> None:
 		"logs/bot.log",
 		rotation="1 week",
 		retention="1 month",
-		level="DEBUG",
+		level="DEBUG" if debug else "INFO",
 		backtrace=True,
 		diagnose=True
 	)
