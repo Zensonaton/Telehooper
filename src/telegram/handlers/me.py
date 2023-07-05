@@ -24,7 +24,11 @@ async def me_command_handler(msg: types.Message) -> None:
 
 	vk_info = "<i>страница не подключена</i>"
 	if user.get_vk_connection():
-		vk_info = f"Имя Фамилия (<a href=\"vk.com\">@username</a>, ID 123456789)" # TODO: Настоящие данные пользователя.
+		id = user.connections["VK"]["ID"]
+		full_name = user.connections["VK"]["FullName"]
+		domain = user.connections["VK"]["Username"]
+
+		vk_info = f"{full_name} (<a href=\"vk.com/{domain}\">@{domain}</a>, ID {id})"
 
 	await msg.answer(
 		"<b>👤 Ваш профиль</b>.\n"

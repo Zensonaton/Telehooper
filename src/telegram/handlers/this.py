@@ -94,7 +94,7 @@ async def group_convert_message(chat_id: int, user: types.User, message_to_edit:
 		f"{footer_txt}"
 		"\n"
 		"В данный момент, к боту подключено следующее:\n"
-		" • <b>ВКонтакте</b>: <a href=\"google.com\">Имя Фамилия</a>.\n" # TODO: Использовать данные пользователя.
+		f" • <b>ВКонтакте</b>: <a href=\"vk.com/{db_user['Connections']['VK']['Username']}\">{db_user['Connections']['VK']['FullName']}</a>.\n"
 		"\n"
 		f"ℹ️ {'Выберите нужный сервис из списка ниже.' if called_from_command else 'Если Вы потеряете данное сообщение, то Вы сможете вызвать его снова, прописав команду <code>/this</code>.'}"
 	)
@@ -104,13 +104,15 @@ async def group_convert_message(chat_id: int, user: types.User, message_to_edit:
 			text=_text,
 			chat_id=chat_id,
 			message_id=message_to_edit.message_id if isinstance(message_to_edit, types.Message) else message_to_edit,
-			reply_markup=keyboard
+			reply_markup=keyboard,
+			disable_web_page_preview=True
 		)
 	else:
 		await bot.send_message(
 			chat_id,
 			text=_text,
-			reply_markup=keyboard
+			reply_markup=keyboard,
+			disable_web_page_preview=True
 		)
 
 @router.message(Command("this"))
