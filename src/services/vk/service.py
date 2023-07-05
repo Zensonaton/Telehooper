@@ -154,8 +154,18 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 	async def disconnect_service(self, reason: ServiceDisconnectReason = ServiceDisconnectReason.INITIATED_BY_USER) -> None:
 		db_user = await get_user(self.user.telegramUser)
 
-		if "VK" not in db_user["Connections"]:
-			return
+		assert "VK" in db_user["Connections"]
+
+		try:
+			if reason not in [ServiceDisconnectReason.INITIATED_BY_USER, ServiceDisconnectReason.ISSUED_BY_ADMIN]:
+				raise Exception
+
+			await self.vkAPI.messages_send(
+				peer_id=db_user["Connections"]["VK"]["ID"],
+				message="ℹ️ Telegram-бот «Telehooper» был отключён от Вашей страницы ВКонтакте."
+			)
+		except:
+			pass
 
 		# Удаляем из БД.
 		del db_user["Connections"]["VK"]
@@ -167,7 +177,15 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 		# Отключаем longpoll.
 		if self._longPollTask:
+			logger.debug("Cancelling longpoll task...")
+
 			self._longPollTask.cancel()
+
+		# Удаляем из памяти.
+		del self.token
+		del self.vkAPI
+		del self._cachedDialogues
+		del self._longPollTask
 
 	async def current_user_info(self) -> TelehooperServiceUserInfo:
 		self_info = await self.vkAPI.get_self_info()
