@@ -58,6 +58,8 @@ async def get_user(user: types.User, create_by_default: bool = True) -> Document
 	Если `create_by_default` равен `True`, то пользователь будет создан, если он не был найден, в противном случае будет вызвана ошибка.
 	"""
 
+	assert not user.is_bot, "Попытка получить информацию из БД (метод get_user()) о боте."
+
 	db = await get_db()
 
 	id = str(user.id)
