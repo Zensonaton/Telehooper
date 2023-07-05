@@ -125,6 +125,7 @@ async def connect_vk_token_handler(msg: types.Message) -> None:
 			"ConnectedAt": utils.get_timestamp(),
 			"LastActivityAt": utils.get_timestamp(),
 			"ID": auth_result["id"],
+			"FullName": f"{auth_result['first_name']} {auth_result['last_name']}",
 			"OwnedDialogues": {}
 		}
 
