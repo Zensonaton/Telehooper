@@ -42,6 +42,24 @@ class ServiceDisconnectReason(enum.Enum):
 	ISSUED_BY_ADMIN = "by-admin"
 	TOKEN_NOT_STORED = "no-token"
 
+class TelehooperServiceUserInfo:
+	"""
+	Класс с информацией о пользователе сервиса в Telehooper.
+	"""
+
+	service_name: str
+	id: int
+	name: str
+	profile_url: str | None
+	profile_img: bytes | None
+
+	def __init__(self, service_name: str, id: int, name: str, profile_url: str | None = None, profile_img: bytes | None = None) -> None:
+		self.service_name = service_name
+		self.id = id
+		self.name = name
+		self.profile_url = profile_url
+		self.profile_img = profile_img
+
 class BaseTelehooperServiceAPI:
 	"""
 	Базовый API для сервисов Telehooper.
@@ -92,6 +110,13 @@ class BaseTelehooperServiceAPI:
 		Отключает сервис от Telehooper.
 
 		:param reason: Причина отключения.
+		"""
+
+		raise NotImplementedError
+
+	async def current_user_info(self) -> TelehooperServiceUserInfo:
+		"""
+		Возвращает информацию о текущем подключённом пользователе сервиса.
 		"""
 
 		raise NotImplementedError

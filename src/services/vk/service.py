@@ -10,7 +10,7 @@ from pydantic import SecretStr
 from DB import get_user
 from services.service_api_base import (BaseTelehooperServiceAPI,
                                        ServiceDialogue,
-                                       ServiceDisconnectReason)
+                                       ServiceDisconnectReason, TelehooperServiceUserInfo)
 from services.vk.vk_api.api import VKAPI
 from services.vk.vk_api.longpoll import VKAPILongpoll
 
@@ -168,3 +168,13 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 		# Отключаем longpoll.
 		if self._longPollTask:
 			self._longPollTask.cancel()
+
+	async def current_user_info(self) -> TelehooperServiceUserInfo:
+		self_info = await self.vkAPI.get_self_info()
+
+		return TelehooperServiceUserInfo(
+			service_name=self.service_name,
+			id=self_info["id"],
+			name=f"{self_info['first_name']} {self_info['last_name']}",
+			profile_url=self_info.get("photo_max_orig"),
+		)
