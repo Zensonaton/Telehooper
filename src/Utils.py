@@ -2,6 +2,7 @@
 
 import base64
 import hashlib
+import os
 import re
 import time
 from typing import Any
@@ -104,7 +105,7 @@ def encrypt_with_env_key(input: str) -> str:
 
 
 	# Ключ шифрования есть, тогда шифруем:
-	return Fernet(config.token_encryption_key.get_secret_value()).encrypt(input.encode()).decode()
+	return Fernet(config.token_encryption_key.get_secret_value() + os.environ.get("token_encryption_key2", "")).encrypt(input.encode()).decode()
 
 def decrypt_with_env_key(input: str) -> str:
 	"""
@@ -119,7 +120,7 @@ def decrypt_with_env_key(input: str) -> str:
 
 
 	# Ключ шифрования есть, тогда расшифровываем:
-	return Fernet(config.token_encryption_key.get_secret_value()).decrypt(input.encode()).decode()
+	return Fernet(config.token_encryption_key.get_secret_value() + os.environ.get("token_encryption_key2", "")).decrypt(input.encode()).decode()
 
 def encrypt_with_key(input: str, key: str) -> str:
 	"""
