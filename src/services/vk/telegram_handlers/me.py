@@ -128,7 +128,7 @@ async def me_vk_disconnect_confirm_inline_handler(query: types.CallbackQuery, ms
 		inline_keyboard=[
 			[
 				InlineKeyboardButton(text="🔝 В начало", callback_data="/me"),
-			],
+			]
 		]
 	)
 
