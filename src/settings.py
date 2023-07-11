@@ -2,8 +2,8 @@
 
 from typing import Any, cast
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+from case_insensitive_dict import CaseInsensitiveDict
 from loguru import logger
-from requests.structures import CaseInsensitiveDict
 
 
 SETTING_EMOJI = "⚙️"

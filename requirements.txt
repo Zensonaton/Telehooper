@@ -1,7 +1,9 @@
 aiofiles
-aiogram
+aiogram==3.0.0b7
 aiohttp
 loguru
 Pillow
-pymongo
 python-dotenv
+cryptography
+aiocouch
+case-insensitive-dictionary
