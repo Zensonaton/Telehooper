@@ -21,8 +21,10 @@ class ServiceDialogue:
 	is_multiuser: bool
 	is_pinned: bool
 	is_muted: bool
+	service_name: str
 
-	def __init__(self, id: int, name: str, profile_url: str | None = None, profile_img: bytes | None = None, is_multiuser: bool = False, is_pinned: bool = False, is_muted: bool = False) -> None:
+	def __init__(self, service_name: str, id: int, name: str, profile_url: str | None = None, profile_img: bytes | None = None, is_multiuser: bool = False, is_pinned: bool = False, is_muted: bool = False) -> None:
+		self.service_name = service_name
 		self.id = id
 		self.name = name
 		self.profile_url = profile_url
@@ -79,6 +81,7 @@ class BaseTelehooperServiceAPI:
 
 		self.service_name = service_name
 		self.service_user_id = service_id
+		self.user = user
 
 	async def start_listening(self) -> None:
 		"""
@@ -117,6 +120,18 @@ class BaseTelehooperServiceAPI:
 	async def current_user_info(self) -> TelehooperServiceUserInfo:
 		"""
 		Возвращает информацию о текущем подключённом пользователе сервиса.
+		"""
+
+		raise NotImplementedError
+
+	async def get_dialogue(self, chat_id: int, force_update: bool = False) -> ServiceDialogue:
+		"""
+		Возвращает диалог по его ID.
+
+		Если диалог не был найден, то будет вызвана ошибка TypeError.
+
+		:param chat_id: ID диалога.
+		:param force_update: Нужно ли обновить данные о диалоге, если они уже были получены ранее.
 		"""
 
 		raise NotImplementedError

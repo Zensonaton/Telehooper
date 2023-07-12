@@ -52,7 +52,7 @@ async def this_vk_messages_inline_handler(query: types.CallbackQuery, msg: types
 		[InlineKeyboardButton(text="🔙 Назад", callback_data="/this vk")],
 
 		# [InlineKeyboardButton(text="👥 Telegram-группа для всех чатов ВК", callback_data="do-nothing")],
-		[InlineKeyboardButton(text="👤 Один чат ВК - одна Telegram-группа", callback_data="/this vk messages separated")],
+		[InlineKeyboardButton(text="👤 Один чат ВК - одна Telegram-группа", callback_data="/this vk messages separated selection")],
 	])
 
 	await msg.edit_text(
@@ -97,7 +97,7 @@ async def this_vk_messages_separated_inline_handler(query: types.CallbackQuery, 
 	"""
 	Inline Callback Handler для команды `/this`.
 
-	Вызывается при нажатии пользователем кнопку "Хочу читать новости/посты из групп" в команде `/this`.
+	Вызывается при нажатии пользователем на кнопку "Хочу читать новости/посты из групп" в команде `/this`.
 	"""
 
 	# TODO: Возможность написать юзеру в ВК через никнейм/ссылку.
@@ -129,7 +129,6 @@ async def this_vk_messages_separated_inline_handler(query: types.CallbackQuery, 
 			"<b>🫂 Группа-диалог — ВКонтакте — сообщения</b>.\n"
 			"\n"
 			"Вы собираетесь создать отдельную группу для отдельного чата из ВКонтакте. После выбора чата, бот сделает данную группу похожей на выбранный диалог ВКонтакте.\n"
-			"\n"
 			"\n"
 			"<i>⏳ Пожалуйста, дождитесь получения списка чатов...</i>",
 			reply_markup=keyboard
@@ -171,7 +170,7 @@ async def this_vk_messages_separated_inline_handler(query: types.CallbackQuery, 
 
 		dialogues_kbd.append([
 			InlineKeyboardButton(
-				text=f"{prefix}  {name}  {postfix}", callback_data=f"/this vk messages separated {dialogue.id}"
+				text=f"{prefix}  {name}  {postfix}", callback_data=f"/this vk convert {dialogue.id} messages separated"
 			)
 		])
 
@@ -201,4 +200,63 @@ async def this_vk_messages_separated_inline_handler(query: types.CallbackQuery, 
 		"\n"
 		"ℹ️ Нужно написать человеку с которым ещё ни разу не общались? Отправьте ссылку/никнейм человека из ВКонтакте сюда.",
 		reply_markup=keyboard
+	)
+
+@router.callback_query(Text(startswith="/this vk convert"), F.message.as_("msg"))
+async def this_vk_convert_inline_handler(query: types.CallbackQuery, msg: types.Message) -> None:
+	"""
+	Inline Callback Handler для команды `/this`.
+
+	Вызывается при нажатии выборе диалога/группы в команде `/this` для ВКонтакте.
+	"""
+
+	assert query.data
+
+	splitted = query.data.split()
+
+	chat_id = int(splitted[3])
+	is_messages = "messages" in splitted
+	is_separated = "separated" in splitted
+
+	assert is_messages
+	assert is_separated
+
+	user = await TelehooperAPI.get_user(query.from_user)
+	group = await TelehooperAPI.get_group(msg.chat)
+	vkServiceAPI = user.get_vk_connection()
+
+	assert group is not None, "Группа не существует"
+	assert vkServiceAPI is not None, "Сервис ВКонтакте не существует"
+
+	dialog = await vkServiceAPI.get_dialogue(chat_id)
+
+	assert dialog is not None, "Диалог не существует"
+
+	await msg.edit_text(
+		"<b>🫂 Группа-диалог — ВКонтакте — сообщения</b>.\n"
+		"\n"
+		f"Отлично! Вы выбрали чат с «{dialog.name}».\n"
+		"Дождитесь, пока Telehooper сделает свою магию... 👀\n"
+		"\n"
+		"<i>⏳ Пожалуйста, подождите, пока Telehooper превращает данную Telegram-группу в похожий диалог из ВКонтакте...</i>"
+	)
+
+	# TODO: Проверка на права админа у бота.
+	# TODO: Права на права админа у юзера?
+	# TODO: Сделать настройку, а так же извлечение текста закрепа из диалога ВКонтакте, сделав его закрепом в Telegram.
+
+	await asyncio.sleep(3)
+	await group.convert_to_dialogue_group(user, dialog, msg)
+
+	await asyncio.sleep(2)
+	await msg.answer(
+		"<b>✅ Группа-диалог — успех</b>.\n"
+		"\n"
+		"Telehooper успешно конвертировал данную Telegram-группу в диалог из ВКонтакте.\n"
+		f"Теперь, все сообщения, которые Вы отправляете сюда, будут отправляться в диалог «{dialog.name}» из ВКонтакте и наоборот.\n"
+		"\n"
+		"Однако, учтите что есть следующие ограничения:\n"
+		" • Удалять сообщения можно только через команду /delete.\n"
+		"\n"
+		"<b>Приятного общения! 😊</b>"
 	)

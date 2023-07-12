@@ -1,15 +1,33 @@
 # coding: utf-8
 
+import asyncio
+
 from aiogram import Bot, F, Router, types
 from aiogram.filters import (ADMINISTRATOR, CREATOR, IS_MEMBER, IS_NOT_MEMBER,
                              JOIN_TRANSITION, MEMBER, RESTRICTED,
                              ChatMemberUpdatedFilter, Text)
+from loguru import logger
 
+import utils
 from DB import get_db, get_default_group, get_group
 from telegram.handlers.this import group_convert_message
 
 
+_supergroup_converts = []
+
 router = Router()
+
+async def _supergroup_convert_check(chat_id: int) -> bool:
+	"""
+	Метод, который проверяет что группа с ID `chat_id` не была недавно конвертирована в supergroup'у.
+
+	Если данный метод вернул True, то нужно пропустить обработку данного события (сделать `return`).
+	"""
+
+	# Что бы убедиться, что бот точно получил обновление с конвертацией группы в супергруппу необходимо чуть-чуть поспать.
+	await asyncio.sleep(1)
+
+	return chat_id in _supergroup_converts
 
 @router.my_chat_member(ChatMemberUpdatedFilter(member_status_changed=JOIN_TRANSITION))
 async def on_telehooper_added_in_chat_handler(event: types.ChatMemberUpdated, bot: Bot) -> None:
@@ -18,6 +36,9 @@ async def on_telehooper_added_in_chat_handler(event: types.ChatMemberUpdated, bo
 
 	Отправляет информацию о преобразовании группы в группу-диалог и прочую полезную информацию.
 	"""
+
+	if await _supergroup_convert_check(event.chat.id):
+		return
 
 	# Проверяем, что в группу добавили именно Telehooper.
 	if event.new_chat_member.user.id != bot.id:
@@ -68,6 +89,9 @@ async def on_other_member_add_handler(event: types.ChatMemberUpdated, bot: Bot) 
 	"""
 	Handler для случая, если в группу (в котором находится Telehooper) был добавлен какой-то сторонний пользователь.
 	"""
+
+	if await _supergroup_convert_check(event.chat.id):
+		return
 
 	# Добавили иного пользователя в группу.
 	if event.new_chat_member.user.is_bot:
@@ -134,12 +158,20 @@ async def show_platform_admin_steps_inline_handler(_: types.CallbackQuery, msg: 
 async def on_admin_promoted_handler(event: types.ChatMemberUpdated):
 	# TODO: Убедиться, что данное сообщение будет показано лишь один раз.
 
+	await asyncio.sleep(1)
+
 	try:
 		group = await get_group(event.chat)
 	except:
 		return
 
-	await group_convert_message(event.chat.id, event.from_user, group["StatusMessageID"], called_from_command=False)
+	# Пытаемся отредактировать сообщение.
+	#
+	# Если группа была конвертирована в супергруппу, то бот не сможет его отредактировать, поэтому мы его просто отправим.
+	try:
+		await group_convert_message(event.chat.id, event.from_user, group["StatusMessageID"], called_from_command=False)
+	except:
+		await group_convert_message(event.chat.id, event.from_user, None, called_from_command=False)
 
 @router.chat_member(ChatMemberUpdatedFilter(member_status_changed=(ADMINISTRATOR | CREATOR) >> (RESTRICTED | MEMBER)))
 async def on_bot_demotion_handler(event: types.ChatMemberUpdated):
@@ -153,4 +185,42 @@ async def on_bot_chat_kick_handler(event: types.ChatMemberUpdated):
 
 	...
 
-# TODO: Поддержка миграции супергрупп.
+@router.message(F.migrate_to_chat_id)
+async def group_to_supergroup_convert_handler(message: types.Message):
+	"""
+	Handler для события конвертации Telegram-группы в супергруппу.
+
+	При конвертации в супергруппу Telegram меняет ID группы.
+	"""
+
+	logger.debug(f"Telegram-группа с ID {message.chat.id} конвертировалась в supergroup'у с ID {message.migrate_to_chat_id}")
+
+	_supergroup_converts.append(message.chat.id)
+	_supergroup_converts.append(message.migrate_to_chat_id)
+
+	try:
+		group_old = await get_group(message.chat)
+	except:
+		return
+
+	old_group_data = group_old._data.copy()
+
+	del old_group_data["_id"]
+	del old_group_data["_rev"]
+
+	old_group_data["ID"] = message.migrate_to_chat_id
+	old_group_data["LastActivityAt"] = utils.get_timestamp()
+
+	db = await get_db()
+
+	# Создаём новый объект группы из БД.
+	group_new = await db.create(
+		f"group_{message.migrate_to_chat_id}",
+		exists_ok=False,
+		data=old_group_data
+	)
+
+	await group_new.save()
+
+	# Удаляем старый объект группы из БД.
+	await group_old.delete()

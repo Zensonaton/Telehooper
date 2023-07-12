@@ -117,17 +117,18 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 					convo_extended = cast(dict, convo_extended)
 
 					full_name = f"{convo_extended['first_name']} {convo_extended['last_name']}"
-					image_url = convo_extended.get("photo_max_orig")
+					image_url = convo_extended.get("photo_max")
 				elif conversation_type == "group":
 					convo_extended = cast(dict, convo_extended)
 
 					full_name = convo_extended["name"]
-					image_url = convo_extended.get("photo_max_orig")
+					image_url = convo_extended.get("photo_max")
 				else:
 					raise Exception(f"Неизвестный тип диалога {conversation_type}.")
 
 				result.append(
 					ServiceDialogue(
+						service_name="VK",
 						id=conversation_id,
 						name=full_name,
 						profile_url=image_url,
@@ -196,3 +197,12 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 			name=f"{self_info['first_name']} {self_info['last_name']}",
 			profile_url=self_info.get("photo_max_orig"),
 		)
+
+	async def get_dialogue(self, chat_id: int, force_update: bool = False) -> ServiceDialogue:
+		dialogues = await self.get_list_of_dialogues(force_update=force_update)
+
+		for dialogue in dialogues:
+			if dialogue.id == chat_id:
+				return dialogue
+
+		raise TypeError(f"Диалог с ID {chat_id} не найден")

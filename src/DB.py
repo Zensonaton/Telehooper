@@ -121,8 +121,9 @@ def get_default_user(user: types.User, version: int = utils.get_bot_version()) -
 		"SettingsOverriden": {}, # Переопределённые настройки.
 		"KnownLanguage": user.language_code, # Язык пользователя. Иногда может быть неизвестен.
 		"Roles": [], # Роли пользователя.
+		"Groups": [], # ID подключённых как диалоги/группы Telegram-групп.
 		"Connections": { # Подключённые сервисы.
-			# Данный объект пуст, он пополняется при подключении сервисов.
+			# Данный объект пуст, он пополняется при подключении сервисов. См. метод get_default_subgroup().
 		}
 	}
 
@@ -166,4 +167,18 @@ def get_default_group(chat: types.Chat, creator: types.User, status_message: typ
 		"Services": { # Информация о сервисах в данной группе.
 
 		}
+	}
+
+def get_default_subgroup(topic_id: int, service_name: str, dialogue_id: int, dialogue_name: str, pinned_message: int) -> dict:
+	"""
+	Возвращает шаблон подгруппы (группы или топика группы) для сохранения в базу данных.
+	"""
+
+	return {
+		"ID": topic_id, # ID топика. 0, если это не топик-группа.
+		"Name": dialogue_name, # Название диалога/группы.
+		"CreatedAt": utils.get_timestamp(), # Дата создания диалога/группы.
+		"PinMessageID": pinned_message, # ID закреплённого сообщения.
+		"Service": service_name, # Сервис, к которому подключён данный диалог/группа.
+		"DialogueID": dialogue_id # ID диалога из сервиса.
 	}

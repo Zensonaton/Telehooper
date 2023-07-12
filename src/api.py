@@ -1,16 +1,20 @@
 # coding: utf-8
 
+import asyncio
 from typing import Any
+
+import aiohttp
 from aiocouch import Document
 from aiogram import Bot
-from aiogram.types import Chat, User
+from aiogram.types import BufferedInputFile, Chat, Message, User
 
-from DB import get_db, get_group
+import utils
+from config import config
+from DB import get_db, get_default_subgroup, get_group
 from DB import get_user as db_get_user
 from exceptions import DisallowedInDebugException
-from services.service_api_base import BaseTelehooperServiceAPI
+from services.service_api_base import BaseTelehooperServiceAPI, ServiceDialogue
 from services.vk.service import VKServiceAPI
-from config import config
 from settings import SETTINGS_TREE, SettingsHandler
 
 
@@ -203,6 +207,112 @@ class TelehooperGroup:
 		self.chats = rawDocument["Chats"]
 		self.services = rawDocument["Services"]
 
+	async def convert_to_dialogue_group(self, user: TelehooperUser, dialogue: ServiceDialogue, pinned_message: Message) -> None:
+		"""
+		Конвертирует данную Telegram-группу в группу-диалог из сервиса.
+
+		Данный метод изменяет название, фотографию, закреп, а так же описание группы. Помимо этого, она сохраняет информацию о созданной группе в БД.
+		"""
+
+		async def _sleep():
+			await asyncio.sleep(1.5)
+
+		async def _longSleep():
+			await asyncio.sleep(3.5)
+
+		bot = Bot.get_current()
+		assert bot
+
+		# Пытаемся изменить название группы.
+		try:
+			await self.telegramChat.set_title(dialogue.name)
+		except:
+			await _longSleep()
+		else:
+			await _sleep()
+
+		# Пытаемся изменить фотографию группы.
+		if dialogue.profile_img or dialogue.profile_url:
+			picture_bytes = dialogue.profile_img
+			if dialogue.profile_url:
+				async with aiohttp.ClientSession() as session:
+					async with session.get(dialogue.profile_url) as response:
+						picture_bytes = await response.read()
+
+			assert picture_bytes
+
+			try:
+				await self.telegramChat.set_photo(
+					photo=BufferedInputFile(
+						file=picture_bytes,
+						filename="photo.png"
+					)
+				)
+			except:
+				await _longSleep()
+			else:
+				await _sleep()
+
+		# Пытаемся поменять описание группы.
+		try:
+			await self.telegramChat.set_description(
+				f"@telehooper_bot: Группа для диалога «{dialogue.name}» из ВКонтакте.\n"
+				"\n"
+				"ℹ️ Для управления данной группой используйте команду /this."
+			)
+		except:
+			await _longSleep()
+		else:
+			await _sleep()
+
+		# Редактируем текст сообщения.
+		try:
+			await pinned_message.edit_text(
+				"<b>🫂 Группа-диалог ВКонтакте</b>.\n"
+				"\n"
+				"Используйте данное сообщения для выполнения быстрых действий над этой группой-диалогом.\n"
+				"\n"
+				"<i>WIP!</i>"
+			)
+		except:
+			await _longSleep()
+		else:
+			await _sleep()
+
+		# Пытаемся закрепить сообщение.
+		try:
+			await self.telegramChat.pin_message(
+				pinned_message.message_id,
+				disable_notification=True
+			)
+		except:
+			await _longSleep()
+		else:
+			await _sleep()
+
+		# Делаем изменения в БД.
+		# Сохраняем информацию о пользователе.
+		if not self.id in user.rawDocument["Groups"]:
+			user.rawDocument["Groups"].append(self.id)
+
+			await user.rawDocument.save()
+
+		# Сохраняем информацию в группе.
+		self.rawDocument["LastActivityAt"] = utils.get_timestamp()
+		self.rawDocument["Chats"].update({
+			pinned_message.message_thread_id or 0: get_default_subgroup(
+				topic_id=pinned_message.message_thread_id or 0,
+				service_name=dialogue.service_name,
+				dialogue_id=dialogue.id,
+				dialogue_name=dialogue.name,
+				pinned_message=pinned_message.message_id
+			)
+		})
+
+		await self.rawDocument.save()
+
+		# TODO: Сохранить информацию о данном диалоге в память пользователя и самой группы.
+
 class TelehooperAPI:
 	"""
 	Класс с различными API бота Telehooper.
@@ -253,7 +363,7 @@ class TelehooperAPI:
 
 		return TelehooperGroup(
 			await get_group(chat_id),
-			chat if isinstance(chat, Chat) else (await (bot).get_chat(chat_id))
+			chat if isinstance(chat, Chat) else (await bot.get_chat(chat_id))
 		)
 
 	@staticmethod
