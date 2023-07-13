@@ -37,6 +37,26 @@ async def on_telehooper_added_in_chat_handler(event: types.ChatMemberUpdated, bo
 	Отправляет информацию о преобразовании группы в группу-диалог и прочую полезную информацию.
 	"""
 
+	if event.chat.type == "channel":
+		await bot.send_message(
+			chat_id=event.chat.id,
+			text=(
+				"<b>⚠️ Ошибка добавления бота в канал</b>.\n"
+				"\n"
+				"Упс! Вы добавили бота Telehooper в <b>канал</b>. Telehooper не умеет работать в каналах. 🙈\n"
+				"Создайте вместо этого <b>группу</b> и добавьте этого бота в неё.\n"
+				"\n"
+				"ℹ️ Telehooper автоматически удалит самого себя из данного канала."
+			)
+		)
+
+		try:
+			await bot.leave_chat(chat_id=event.chat.id)
+		except:
+			pass
+
+		return
+
 	if await _supergroup_convert_check(event.chat.id):
 		return
 
