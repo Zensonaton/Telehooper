@@ -3,9 +3,10 @@
 import asyncio
 from typing import cast
 
-from aiogram import F, Router, types
+from aiogram import F, Router, types, Bot
 from aiogram.filters import Text
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, BotCommand, BotCommandScopeChatAdministrators
+from services.vk.consts import VK_GROUP_DIALOGUE_COMMANDS
 
 import utils
 from api import TelehooperAPI
@@ -224,9 +225,11 @@ async def this_vk_convert_inline_handler(query: types.CallbackQuery, msg: types.
 	user = await TelehooperAPI.get_user(query.from_user)
 	group = await TelehooperAPI.get_group(msg.chat)
 	vkServiceAPI = user.get_vk_connection()
+	bot = Bot.get_current()
 
 	assert group is not None, "Группа не существует"
 	assert vkServiceAPI is not None, "Сервис ВКонтакте не существует"
+	assert bot is not None, "Telegram-бот не существует"
 
 	dialog = await vkServiceAPI.get_dialogue(chat_id)
 
@@ -248,6 +251,20 @@ async def this_vk_convert_inline_handler(query: types.CallbackQuery, msg: types.
 	await asyncio.sleep(3)
 	await group.convert_to_dialogue_group(user, dialog, msg)
 
+	# Изменяем список команд.
+	await bot.set_my_commands(
+		commands=[
+			BotCommand(
+				command=command,
+				description=description
+			) for command, description in VK_GROUP_DIALOGUE_COMMANDS.items()
+		],
+		scope=BotCommandScopeChatAdministrators(
+			type="chat_administrators",
+			chat_id=msg.chat.id
+		)
+	)
+
 	await asyncio.sleep(2)
 	await msg.answer(
 		"<b>✅ Группа-диалог — успех</b>.\n"
@@ -256,7 +273,12 @@ async def this_vk_convert_inline_handler(query: types.CallbackQuery, msg: types.
 		f"Теперь, все сообщения, которые Вы отправляете сюда, будут отправляться в диалог «{dialog.name}» из ВКонтакте и наоборот.\n"
 		"\n"
 		"Однако, учтите что есть следующие ограничения:\n"
-		" • Удалять сообщения можно только через команду /delete.\n"
+		" • Отсутствует поддержка реакций.\n"
+		" • Ваш собеседник не видит как Вы печатаете.\n"
+		" • Помечать сообщения как «прочитанные» можно только через /read.\n"
+		" • Удалять сообщения можно только через /delete.\n"
+		"Подробная информация про ограничения: <a href=\"https://github.com/Zensonaton/Telehooper/blob/rewrite/src/services/vk/README.md\">🔗 ссылка</a>.\n"
 		"\n"
-		"<b>Приятного общения! 😊</b>"
+		"<b>Приятного общения! 😊</b>",
+		disable_web_page_preview=True
 	)
