@@ -52,7 +52,18 @@ class LongpollNewMessageEvent(BaseVKLongpollEvent):
 	ID события: `4`.
 	"""
 
-	pass
+	message_id: int
+	date: int
+	from_id: int
+	text: str
+
+	def __init__(self, event: list) -> None:
+		super().__init__(event)
+
+		self.message_id = self.event_data[0]
+		self.from_id = self.event_data[2]
+		self.date = self.event_data[3]
+		self.text = self.event_data[5]
 
 class VKAPILongpoll:
 	"""

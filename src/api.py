@@ -20,6 +20,7 @@ from settings import SETTINGS_TREE, SettingsHandler
 
 # Да, я знаю что это плохой способ. Знаю. Ни к чему другому, адекватному я не пришёл.
 _saved_connections = {}
+_service_dialogues: list["TelehooperSubGroup"] = []
 
 settings = SettingsHandler(SETTINGS_TREE)
 
@@ -192,10 +193,12 @@ class TelehooperGroup:
 
 	rawDocument: Document
 	telegramChat: Chat
+	bot: Bot
 
-	def __init__(self, rawDocument: Document, telegramChat: Chat) -> None:
+	def __init__(self, rawDocument: Document, telegramChat: Chat, bot: Bot) -> None:
 		self.rawDocument = rawDocument
 		self.telegramChat = telegramChat
+		self.bot = bot
 
 		self.id = rawDocument["ID"]
 		self.creatorID = rawDocument["Creator"]
@@ -220,16 +223,14 @@ class TelehooperGroup:
 		async def _longSleep():
 			await asyncio.sleep(3.5)
 
-		bot = Bot.get_current()
-		assert bot
-
 		# Пытаемся изменить название группы.
-		try:
-			await self.telegramChat.set_title(dialogue.name)
-		except:
-			await _longSleep()
-		else:
-			await _sleep()
+		if dialogue.name:
+			try:
+				await self.telegramChat.set_title(dialogue.name)
+			except:
+				await _longSleep()
+			else:
+				await _sleep()
 
 		# Пытаемся изменить фотографию группы.
 		if dialogue.profile_img or dialogue.profile_url:
@@ -290,6 +291,17 @@ class TelehooperGroup:
 		else:
 			await _sleep()
 
+		# Сохраняем в память.
+		TelehooperAPI.save_subgroup(
+			TelehooperSubGroup(
+				id=pinned_message.message_thread_id or 0,
+				service_id=dialogue.id,
+				dialogue_name=dialogue.name,
+				service=dialogue.service_name,
+				parent=self
+			)
+		)
+
 		# Делаем изменения в БД.
 		# Сохраняем информацию о пользователе.
 		if not self.id in user.rawDocument["Groups"]:
@@ -304,14 +316,55 @@ class TelehooperGroup:
 				topic_id=pinned_message.message_thread_id or 0,
 				service_name=dialogue.service_name,
 				dialogue_id=dialogue.id,
-				dialogue_name=dialogue.name,
+				dialogue_name=dialogue.name or "Без названия",
 				pinned_message=pinned_message.message_id
 			)
 		})
 
 		await self.rawDocument.save()
 
-		# TODO: Сохранить информацию о данном диалоге в память пользователя и самой группы.
+	async def send_message(self, text: str, topic: int = 0) -> None:
+		"""
+		Отправляет сообщение в группу.
+		"""
+
+		await self.bot.send_message(
+			message_thread_id=topic,
+			text=text,
+			chat_id=self.id
+		)
+
+class TelehooperSubGroup:
+	"""
+	Класс для под-группы в группе-диалоге. Используется для всех диалогов внутри группы Telegram. Класс существует поскольку группы могут быть топиками с множеством диалогов.
+	"""
+
+	id: int
+	service_id: int
+	service_dialogue_name: str | None
+	service_name: str
+	parent: TelehooperGroup
+
+	def __init__(self, id: int, service_id: int, dialogue_name: str | None, service: str, parent: TelehooperGroup) -> None:
+		self.id = id
+		self.service_id = service_id
+		self.service_dialogue_name = dialogue_name
+		self.service_name = service
+		self.parent = parent
+
+	async def send_message_in(self, text: str) -> None:
+		"""
+		Отправляет сообщение в Telegram-группу.
+		"""
+
+		await self.parent.send_message(text)
+
+	async def send_message_out(self) -> None:
+		"""
+		Отправляет сообщение в сервис.
+		"""
+
+		pass
 
 class TelehooperAPI:
 	"""
@@ -350,7 +403,7 @@ class TelehooperAPI:
 			return None
 
 	@staticmethod
-	async def get_group(chat: Chat | int) -> TelehooperGroup | None:
+	async def get_group(chat: Chat | int, db_group: Document | None = None) -> TelehooperGroup | None:
 		"""
 		Возвращает объект группы, либо None, если данной группы нет в БД, или же если бот не состоит в ней.
 		"""
@@ -358,12 +411,12 @@ class TelehooperAPI:
 		chat_id = chat if isinstance(chat, int) else chat.id
 
 		bot = Bot.get_current()
-		if not bot:
-			return
+		assert bot
 
 		return TelehooperGroup(
-			await get_group(chat_id),
-			chat if isinstance(chat, Chat) else (await bot.get_chat(chat_id))
+			db_group if db_group else await get_group(chat_id),
+			chat if isinstance(chat, Chat) else (await bot.get_chat(chat_id)),
+			bot
 		)
 
 	@staticmethod
@@ -386,3 +439,33 @@ class TelehooperAPI:
 
 		if not user.has_role("tester"):
 			raise _exc
+
+	@staticmethod
+	def save_subgroup(group: TelehooperSubGroup) -> None:
+		"""
+		Сохраняет TelehooperSubGroup в память бота с целью кэширования.
+		"""
+
+		_service_dialogues.append(group)
+
+	@staticmethod
+	def get_subgroup_by_service_dialogue(user: TelehooperUser, dialogue: ServiceDialogue) -> TelehooperSubGroup | None:
+		"""
+		Возвращает TelehooperSubGroup по диалогу из сервиса.
+
+		Если группа не найдена, возвращается None.
+		"""
+
+		for servDialog in _service_dialogues:
+			if servDialog.parent.creatorID != user.id:
+				continue
+
+			if servDialog.service_name != dialogue.service_name:
+				continue
+
+			if servDialog.service_id != dialogue.id:
+				continue
+
+			return servDialog
+
+		return None

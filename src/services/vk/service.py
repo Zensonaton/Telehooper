@@ -7,12 +7,14 @@ from aiogram import Bot
 from loguru import logger
 from pydantic import SecretStr
 
+import utils
 from DB import get_user
 from services.service_api_base import (BaseTelehooperServiceAPI,
                                        ServiceDialogue,
-                                       ServiceDisconnectReason, TelehooperServiceUserInfo)
+                                       ServiceDisconnectReason,
+                                       TelehooperServiceUserInfo)
 from services.vk.vk_api.api import VKAPI
-from services.vk.vk_api.longpoll import VKAPILongpoll
+from services.vk.vk_api.longpoll import LongpollNewMessageEvent, VKAPILongpoll
 
 if TYPE_CHECKING:
 	from api import TelehooperUser
@@ -39,11 +41,33 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 		self.vkAPI = VKAPI(self.token)
 
 	async def start_listening(self) -> asyncio.Task:
+		from api import TelehooperAPI
+
 		async def _handle_updates() -> None:
 			longpoll = VKAPILongpoll(self.vkAPI)
 
 			async for event in longpoll.listen_for_updates():
 				logger.debug(f"Got event with type {event.__class__.__name__} and data {event.event_data}")
+
+				# TODO: Перенести данный кусочек кода... в другое место? В API сервиса?
+				if type(event) is LongpollNewMessageEvent:
+					subgroup = TelehooperAPI.get_subgroup_by_service_dialogue(
+						self.user,
+						ServiceDialogue(
+							service_name="VK",
+							id=event.from_id
+						)
+					)
+
+					if not subgroup:
+						continue
+
+					logger.debug(f"Got new message event with text \"{event.text}\". Subgroup: {subgroup.service_dialogue_name if subgroup else None}")
+
+					try:
+						await subgroup.send_message_in(event.text)
+					except Exception as e:
+						logger.error(f"Ошибка отправки сообщения Telegram-пользователю {utils.get_telegram_logging_info(self.user.telegramUser)}: {e}")
 
 		self._longPollTask = asyncio.create_task(_handle_updates())
 		return self._longPollTask

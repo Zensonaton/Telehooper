@@ -10,7 +10,7 @@ from aiogram.types import (BotCommand, BotCommandScopeAllGroupChats,
                            BotCommandScopeDefault)
 from loguru import logger
 from pydantic import SecretStr
-from api import TelehooperUser
+from api import TelehooperAPI, TelehooperGroup, TelehooperSubGroup, TelehooperUser
 from services.service_api_base import ServiceDisconnectReason
 from services.vk.exceptions import TokenRevokedException
 
@@ -119,6 +119,9 @@ async def reconnect_services(use_async: bool = True) -> None:
 			telegram_user = (await bot.get_chat_member(user["ID"], user["ID"])).user
 			telehooper_user = TelehooperUser(user, telegram_user)
 
+			logger.debug(f"Переподключаю сервисы и диалоги Telegram-пользователя {utils.get_telegram_logging_info(telegram_user)}...")
+
+			# Переподключаем сервисы.
 			try:
 				if "VK" in user["Connections"]:
 					vkServiceAPI = None
@@ -144,6 +147,7 @@ async def reconnect_services(use_async: bool = True) -> None:
 
 						continue
 
+					# Создаём Longpoll.
 					try:
 						vkServiceAPI = VKServiceAPI(
 							token=SecretStr(
@@ -209,6 +213,21 @@ async def reconnect_services(use_async: bool = True) -> None:
 			except Exception as error:
 				logger.exception(f"Не удалось переподключить сервисы для пользователя {user['ID']}:", error)
 
+			# Все сервисы переподключены, возвращаем диалоги.
+			async for group in db.docs([f"group_{i}" for i in user["Groups"]]):
+				telegram_group = await bot.get_chat(group["ID"])
+				telehooper_group = TelehooperGroup(group, telegram_group, bot)
+
+				for chat in group["Chats"].values():
+					TelehooperAPI.save_subgroup(
+						TelehooperSubGroup(
+							id=chat["ID"],
+							service_id=chat["DialogueID"],
+							dialogue_name=chat["Name"],
+							service=chat["Service"],
+							parent=telehooper_group
+						)
+					)
 
 
 	if use_async:

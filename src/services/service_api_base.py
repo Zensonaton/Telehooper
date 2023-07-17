@@ -15,7 +15,7 @@ class ServiceDialogue:
 	"""
 
 	id: int
-	name: str
+	name: str | None
 	profile_url: str | None
 	profile_img: bytes | None
 	is_multiuser: bool
@@ -23,7 +23,7 @@ class ServiceDialogue:
 	is_muted: bool
 	service_name: str
 
-	def __init__(self, service_name: str, id: int, name: str, profile_url: str | None = None, profile_img: bytes | None = None, is_multiuser: bool = False, is_pinned: bool = False, is_muted: bool = False) -> None:
+	def __init__(self, service_name: str, id: int, name: str | None = None, profile_url: str | None = None, profile_img: bytes | None = None, is_multiuser: bool = False, is_pinned: bool = False, is_muted: bool = False) -> None:
 		self.service_name = service_name
 		self.id = id
 		self.name = name
