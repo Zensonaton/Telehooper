@@ -1,7 +1,7 @@
 # coding: utf-8
 
 import asyncio
-from typing import Any, overload
+from typing import Any, cast
 
 import aiohttp
 from aiocouch import Document
@@ -113,7 +113,7 @@ class TelehooperUser:
 		Если API не был сохранён, возвращается None.
 		"""
 
-		return self._get_connection("VK")
+		return cast(VKServiceAPI, self._get_connection("VK"))
 
 	def remove_vk_connection(self) -> None:
 		"""
