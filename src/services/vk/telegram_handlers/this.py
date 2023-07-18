@@ -223,7 +223,7 @@ async def this_vk_convert_inline_handler(query: types.CallbackQuery, msg: types.
 	assert is_separated
 
 	user = await TelehooperAPI.get_user(query.from_user)
-	group = await TelehooperAPI.get_group(msg.chat)
+	group = await TelehooperAPI.get_group(user, msg.chat)
 	vkServiceAPI = user.get_vk_connection()
 	bot = Bot.get_current()
 
@@ -249,7 +249,7 @@ async def this_vk_convert_inline_handler(query: types.CallbackQuery, msg: types.
 	# TODO: Сделать настройку, а так же извлечение текста закрепа из диалога ВКонтакте, сделав его закрепом в Telegram.
 
 	await asyncio.sleep(3)
-	await group.convert_to_dialogue_group(user, dialog, msg)
+	await group.convert_to_dialogue_group(user, dialog, msg, vkServiceAPI)
 
 	# Изменяем список команд.
 	await bot.set_my_commands(

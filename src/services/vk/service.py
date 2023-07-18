@@ -4,6 +4,7 @@ import asyncio
 from typing import TYPE_CHECKING, cast
 
 from aiogram import Bot
+from aiogram.types import Message
 from loguru import logger
 from pydantic import SecretStr
 
@@ -14,7 +15,7 @@ from services.service_api_base import (BaseTelehooperServiceAPI,
                                        ServiceDisconnectReason,
                                        TelehooperServiceUserInfo)
 from services.vk.vk_api.api import VKAPI
-from services.vk.vk_api.longpoll import LongpollNewMessageEvent, VKAPILongpoll
+from services.vk.vk_api.longpoll import BaseVKLongpollEvent, LongpollNewMessageEvent, VKAPILongpoll
 
 if TYPE_CHECKING:
 	from api import TelehooperUser
@@ -41,36 +42,47 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 		self.vkAPI = VKAPI(self.token)
 
 	async def start_listening(self) -> asyncio.Task:
-		from api import TelehooperAPI
+		# TODO: Обработка ошибок этой функции. (asyncio.Task)
 
 		async def _handle_updates() -> None:
 			longpoll = VKAPILongpoll(self.vkAPI)
 
 			async for event in longpoll.listen_for_updates():
-				logger.debug(f"Got event with type {event.__class__.__name__} and data {event.event_data}")
-
-				# TODO: Перенести данный кусочек кода... в другое место? В API сервиса?
-				if type(event) is LongpollNewMessageEvent:
-					subgroup = TelehooperAPI.get_subgroup_by_service_dialogue(
-						self.user,
-						ServiceDialogue(
-							service_name="VK",
-							id=event.from_id
-						)
-					)
-
-					if not subgroup:
-						continue
-
-					logger.debug(f"Got new message event with text \"{event.text}\". Subgroup: {subgroup.service_dialogue_name if subgroup else None}")
-
-					try:
-						await subgroup.send_message_in(event.text)
-					except Exception as e:
-						logger.error(f"Ошибка отправки сообщения Telegram-пользователю {utils.get_telegram_logging_info(self.user.telegramUser)}: {e}")
+				await self.handle_update(event)
 
 		self._longPollTask = asyncio.create_task(_handle_updates())
 		return self._longPollTask
+
+	async def handle_update(self, event: BaseVKLongpollEvent) -> None:
+		"""
+		Метод, обрабатывающий события VK Longpoll.
+		"""
+
+		from api import TelehooperAPI
+
+
+		logger.debug(f"[VK] Новое событие {event.__class__.__name__}: {event.event_data}")
+
+		if type(event) is LongpollNewMessageEvent:
+			subgroup = TelehooperAPI.get_subgroup_by_service_dialogue(
+				self.user,
+				ServiceDialogue(
+					service_name="VK",
+					id=event.from_id
+				)
+			)
+
+			if not subgroup:
+				return
+
+			logger.debug(f"[VK] Новое сообщение с текстом \"{event.text}\", для подгруппы \"{subgroup.service_dialogue_name}\"")
+
+			try:
+				await subgroup.send_message_in(event.text)
+			except Exception as e:
+				# TODO: Отправлять сообщение об ошибке пользователю, делая при этом логирование самого текста ошибки.
+
+				logger.error(f"Ошибка отправки сообщения Telegram-пользователю {utils.get_telegram_logging_info(self.user.telegramUser)}: {e}")
 
 	async def get_list_of_dialogues(self, force_update: bool = False, retrieve_all: bool = False, limit: int | None = 800, skip_ids: list[int] = []) -> list[ServiceDialogue]:
 		if not force_update and self._cachedDialogues:
@@ -230,3 +242,17 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 				return dialogue
 
 		raise TypeError(f"Диалог с ID {chat_id} не найден")
+
+	async def send_message(self, chat_id: int, text: str) -> None:
+		await self.vkAPI.messages_send(
+			peer_id=chat_id,
+			message=text
+		)
+
+	async def handle_inner_message(self, msg: Message) -> None:
+		logger.debug(f"Обработка сообщения в Telegram: \"{msg.text}\"")
+
+		await self.send_message(
+			chat_id=self.service_user_id,
+			text=msg.text or "[пустой текст сообщения]"
+		)

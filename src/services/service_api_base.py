@@ -2,6 +2,7 @@
 
 import enum
 from typing import TYPE_CHECKING
+from aiogram.types import Message
 
 if TYPE_CHECKING:
 	from api import TelehooperUser
@@ -132,6 +133,25 @@ class BaseTelehooperServiceAPI:
 
 		:param chat_id: ID диалога.
 		:param force_update: Нужно ли обновить данные о диалоге, если они уже были получены ранее.
+		"""
+
+		raise NotImplementedError
+
+	async def send_message(self, chat_id: int, text: str) -> None:
+		"""
+		Отправляет сообщение в диалог.
+
+		:param chat_id: ID диалога.
+		:param text: Текст сообщения.
+		"""
+
+		raise NotImplementedError
+
+	async def handle_inner_message(self, msg: Message) -> None:
+		"""
+		Метод, вызываемый ботом, в случае получения нового сообщения в группе-диалоге (или топик-диалоге). Этот метод обрабатывает события, передавая их текст в сервис.
+
+		:param msg: Сообщение из Telegram.
 		"""
 
 		raise NotImplementedError

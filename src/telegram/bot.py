@@ -10,14 +10,15 @@ from aiogram.types import (BotCommand, BotCommandScopeAllGroupChats,
                            BotCommandScopeDefault)
 from loguru import logger
 from pydantic import SecretStr
-from api import TelehooperAPI, TelehooperGroup, TelehooperSubGroup, TelehooperUser
-from services.service_api_base import ServiceDisconnectReason
-from services.vk.exceptions import TokenRevokedException
 
 import utils
+from api import (TelehooperAPI, TelehooperGroup, TelehooperSubGroup,
+                 TelehooperUser)
 from config import config
 from consts import COMMANDS, COMMANDS_USERS_GROUPS
 from DB import get_db
+from services.service_api_base import ServiceDisconnectReason
+from services.vk.exceptions import TokenRevokedException
 from services.vk.service import VKServiceAPI
 
 
@@ -118,6 +119,7 @@ async def reconnect_services(use_async: bool = True) -> None:
 		async for user in db.docs(prefix="user_"):
 			telegram_user = (await bot.get_chat_member(user["ID"], user["ID"])).user
 			telehooper_user = TelehooperUser(user, telegram_user)
+			service_apis = {}
 
 			logger.debug(f"Переподключаю сервисы и диалоги Telegram-пользователя {utils.get_telegram_logging_info(telegram_user)}...")
 
@@ -163,7 +165,11 @@ async def reconnect_services(use_async: bool = True) -> None:
 						# Проверяем токен.
 						await vkServiceAPI.vkAPI.get_self_info()
 
+						# Запускаем Longpoll.
 						await vkServiceAPI.start_listening()
+
+						# Сохраняем ServiceAPI.
+						service_apis["VK"] = vkServiceAPI
 					except TokenRevokedException as error:
 						assert vkServiceAPI
 
@@ -213,23 +219,27 @@ async def reconnect_services(use_async: bool = True) -> None:
 			except Exception as error:
 				logger.exception(f"Не удалось переподключить сервисы для пользователя {user['ID']}:", error)
 
+				continue
+
 			# Все сервисы переподключены, возвращаем диалоги.
 			async for group in db.docs([f"group_{i}" for i in user["Groups"]]):
 				telegram_group = await bot.get_chat(group["ID"])
-				telehooper_group = TelehooperGroup(group, telegram_group, bot)
+				telehooper_group = TelehooperGroup(telehooper_user, group, telegram_group, bot)
 
 				for chat in group["Chats"].values():
+					serviceAPI = service_apis.get(chat["Service"])
+
+					if not serviceAPI:
+						continue
+
 					TelehooperAPI.save_subgroup(
 						TelehooperSubGroup(
 							id=chat["ID"],
-							service_id=chat["DialogueID"],
 							dialogue_name=chat["Name"],
-							service=chat["Service"],
+							service=serviceAPI,
 							parent=telehooper_group
 						)
 					)
-
-
 	if use_async:
 		asyncio.create_task(_reconnect_services())
 	else:

@@ -1,7 +1,7 @@
 # coding: utf-8
 
 import asyncio
-from typing import Any
+from typing import Any, overload
 
 import aiohttp
 from aiocouch import Document
@@ -88,7 +88,7 @@ class TelehooperUser:
 
 		_saved_connections[self._get_service_store_name(service_api.service_name)] = service_api
 
-	def _get_connection(self, name: str) -> VKServiceAPI | None:
+	def _get_connection(self, name: str) -> BaseTelehooperServiceAPI | None:
 		"""
 		Возвращает ServiceAPI из объекта пользователя.
 
@@ -191,12 +191,14 @@ class TelehooperGroup:
 	chats: dict
 	services: dict
 
+	creator: TelehooperUser
 	rawDocument: Document
 	telegramChat: Chat
 	bot: Bot
 
-	def __init__(self, rawDocument: Document, telegramChat: Chat, bot: Bot) -> None:
+	def __init__(self, creator: TelehooperUser, rawDocument: Document, telegramChat: Chat, bot: Bot) -> None:
 		self.rawDocument = rawDocument
+		self.creator = creator
 		self.telegramChat = telegramChat
 		self.bot = bot
 
@@ -210,7 +212,7 @@ class TelehooperGroup:
 		self.chats = rawDocument["Chats"]
 		self.services = rawDocument["Services"]
 
-	async def convert_to_dialogue_group(self, user: TelehooperUser, dialogue: ServiceDialogue, pinned_message: Message) -> None:
+	async def convert_to_dialogue_group(self, user: TelehooperUser, dialogue: ServiceDialogue, pinned_message: Message, serviceAPI: BaseTelehooperServiceAPI) -> None:
 		"""
 		Конвертирует данную Telegram-группу в группу-диалог из сервиса.
 
@@ -295,9 +297,8 @@ class TelehooperGroup:
 		TelehooperAPI.save_subgroup(
 			TelehooperSubGroup(
 				id=pinned_message.message_thread_id or 0,
-				service_id=dialogue.id,
 				dialogue_name=dialogue.name,
-				service=dialogue.service_name,
+				service=serviceAPI,
 				parent=self
 			)
 		)
@@ -340,16 +341,14 @@ class TelehooperSubGroup:
 	"""
 
 	id: int
-	service_id: int
 	service_dialogue_name: str | None
-	service_name: str
 	parent: TelehooperGroup
+	service: BaseTelehooperServiceAPI
 
-	def __init__(self, id: int, service_id: int, dialogue_name: str | None, service: str, parent: TelehooperGroup) -> None:
+	def __init__(self, id: int, dialogue_name: str | None, service: BaseTelehooperServiceAPI, parent: TelehooperGroup) -> None:
 		self.id = id
-		self.service_id = service_id
 		self.service_dialogue_name = dialogue_name
-		self.service_name = service
+		self.service = service
 		self.parent = parent
 
 	async def send_message_in(self, text: str) -> None:
@@ -365,6 +364,9 @@ class TelehooperSubGroup:
 		"""
 
 		pass
+
+	def __repr__(self) -> str:
+		return f"<{self.service.service_name} TelehooperSubGroup for {self.service_dialogue_name}>"
 
 class TelehooperAPI:
 	"""
@@ -403,7 +405,7 @@ class TelehooperAPI:
 			return None
 
 	@staticmethod
-	async def get_group(chat: Chat | int, db_group: Document | None = None) -> TelehooperGroup | None:
+	async def get_group(user: TelehooperUser, chat: Chat | int, db_group: Document | None = None) -> TelehooperGroup | None:
 		"""
 		Возвращает объект группы, либо None, если данной группы нет в БД, или же если бот не состоит в ней.
 		"""
@@ -414,6 +416,7 @@ class TelehooperAPI:
 		assert bot
 
 		return TelehooperGroup(
+			user,
 			db_group if db_group else await get_group(chat_id),
 			chat if isinstance(chat, Chat) else (await bot.get_chat(chat_id)),
 			bot
@@ -460,10 +463,32 @@ class TelehooperAPI:
 			if servDialog.parent.creatorID != user.id:
 				continue
 
-			if servDialog.service_name != dialogue.service_name:
+			if servDialog.service.service_name != dialogue.service_name:
 				continue
 
-			if servDialog.service_id != dialogue.id:
+			if servDialog.service.service_user_id != dialogue.id:
+				continue
+
+			return servDialog
+
+		return None
+
+	@staticmethod
+	def get_subgroup_by_chat(group: TelehooperGroup, topic_id: int = 0) -> TelehooperSubGroup | None:
+		"""
+		Возвращает TelehooperSubGroup по чату Telegram.
+
+		Если группа не найдена, возвращается None.
+		"""
+
+		for servDialog in _service_dialogues:
+			if servDialog.parent.creatorID != group.creatorID:
+				continue
+
+			if servDialog.parent.id != group.id:
+				continue
+
+			if servDialog.id != topic_id:
 				continue
 
 			return servDialog
