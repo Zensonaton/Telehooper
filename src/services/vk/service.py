@@ -3,7 +3,7 @@
 import asyncio
 from typing import TYPE_CHECKING, Optional, cast
 
-from aiogram.types import Message
+from aiogram.types import Chat, Message
 from loguru import logger
 from pydantic import SecretStr
 
@@ -20,7 +20,7 @@ from services.vk.vk_api.longpoll import (BaseVKLongpollEvent,
                                          VKAPILongpoll)
 
 if TYPE_CHECKING:
-	from api import TelehooperMessage, TelehooperUser
+	from api import TelehooperMessage, TelehooperSubGroup, TelehooperUser
 
 
 class VKServiceAPI(BaseTelehooperServiceAPI):
@@ -74,7 +74,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 			subgroup = TelehooperAPI.get_subgroup_by_service_dialogue(
 				self.user,
 				ServiceDialogue(
-					service_name="VK",
+					service_name=self.service_name,
 					id=event.from_id
 				)
 			)
@@ -193,7 +193,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 				result.append(
 					ServiceDialogue(
-						service_name="VK",
+						service_name=self.service_name,
 						id=conversation_id,
 						name=full_name,
 						profile_url=image_url,
@@ -272,11 +272,11 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 	async def send_message(self, chat_id: int, text: str) -> int:
 		return await self.vkAPI.messages_send(peer_id=chat_id, message=text)
 
-	async def handle_inner_message(self, msg: Message) -> None:
+	async def handle_inner_message(self, msg: Message, subgroup: "TelehooperSubGroup") -> None:
 		from api import TelehooperAPI
 
 
-		logger.debug(f"Обработка сообщения в Telegram: \"{msg.text}\"")
+		logger.debug(f"[TG] Обработка сообщения в Telegram: \"{msg.text}\" в \"{subgroup}\"")
 
 		service_message_id = await self.send_message(
 			chat_id=self.service_user_id,

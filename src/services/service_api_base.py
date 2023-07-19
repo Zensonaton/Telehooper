@@ -2,10 +2,11 @@
 
 import enum
 from typing import TYPE_CHECKING, Optional
+
 from aiogram.types import Message
 
 if TYPE_CHECKING:
-	from api import TelehooperUser, TelehooperMessage
+	from api import TelehooperMessage, TelehooperSubGroup, TelehooperUser
 
 
 class ServiceDialogue:
@@ -169,11 +170,12 @@ class BaseTelehooperServiceAPI:
 
 		raise NotImplementedError
 
-	async def handle_inner_message(self, msg: Message) -> None:
+	async def handle_inner_message(self, msg: Message, subgroup: "TelehooperSubGroup") -> None:
 		"""
 		Метод, вызываемый ботом, в случае получения нового сообщения в группе-диалоге (или топик-диалоге). Этот метод обрабатывает события, передавая их текст в сервис.
 
 		:param msg: Сообщение из Telegram.
+		:param subgroup: Подгруппа, в которой было получено сообщение.
 		"""
 
 		raise NotImplementedError

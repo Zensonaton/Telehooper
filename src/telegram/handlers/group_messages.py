@@ -45,4 +45,4 @@ async def on_group_message(msg: Message, subgroup: TelehooperSubGroup) -> None:
 	Handler для случая, если бот получил в группе сообщение, для которого существует диалог в сервисе.
 	"""
 
-	await subgroup.service.handle_inner_message(msg)
+	await subgroup.service.handle_inner_message(msg, subgroup)
