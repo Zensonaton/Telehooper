@@ -1,9 +1,12 @@
 # coding: utf-8
 
 from typing import Any, cast
+
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from case_insensitive_dict import CaseInsensitiveDict
 from loguru import logger
+
+from config import config
 
 
 SETTING_EMOJI = "⚙️"
@@ -121,12 +124,32 @@ SETTINGS_TREE = {
 		"ViaServiceMessages": {
 			"Name": "Показ Ваших сообщений",
 			"Documentation": (
-				"Указывает, может ли Telehooper пересылать отправленные Вами сообщения, которые были отправлены внутри сервиса, используя при этом префикс «Вы»."
+				"Включив эту настройку, Telehooper будет пересылать отправленные Вами сообщения, которые Вы отправили не через бота, а через сам сервис.\n"
+				"\n"
+				"Сообщения, отправляемые при этой настройке имеют следующий вид:\n"
+				"  [<b>Вы</b>]: текст Вашего сообщения.\n"
+				"\n"
+				"Такие сообщения отправляются без уведомлений."
 			),
 			"Default": True
 		}
 	}
 }
+
+if config.debug:
+	SETTINGS_TREE.update({
+		"Debug": {
+			"Name": "Опции DEBUG-режима",
+
+			"SentViaBotInform": {
+				"Name": "Пересылка исходящих",
+				"Documentation": (
+					"При включении данной настройки, Telehooper будет пересылать отправленные Вами сообщения с помощью бота. Используется для отладки работы бота без использования сервиса."
+				),
+				"Default": False
+			}
+		}
+	})
 
 class SettingsHandler:
 	"""

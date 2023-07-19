@@ -1,6 +1,6 @@
 # coding: utf-8
 
-from typing import Any
+from typing import Any, cast
 
 import aiohttp
 from loguru import logger
@@ -122,7 +122,7 @@ class VKAPI:
 
 		return (await self.users_get([user_id] if user_id else []))[0]
 
-	async def messages_send(self, peer_id: int, message: str) -> dict:
+	async def messages_send(self, peer_id: int, message: str) -> int:
 		"""
 		Отправляет сообщение пользователю. API: `messages.send`.
 
@@ -130,11 +130,11 @@ class VKAPI:
 		:param message: Текст сообщения.
 		"""
 
-		return await self._post_("messages.send", {
+		return cast(int, await self._post_("messages.send", {
 			"peer_id": peer_id,
 			"message": message,
 			"random_id": random_id()
-		})
+		}))
 
 	async def messages_getLongPollServer(self) -> dict:
 		"""

@@ -16,6 +16,7 @@ from services.service_api_base import (BaseTelehooperServiceAPI,
                                        TelehooperServiceUserInfo)
 from services.vk.vk_api.api import VKAPI
 from services.vk.vk_api.longpoll import BaseVKLongpollEvent, LongpollNewMessageEvent, VKAPILongpoll
+from config import config
 
 if TYPE_CHECKING:
 	from api import TelehooperUser
@@ -77,8 +78,30 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 			logger.debug(f"[VK] Новое сообщение с текстом \"{event.text}\", для подгруппы \"{subgroup.service_dialogue_name}\"")
 
+			sent_by_account_owner = event.from_id == self.service_user_id
+			ignore_self_debug = config.debug and await self.user.get_setting("Debug.SentViaBotInform")
+
+			# Проверяем, стоит ли боту обрабатывать исходящие сообщения.
+			if sent_by_account_owner and not (await self.user.get_setting("Services.ViaServiceMessages") or ignore_self_debug):
+				return
+
+			# Проверяем, не было ли отправлено сообщение самим ботом.
+			msg_saved = await TelehooperAPI.get_message_by_service_id("VK", event.message_id)
+
+			if msg_saved and msg_saved.sent_via_bot and not ignore_self_debug:
+				return
+
 			try:
-				await subgroup.send_message_in(event.text)
+				new_message_text = ""
+
+				if sent_by_account_owner:
+					new_message_text = f"[<b>Вы</b>{' <i>debug-пересылка</i>' if ignore_self_debug else ''}]: "
+
+				new_message_text += event.text
+
+				telegram_message_id = await subgroup.send_message_in(new_message_text, silent=sent_by_account_owner)
+
+				await TelehooperAPI.save_message("VK", telegram_message_id, event.message_id, False)
 			except Exception as e:
 				# TODO: Отправлять сообщение об ошибке пользователю, делая при этом логирование самого текста ошибки.
 
@@ -243,16 +266,19 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 		raise TypeError(f"Диалог с ID {chat_id} не найден")
 
-	async def send_message(self, chat_id: int, text: str) -> None:
-		await self.vkAPI.messages_send(
+	async def send_message(self, chat_id: int, text: str) -> int:
+		return await self.vkAPI.messages_send(
 			peer_id=chat_id,
 			message=text
 		)
 
 	async def handle_inner_message(self, msg: Message) -> None:
+		from api import TelehooperAPI
+
 		logger.debug(f"Обработка сообщения в Telegram: \"{msg.text}\"")
 
-		await self.send_message(
+		service_message_id = await self.send_message(
 			chat_id=self.service_user_id,
 			text=msg.text or "[пустой текст сообщения]"
 		)
+		await TelehooperAPI.save_message("VK", msg.message_id, service_message_id, True)

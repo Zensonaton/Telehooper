@@ -21,6 +21,7 @@ from settings import SETTINGS_TREE, SettingsHandler
 # Да, я знаю что это плохой способ. Знаю. Ни к чему другому, адекватному я не пришёл.
 _saved_connections = {}
 _service_dialogues: list["TelehooperSubGroup"] = []
+_cached_message_ids: list["TelehooperMessage"] = []
 
 settings = SettingsHandler(SETTINGS_TREE)
 
@@ -324,16 +325,34 @@ class TelehooperGroup:
 
 		await self.rawDocument.save()
 
-	async def send_message(self, text: str, topic: int = 0) -> None:
+	async def send_message(self, text: str, topic: int = 0, silent: bool = False) -> int:
 		"""
-		Отправляет сообщение в группу.
+		Отправляет сообщение в группу. Возвращает ID отправленного сообщения.
 		"""
 
-		await self.bot.send_message(
+		msg = await self.bot.send_message(
+			chat_id=self.id,
 			message_thread_id=topic,
 			text=text,
-			chat_id=self.id
+			disable_notification=silent
 		)
+		return msg.message_id
+
+class TelehooperMessage:
+	"""
+	Класс, описывающий сообщение отправленного через Telehooper. Данный класс предоставляет доступ к ID сообщения в сервисе и в Telegram, а так же прочую информацию.
+	"""
+
+	service: str
+	telegram_message_ids: list[int]
+	service_message_ids: list[int]
+	sent_via_bot: bool
+
+	def __init__(self, service: str, telegram_mids: int | list[int], service_mids: int | list[int], sent_via_bot: bool = False) -> None:
+		self.service = service
+		self.telegram_message_ids = [telegram_mids] if isinstance(telegram_mids, int) else telegram_mids
+		self.service_message_ids = [service_mids] if isinstance(service_mids, int) else service_mids
+		self.sent_via_bot = sent_via_bot
 
 class TelehooperSubGroup:
 	"""
@@ -351,19 +370,19 @@ class TelehooperSubGroup:
 		self.service = service
 		self.parent = parent
 
-	async def send_message_in(self, text: str) -> None:
+	async def send_message_in(self, text: str, silent: bool = False) -> int:
 		"""
 		Отправляет сообщение в Telegram-группу.
 		"""
 
-		await self.parent.send_message(text)
+		return await self.parent.send_message(text, topic=self.id, silent=silent)
 
-	async def send_message_out(self) -> None:
+	async def send_message_out(self, text: str) -> None:
 		"""
 		Отправляет сообщение в сервис.
 		"""
 
-		pass
+		await self.service.send_message(chat_id=self.parent.id, text=text)
 
 	def __repr__(self) -> str:
 		return f"<{self.service.service_name} TelehooperSubGroup for {self.service_dialogue_name}>"
@@ -494,3 +513,59 @@ class TelehooperAPI:
 			return servDialog
 
 		return None
+
+	@staticmethod
+	async def save_message(service_name: str, telegram_message_id: int | list[int], service_message_id: int | list[int], sent_via_bot: bool = True):
+		"""
+		Сохраняет ID отправленного сообщения в БД.
+		"""
+
+		msg = TelehooperMessage(
+			service=service_name,
+			telegram_mids=telegram_message_id,
+			service_mids=service_message_id,
+			sent_via_bot=sent_via_bot
+		)
+
+		_cached_message_ids.append(msg)
+
+		# TODO: Сохранить в БД.
+
+	@staticmethod
+	async def get_message_by_telegram_id(service_name: str, message_id: int, bypass_cache: bool = False) -> TelehooperMessage | None:
+		"""
+		Возвращает информацию о отправленном через бота сообщения по его ID в Telegram.
+		"""
+
+		# Если нам это разрешено, возвращаем ID сообщения из кэша.
+		if not bypass_cache:
+			for msg in _cached_message_ids:
+				if msg.service != service_name:
+					continue
+
+				if message_id in msg.telegram_message_ids:
+					return msg
+
+		# TODO: Извлечь информацию о сообщении из БД.
+
+		return None
+
+	@staticmethod
+	async def get_message_by_service_id(service_name: str, message_id: int, bypass_cache: bool = False) -> TelehooperMessage | None:
+		"""
+		Возвращает информацию о отправленном через бота сообщения по его ID в сервисе.
+		"""
+
+		# Если нам это разрешено, возвращаем ID сообщения из кэша.
+		if not bypass_cache:
+			for msg in _cached_message_ids:
+				if msg.service != service_name:
+					continue
+
+				if message_id in msg.service_message_ids:
+					return msg
+
+		# TODO: Извлечь информацию о сообщении из БД.
+
+		return None
+
