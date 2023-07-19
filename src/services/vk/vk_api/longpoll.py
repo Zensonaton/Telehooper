@@ -59,7 +59,7 @@ class LongpollNewMessageEvent(BaseVKLongpollEvent):
 	"""ID сообщения."""
 	date: int
 	"""UNIX-время отправки сообщения."""
-	from_id: int
+	peer_id: int
 	"""ID отправителя сообщения."""
 	text: str
 	"""Текст сообщения."""
@@ -68,7 +68,7 @@ class LongpollNewMessageEvent(BaseVKLongpollEvent):
 		super().__init__(event)
 
 		self.message_id = self.event_data[0]
-		self.from_id = self.event_data[2]
+		self.peer_id = self.event_data[2]
 		self.date = self.event_data[3]
 		self.text = self.event_data[5]
 

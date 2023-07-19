@@ -237,7 +237,8 @@ async def reconnect_services(use_async: bool = True) -> None:
 							id=chat["ID"],
 							dialogue_name=chat["Name"],
 							service=serviceAPI,
-							parent=telehooper_group
+							parent=telehooper_group,
+							service_chat_id=chat["DialogueID"]
 						)
 					)
 	if use_async:

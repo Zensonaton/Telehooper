@@ -75,7 +75,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 				self.user,
 				ServiceDialogue(
 					service_name=self.service_name,
-					id=event.from_id
+					id=event.peer_id
 				)
 			)
 
@@ -84,7 +84,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 			logger.debug(f"[VK] Новое сообщение с текстом \"{event.text}\", для подгруппы \"{subgroup.service_dialogue_name}\"")
 
-			sent_by_account_owner = event.from_id == self.service_user_id
+			sent_by_account_owner = event.peer_id == self.service_user_id
 			ignore_self_debug = config.debug and await self.user.get_setting("Debug.SentViaBotInform")
 
 			# Проверяем, стоит ли боту обрабатывать исходящие сообщения.
@@ -281,7 +281,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 		logger.debug(f"[TG] Обработка сообщения в Telegram: \"{msg.text}\" в \"{subgroup}\"")
 
 		service_message_id = await self.send_message(
-			chat_id=self.service_user_id,
+			chat_id=subgroup.service_chat_id,
 			text=msg.text or "[пустой текст сообщения]"
 		)
 		await TelehooperAPI.save_message("VK", msg.message_id, service_message_id, True)

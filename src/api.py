@@ -310,7 +310,8 @@ class TelehooperGroup:
 				id=pinned_message.message_thread_id or 0,
 				dialogue_name=dialogue.name,
 				service=serviceAPI,
-				parent=self
+				parent=self,
+				service_chat_id=dialogue.id
 			)
 		)
 
@@ -387,28 +388,32 @@ class TelehooperSubGroup:
 	"""
 
 	id: int
-	"""ID топика в сервисе. Может быть значением `0`, если это главная группа, которая не имеет топиков."""
+	"""ID топика Telegram. Может быть значением `0`, если это главная группа, которая не имеет топиков."""
 	service_dialogue_name: str | None
 	"""Название диалога в сервисе. В некоторых случаях может отсутствовать."""
 	parent: TelehooperGroup
 	"""Группа, являющаяся родителем данной суб-группы."""
 	service: BaseTelehooperServiceAPI
 	"""API сервиса."""
+	service_chat_id: int
+	"""ID диалога в сервисе."""
 
-	def __init__(self, id: int, dialogue_name: str | None, service: BaseTelehooperServiceAPI, parent: TelehooperGroup) -> None:
+	def __init__(self, id: int, dialogue_name: str | None, service: BaseTelehooperServiceAPI, parent: TelehooperGroup, service_chat_id: int) -> None:
 		"""
 		Инициализирует объект суб-группы.
 
-		:param id: ID топика в сервисе. Может быть значением `0`, если это главная группа, которая не имеет топиков.
+		:param id: ID топика Telegram. Может быть значением `0`, если это главная группа, которая не имеет топиков.
 		:param dialogue_name: Название диалога в сервисе. В некоторых случаях может отсутствовать.
 		:param service: API сервиса.
 		:param parent: Группа, являющаяся родителем данной суб-группы.
+		:param service_chat_id: ID диалога в сервисе.
 		"""
 
 		self.id = id
 		self.service_dialogue_name = dialogue_name
 		self.service = service
 		self.parent = parent
+		self.service_chat_id = service_chat_id
 
 	async def send_message_in(self, text: str, silent: bool = False) -> int:
 		"""
@@ -548,7 +553,7 @@ class TelehooperAPI:
 			if servDialog.service.service_name != dialogue.service_name:
 				continue
 
-			if servDialog.service.service_user_id != dialogue.id:
+			if servDialog.service_chat_id != dialogue.id:
 				continue
 
 			return servDialog
