@@ -221,10 +221,10 @@ class TelehooperGroup:
 		"""
 
 		async def _sleep():
-			await asyncio.sleep(1.5)
+			await asyncio.sleep(1)
 
 		async def _longSleep():
-			await asyncio.sleep(3.5)
+			await asyncio.sleep(4)
 
 		# Пытаемся изменить название группы.
 		if dialogue.name:
@@ -263,31 +263,6 @@ class TelehooperGroup:
 				f"@telehooper_bot: Группа для диалога «{dialogue.name}» из ВКонтакте.\n"
 				"\n"
 				"ℹ️ Для управления данной группой используйте команду /this."
-			)
-		except:
-			await _longSleep()
-		else:
-			await _sleep()
-
-		# Редактируем текст сообщения.
-		try:
-			await pinned_message.edit_text(
-				"<b>🫂 Группа-диалог ВКонтакте</b>.\n"
-				"\n"
-				"Используйте данное сообщения для выполнения быстрых действий над этой группой-диалогом.\n"
-				"\n"
-				"<i>WIP!</i>"
-			)
-		except:
-			await _longSleep()
-		else:
-			await _sleep()
-
-		# Пытаемся закрепить сообщение.
-		try:
-			await self.telegramChat.pin_message(
-				pinned_message.message_id,
-				disable_notification=True
 			)
 		except:
 			await _longSleep()

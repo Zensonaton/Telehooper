@@ -248,7 +248,7 @@ async def this_vk_convert_inline_handler(query: types.CallbackQuery, msg: types.
 	# TODO: Права на права админа у юзера?
 	# TODO: Сделать настройку, а так же извлечение текста закрепа из диалога ВКонтакте, сделав его закрепом в Telegram.
 
-	await asyncio.sleep(3)
+	await asyncio.sleep(1.5)
 	await group.convert_to_dialogue_group(user, dialog, msg, vkServiceAPI)
 
 	# Изменяем список команд.
