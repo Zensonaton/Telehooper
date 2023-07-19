@@ -50,6 +50,7 @@ def get_message_flags(flags: int) -> tuple[bool, bool, bool, bool, bool, bool, b
 
 		if flags >= flag:
 			flags -= flag
+
 			return True
 
 		return False

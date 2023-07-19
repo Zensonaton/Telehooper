@@ -6,7 +6,9 @@ class BaseVKAPIException(Exception):
 	"""
 
 	error_code: int
+	"""Код ошибки."""
 	message: str
+	"""Текст сообщения ошибки."""
 
 	def __init__(self, error_code: int, message: str) -> None:
 		"""

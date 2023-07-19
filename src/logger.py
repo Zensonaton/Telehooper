@@ -8,6 +8,8 @@ from loguru import logger
 def init_logger(debug: bool = False) -> None:
 	"""
 	Инициализирует логгер.
+
+	:param debug: Включает режим отладки.
 	"""
 
 	logger.remove()

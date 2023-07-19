@@ -12,7 +12,7 @@ from telegram import bot
 
 async def bot_init() -> None:
 	"""
-	Функция, запускающаяся ПОСЛЕ запуска Telegram-бота.
+	Функция, инициализирующая полностью Telehooper-бота.
 	"""
 
 	# Логирование.

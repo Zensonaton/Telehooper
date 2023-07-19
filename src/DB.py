@@ -17,6 +17,10 @@ DB: Database | None = None
 async def get_db(db_name: str | None = None, check_auth: bool = False, force_new: bool = False) -> Database:
 	"""
 	Возвращает объект для работы с базой данных.
+
+	:param db_name: Название базы данных. Если не указано, то будет использовано название из конфигурации.
+	:param check_auth: Проверять ли авторизацию в базе данных?
+	:param force_new: Создавать ли новую базу данных, если она не была найдена?
 	"""
 
 	global DB, couchdb
@@ -55,7 +59,8 @@ async def get_user(user: types.User, create_by_default: bool = True) -> Document
 	"""
 	Возвращает данные пользователя из базы данных.
 
-	Если `create_by_default` равен `True`, то пользователь будет создан, если он не был найден, в противном случае будет вызвана ошибка.
+	:param user: Пользователь, информацию о котором нужно получить.
+	:param create_by_default: Создавать ли пользователя, если он не был найден в базе данных?
 	"""
 
 	assert not user.is_bot, "Попытка получить информацию из БД (метод get_user()) о боте"

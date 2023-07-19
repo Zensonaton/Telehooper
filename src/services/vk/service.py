@@ -1,25 +1,26 @@
 # coding: utf-8
 
 import asyncio
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Optional, cast
 
-from aiogram import Bot
 from aiogram.types import Message
 from loguru import logger
 from pydantic import SecretStr
 
 import utils
+from config import config
 from DB import get_user
 from services.service_api_base import (BaseTelehooperServiceAPI,
                                        ServiceDialogue,
                                        ServiceDisconnectReason,
                                        TelehooperServiceUserInfo)
 from services.vk.vk_api.api import VKAPI
-from services.vk.vk_api.longpoll import BaseVKLongpollEvent, LongpollNewMessageEvent, VKAPILongpoll
-from config import config
+from services.vk.vk_api.longpoll import (BaseVKLongpollEvent,
+                                         LongpollNewMessageEvent,
+                                         VKAPILongpoll)
 
 if TYPE_CHECKING:
-	from api import TelehooperUser
+	from api import TelehooperMessage, TelehooperUser
 
 
 class VKServiceAPI(BaseTelehooperServiceAPI):
@@ -28,11 +29,14 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 	"""
 
 	token: SecretStr
-
+	"""Токен для доступа к API ВКонтакте."""
 	vkAPI: VKAPI
+	"""Объект для доступа к API ВКонтакте."""
 
 	_cachedDialogues = []
+	"""Кэшированный список диалогов."""
 	_longPollTask: asyncio.Task | None = None
+	"""Задача, выполняющая longpoll."""
 
 	def __init__(self, token: SecretStr, vk_user_id: int, user: "TelehooperUser") -> None:
 		super().__init__("VK", vk_user_id, user)
@@ -57,6 +61,8 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 	async def handle_update(self, event: BaseVKLongpollEvent) -> None:
 		"""
 		Метод, обрабатывающий события VK Longpoll.
+
+		:param event: Событие, полученное с longpoll-сервера.
 		"""
 
 		from api import TelehooperAPI
@@ -86,7 +92,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 				return
 
 			# Проверяем, не было ли отправлено сообщение самим ботом.
-			msg_saved = await TelehooperAPI.get_message_by_service_id("VK", event.message_id)
+			msg_saved = await subgroup.service.get_message_by_service_id(event.message_id)
 
 			if msg_saved and msg_saved.sent_via_bot and not ignore_self_debug:
 				return
@@ -107,7 +113,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 				logger.error(f"Ошибка отправки сообщения Telegram-пользователю {utils.get_telegram_logging_info(self.user.telegramUser)}: {e}")
 
-	async def get_list_of_dialogues(self, force_update: bool = False, retrieve_all: bool = False, limit: int | None = 800, skip_ids: list[int] = []) -> list[ServiceDialogue]:
+	async def get_list_of_dialogues(self, force_update: bool = False, max_amount: int = 800, skip_ids: list[int] = []) -> list[ServiceDialogue]:
 		if not force_update and self._cachedDialogues:
 			return self._cachedDialogues
 
@@ -199,10 +205,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 				retrieved_dialogues += 1
 
-			if not retrieve_all or retrieved_dialogues >= total_dialogues or (limit and (retrieved_dialogues + 200 > limit)):
-				if limit:
-					result = result[:limit]
-
+			if retrieved_dialogues >= total_dialogues or retrieved_dialogues >= max_amount:
 				break
 
 		self._cachedDialogues = result
@@ -267,13 +270,11 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 		raise TypeError(f"Диалог с ID {chat_id} не найден")
 
 	async def send_message(self, chat_id: int, text: str) -> int:
-		return await self.vkAPI.messages_send(
-			peer_id=chat_id,
-			message=text
-		)
+		return await self.vkAPI.messages_send(peer_id=chat_id, message=text)
 
 	async def handle_inner_message(self, msg: Message) -> None:
 		from api import TelehooperAPI
+
 
 		logger.debug(f"Обработка сообщения в Telegram: \"{msg.text}\"")
 
@@ -282,3 +283,13 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 			text=msg.text or "[пустой текст сообщения]"
 		)
 		await TelehooperAPI.save_message("VK", msg.message_id, service_message_id, True)
+
+	async def get_message_by_telegram_id(self, message_id: int, bypass_cache: bool = False) -> Optional["TelehooperMessage"]:
+		from api import TelehooperAPI
+
+		return await TelehooperAPI.get_message_by_telegram_id("VK", message_id, bypass_cache=bypass_cache)
+
+	async def get_message_by_service_id(self, message_id: int, bypass_cache: bool = False) -> Optional["TelehooperMessage"]:
+		from api import TelehooperAPI
+
+		return await TelehooperAPI.get_message_by_service_id("VK", message_id, bypass_cache=bypass_cache)

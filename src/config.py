@@ -9,19 +9,21 @@ class Configuration(BaseSettings):
 	"""
 
 	telegram_token: SecretStr = Field(..., description="Токен для Telegram-бота, который можно получить у @BotFather", env="telegram_token")
-
+	"""Токен для Telegram-бота, который можно получить у @BotFather."""
 	couchdb_name: str = Field(..., description="Название базы данных CouchDB", env="couch_db_database")
+	"""Название базы данных CouchDB."""
 	couchdb_host: str = Field("http://localhost:5984", description="Хост базы данных CouchDB", env="couch_db_host")
+	"""Хост базы данных CouchDB."""
 	couchdb_user: str = Field(..., description="Пользователь базы данных CouchDB", env="couch_db_user")
+	"""Пользователь базы данных CouchDB."""
 	couchdb_password: str = Field(..., description="Пароль базы данных CouchDB", env="couch_db_password")
-
+	"""Пароль базы данных CouchDB."""
 	token_encryption_key: SecretStr = Field(..., description="Ключ шифрования токенов в базе данных", env="token_encryption_key", min_length=6)
-
+	"""Ключ шифрования токенов в базе данных."""
 	vkbot_notifier_id: int = Field(213024897, description="ID VK группы, в которую будет отправляться сообщение для уведомление о подключении нового пользователя. Используй 0 для отключения.", env="vkbot_notifier_id")
-
-
+	"""ID VK группы, в которую будет отправляться сообщение для уведомление о подключении нового пользователя. Используй 0 для отключения."""
 	debug: bool = Field(False, description="Включает режим отладки", env="debug")
-
+	"""Включает режим отладки."""
 
 	class Config:
 		env_file = ".env"
@@ -29,3 +31,4 @@ class Configuration(BaseSettings):
 		case_sensitive = False
 
 config = Configuration() # type: ignore
+"""Конфигурация бота, загружающаяся с `.env`-файла."""

@@ -2,7 +2,7 @@
 
 import asyncio
 from asyncio import TimeoutError
-from typing import AsyncGenerator
+from typing import AsyncGenerator, Optional
 
 import aiohttp
 from aiohttp import ClientConnectionError
@@ -17,8 +17,11 @@ class BaseVKLongpollEvent:
 	"""
 
 	event_type: int
+	"""Тип события. Список событий: https://dev.vk.com/api/user-long-poll/getting-started#Структура событий"""
 	event_data: list
+	"""Информация о событии."""
 	event_raw: list
+	"""Неотредактированное содержимое события, которое было получено напрямую с longpoll-сервера."""
 
 	def __init__(self, event: list) -> None:
 		self.event_type = event[0]
@@ -27,7 +30,7 @@ class BaseVKLongpollEvent:
 		self.event_raw = event
 
 	@staticmethod
-	def get_event_type(event: list, raise_error: bool = True):
+	def get_event_type(event: list, raise_error: bool = True) -> Optional["BaseVKLongpollEvent"]:
 		"""
 		Автоматически определяет тип события, выдавая нужный класс longpoll-события.
 
@@ -53,9 +56,13 @@ class LongpollNewMessageEvent(BaseVKLongpollEvent):
 	"""
 
 	message_id: int
+	"""ID сообщения."""
 	date: int
+	"""UNIX-время отправки сообщения."""
 	from_id: int
+	"""ID отправителя сообщения."""
 	text: str
+	"""Текст сообщения."""
 
 	def __init__(self, event: list) -> None:
 		super().__init__(event)
@@ -73,10 +80,13 @@ class VKAPILongpoll:
 	"""
 
 	wait: int
+	"""Время ожидания между запросами к longpoll-серверу. ВКонтакте автоматически 'завершает' свой ответ после данного значения."""
 	mode: int
-	rps_delay: int = 0
+	"""Режим работы longpoll-сервера."""
 	user_id: int | None
+	"""ID пользователя, для которого будет работать longpoll. Если не указано, то будет использован ID текущего пользователя."""
 	is_stopped: bool = False
+	"""Остановлен ли longpoll. Если данное значение установить на True, то longpoll будет остановлен."""
 
 	def __init__(self, api: VKAPI, wait: int = 50, mode: int = 682, user_id: int | None = None):
 		self.api = api
@@ -101,7 +111,7 @@ class VKAPILongpoll:
 		"""
 
 		async with aiohttp.ClientSession() as session:
-			async with session.post(f"https://{server['server']}?act=a_check&key={server['key']}&ts={server['ts']}&wait={self.wait}&mode={self.mode}&rps_delay={self.rps_delay}") as response:
+			async with session.post(f"https://{server['server']}?act=a_check&key={server['key']}&ts={server['ts']}&wait={self.wait}&mode={self.mode}") as response:
 				return await response.json()
 
 	async def get_longpoll_server(self) -> dict:

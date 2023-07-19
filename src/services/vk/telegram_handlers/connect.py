@@ -24,7 +24,7 @@ from ..consts import VK_OAUTH_URL
 router = Router()
 
 @router.callback_query(Text("/connect vk"), F.message.as_("msg"))
-async def connect_vk_inline_handler(_: types.CallbackQuery, msg: types.Message) -> None:
+async def connect_vk_inline_handler(query: types.CallbackQuery, msg: types.Message) -> None:
 	"""
 	Inline Callback Handler для команды `/connect`.
 
@@ -83,14 +83,14 @@ async def connect_vk_token_handler(msg: types.Message) -> None:
 
 	allow_tokens_storing = await user.get_setting("Security.StoreTokens")
 
-	if user.rawDocument["Connections"].get("VK"):
+	if user.document["Connections"].get("VK"):
 		# TODO: Автоматически отключать предыдущий аккаунт ВКонтакте, если он был подключён.
 		# Либо же дать такую опцию пользователю.
 
 		await msg.answer(
 			"<b>⚠️ Ошибка подключения сервиса ВКонтакте</b>.\n"
 			"\n"
-			f"К Telehooper уже <a href=\"vk.com/id{user.rawDocument['Connections']['VK']['ID']}\">подключён аккаунт ВКонтакте</a>. Вы не можете подключить сразу несколько аккаунтов одного типа к Telehooper.\n"
+			f"К Telehooper уже <a href=\"vk.com/id{user.document['Connections']['VK']['ID']}\">подключён аккаунт ВКонтакте</a>. Вы не можете подключить сразу несколько аккаунтов одного типа к Telehooper.\n"
 			"\n"
 			"ℹ️ Для подключения нового аккаунта Вы можете можете отключить старый, для этого пропишите команду /me.",
 			disable_web_page_preview=True
@@ -120,7 +120,7 @@ async def connect_vk_token_handler(msg: types.Message) -> None:
 		auth_result = await authorize_by_token(cast(types.User, msg.from_user), token)
 
 		# Сохраняем в базу данных сессию пользователя.
-		user.rawDocument["Connections"]["VK"] = {
+		user.document["Connections"]["VK"] = {
 			"Token": utils.encrypt_with_env_key(token.get_secret_value()) if allow_tokens_storing else None,
 			"ConnectedAt": utils.get_timestamp(),
 			"LastActivityAt": utils.get_timestamp(),
@@ -130,7 +130,7 @@ async def connect_vk_token_handler(msg: types.Message) -> None:
 			"OwnedDialogues": {}
 		}
 
-		await user.rawDocument.save()
+		await user.document.save()
 	except AccountDeactivatedException as error:
 		await msg.answer(
 			"<b>⚠️ Ошибка подключения сервиса ВКонтакте</b>.\n"

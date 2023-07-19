@@ -30,33 +30,43 @@ class TelehooperUser:
 	Пользователь бота Telehooper.
 	"""
 
-	id: int
-	username: str | None
-	name: str
-	creationDate: int
+	creation_date: int
+	"""UNIX-Время первого сообщения пользователя боту."""
 	botBanned: bool
+	"""Заблокировал ли пользователь бота?"""
 	settingsOverriden: dict
+	"""Словарь из настроек, которые были переопределены пользователем."""
 	knownLanguage: str | None
+	"""Язык, который известен боту."""
 	roles: list[str]
+	"""Роли пользователя."""
 	connections: dict
-
-	rawDocument: Document
+	"""Список подключённых сервисов."""
+	document: Document
+	"""Документ пользователя в БД."""
 	telegramUser: User
+	"""Объект пользователя в Telegram."""
 
-	def __init__(self, rawDocument: Document, telegramUser: User) -> None:
-		self.rawDocument = rawDocument
-		self.telegramUser = telegramUser
-		self._parse_document(rawDocument)
+	def __init__(self, document: Document, user: User) -> None:
+		"""
+		Инициализирует объект пользователя.
+
+		:param document: Документ пользователя в БД.
+		:param user: Объект пользователя в Telegram.
+		"""
+
+		self.document = document
+		self.telegramUser = user
+		self._parse_document(document)
 
 	def _parse_document(self, user: Document) -> None:
 		"""
 		Парсит значение документа пользователя в объект пользователя.
+
+		:param user: Документ пользователя в БД.
 		"""
 
-		self.id = user["ID"]
-		self.username = user["Username"]
-		self.name = user["Name"]
-		self.creationDate = user["CreationDate"]
+		self.creation_date = user["CreationDate"]
 		self.botBanned = user["BotBanned"]
 		self.settingsOverriden = user["SettingsOverriden"]
 		self.knownLanguage = user["KnownLanguage"]
@@ -65,37 +75,37 @@ class TelehooperUser:
 
 	async def refresh_document(self) -> Document:
 		"""
-		Обновляет документ пользователя из БД.
+		Изменяет значения переменных данного класа, что бы соответствовать документу в БД.
 		"""
 
-		self.rawDocument = await db_get_user(self.telegramUser)
-		self._parse_document(self.rawDocument)
+		self.document = await db_get_user(self.telegramUser)
+		self._parse_document(self.document)
 
-		return self.rawDocument
+		return self.document
 
 	def _get_service_store_name(self, name: str) -> str:
 		"""
 		Возвращает название ключа в словаре `connections` для сохранения API сервиса.
+
+		:param name: Название сервиса.
 		"""
 
-		return f"{self.id}-{name}"
+		return f"{self.telegramUser.id}-{name}"
 
 	def save_connection(self, service_api: BaseTelehooperServiceAPI) -> None:
 		"""
-		Сохраняет ServiceAPI в объект пользователя.
+		Сохраняет ServiceAPI в объект пользователя. После сохранения в память, извлечь API можно через методы по типу `get_vk_connection`.
 
-		После сохранения в память, извлечь API можно через методы по типу `get_vk_connection`.
+		:param service_api: ServiceAPI, который нужно сохранить.
 		"""
 
 		_saved_connections[self._get_service_store_name(service_api.service_name)] = service_api
 
 	def _get_connection(self, name: str) -> BaseTelehooperServiceAPI | None:
 		"""
-		Возвращает ServiceAPI из объекта пользователя.
+		Возвращает ServiceAPI из объекта пользователя. Если API не был сохранён, возвращается None. Рекомендуется вместо этого использовать методы по типу `get_vk_connection`.
 
-		Если API не был сохранён, возвращается None.
-
-		Рекомендуется использовать методы по типу `get_vk_connection`.
+		:param name: Название сервиса.
 		"""
 
 		return _saved_connections.get(self._get_service_store_name(name))
@@ -103,6 +113,8 @@ class TelehooperUser:
 	def _remove_connection(self, name: str) -> None:
 		"""
 		Удаляет ServiceAPI из объекта пользователя.
+
+		:param name: Название сервиса.
 		"""
 
 		_saved_connections.pop(self._get_service_store_name(name), None)
@@ -145,9 +157,10 @@ class TelehooperUser:
 
 	async def get_setting(self, path: str, force_refresh: bool = False) -> Any:
 		"""
-		Возвращает значение настройки по пути `path`.
+		Возвращает значение настройки по пути `path`. Вызывает исключение, если настройка не найдена.
 
-		Вызывает исключение, если настройка не найдена.
+		:param path: Путь к настройке.
+		:param force_refresh: Обновить ли документ пользователя в БД перед получением настройки.
 		"""
 
 		if force_refresh:
@@ -157,67 +170,89 @@ class TelehooperUser:
 
 	async def save_setting(self, path: str, new_value: Any) -> None:
 		"""
-		Сохраняет настройку по пути `path` в БД. Если новое значение настройки не отличается от значения по-умолчанию, то бот не сохранит данную запись.
+		Сохраняет настройку по пути `path` в БД. Если новое значение настройки не отличается от значения по-умолчанию, то бот не сохранит данную запись. Вызовет исключение, если настройка не существует.
 
-		Вызовет исключение, если настройка не существует.
+		:param path: Путь к настройке.
+		:param new_value: Новое значение настройки.
 		"""
 
 		is_default = settings.get_default_setting_value(path) == new_value
 
 		if is_default:
-			self.rawDocument["SettingsOverriden"].pop(path, None)
-			self.settingsOverriden = self.rawDocument["SettingsOverriden"]
-			await self.rawDocument.save()
+			self.document["SettingsOverriden"].pop(path, None)
+			self.settingsOverriden = self.document["SettingsOverriden"]
+
+			await self.document.save()
 
 			return
 
-		self.rawDocument["SettingsOverriden"].update({
-			path: new_value
-		})
-		self.settingsOverriden = self.rawDocument["SettingsOverriden"]
-		await self.rawDocument.save()
+		self.document["SettingsOverriden"].update({path: new_value})
+		self.settingsOverriden = self.document["SettingsOverriden"]
+		await self.document.save()
 
 class TelehooperGroup:
 	"""
 	Класс с информацией о группе, которая связана с каким-либо сервисом.
 	"""
 
-	id: int
 	creatorID: int
+	"""ID пользователя Telegram, который является создателем (администратором) данной группы."""
 	createdAt: int
+	"""UNIX-Время создания группы."""
 	lastActivityAt: int
+	"""UNIX-Время последней активности в группе."""
 	userJoinedWarning: bool
+	"""Указывает, отправлял ли бот предупреждение о том, что сторонний пользователь вступил в группу."""
 	statusMessageID: int
+	"""ID статусного сообщения, которое было закреплено в группе."""
 	adminRights: bool
+	"""Имеет ли бот права администратора в группе."""
 	chats: dict
+	"""Список диалогов в группе."""
 	services: dict
+	"""Информация, настройки сервисов в данной группе."""
 
 	creator: TelehooperUser
-	rawDocument: Document
-	telegramChat: Chat
+	"""Создатель группы."""
+	document: Document
+	"""Документ группы в БД."""
+	chat: Chat
+	"""Объект группы в Telegram."""
 	bot: Bot
+	"""Объект бота в Telegram."""
 
-	def __init__(self, creator: TelehooperUser, rawDocument: Document, telegramChat: Chat, bot: Bot) -> None:
-		self.rawDocument = rawDocument
+	def __init__(self, creator: TelehooperUser, document: Document, chat: Chat, bot: Bot) -> None:
+		"""
+		Инициализирует объект группы.
+
+		:param creator: Создатель группы.
+		:param document: Документ группы в БД.
+		:param chat: Объект группы в Telegram.
+		:param bot: Объект бота в Telegram.
+		"""
+
+		self.document = document
 		self.creator = creator
-		self.telegramChat = telegramChat
+		self.chat = chat
 		self.bot = bot
 
-		self.id = rawDocument["ID"]
-		self.creatorID = rawDocument["Creator"]
-		self.createdAt = rawDocument["CreatedAt"]
-		self.lastActivityAt = rawDocument["LastActivityAt"]
-		self.userJoinedWarning = rawDocument["UserJoinedWarning"]
-		self.statusMessageID = rawDocument["StatusMessageID"]
-		self.adminRights = rawDocument["AdminRights"]
-		self.chats = rawDocument["Chats"]
-		self.services = rawDocument["Services"]
+		self.creatorID = document["Creator"]
+		self.createdAt = document["CreatedAt"]
+		self.lastActivityAt = document["LastActivityAt"]
+		self.userJoinedWarning = document["UserJoinedWarning"]
+		self.statusMessageID = document["StatusMessageID"]
+		self.adminRights = document["AdminRights"]
+		self.chats = document["Chats"]
+		self.services = document["Services"]
 
 	async def convert_to_dialogue_group(self, user: TelehooperUser, dialogue: ServiceDialogue, pinned_message: Message, serviceAPI: BaseTelehooperServiceAPI) -> None:
 		"""
-		Конвертирует данную Telegram-группу в группу-диалог из сервиса.
+		Конвертирует данную Telegram-группу в группу-диалог из сервиса. Данный метод изменяет название, фотографию, а так же описание группы. Помимо этого, она сохраняет информацию о созданной группе в БД.
 
-		Данный метод изменяет название, фотографию, закреп, а так же описание группы. Помимо этого, она сохраняет информацию о созданной группе в БД.
+		:param user: Пользователь, который создал группу-диалог.
+		:param dialogue: Диалог, который нужно сохранить.
+		:param pinned_message: Сообщение, которое используется как статусное.
+		:param serviceAPI: API сервиса, который нужно использовать для отправки сообщений.
 		"""
 
 		async def _sleep():
@@ -229,7 +264,7 @@ class TelehooperGroup:
 		# Пытаемся изменить название группы.
 		if dialogue.name:
 			try:
-				await self.telegramChat.set_title(dialogue.name)
+				await self.chat.set_title(dialogue.name)
 			except:
 				await _longSleep()
 			else:
@@ -246,7 +281,7 @@ class TelehooperGroup:
 			assert picture_bytes
 
 			try:
-				await self.telegramChat.set_photo(
+				await self.chat.set_photo(
 					photo=BufferedInputFile(
 						file=picture_bytes,
 						filename="photo.png"
@@ -259,7 +294,7 @@ class TelehooperGroup:
 
 		# Пытаемся поменять описание группы.
 		try:
-			await self.telegramChat.set_description(
+			await self.chat.set_description(
 				f"@telehooper_bot: Группа для диалога «{dialogue.name}» из ВКонтакте.\n"
 				"\n"
 				"ℹ️ Для управления данной группой используйте команду /this."
@@ -281,14 +316,14 @@ class TelehooperGroup:
 
 		# Делаем изменения в БД.
 		# Сохраняем информацию о пользователе.
-		if not self.id in user.rawDocument["Groups"]:
-			user.rawDocument["Groups"].append(self.id)
+		if not self.chat.id in user.document["Groups"]:
+			user.document["Groups"].append(self.chat.id)
 
-			await user.rawDocument.save()
+			await user.document.save()
 
 		# Сохраняем информацию в группе.
-		self.rawDocument["LastActivityAt"] = utils.get_timestamp()
-		self.rawDocument["Chats"].update({
+		self.document["LastActivityAt"] = utils.get_timestamp()
+		self.document["Chats"].update({
 			pinned_message.message_thread_id or 0: get_default_subgroup(
 				topic_id=pinned_message.message_thread_id or 0,
 				service_name=dialogue.service_name,
@@ -298,15 +333,19 @@ class TelehooperGroup:
 			)
 		})
 
-		await self.rawDocument.save()
+		await self.document.save()
 
 	async def send_message(self, text: str, topic: int = 0, silent: bool = False) -> int:
 		"""
 		Отправляет сообщение в группу. Возвращает ID отправленного сообщения.
+
+		:param text: Текст сообщения.
+		:param topic: ID диалога в сервисе, в который нужно отправить сообщение. Если не указано, то сообщение будет отправлено в главный диалог группы.
+		:param silent: Отправить ли сообщение без уведомления.
 		"""
 
 		msg = await self.bot.send_message(
-			chat_id=self.id,
+			chat_id=self.chat.id,
 			message_thread_id=topic,
 			text=text,
 			disable_notification=silent
@@ -319,11 +358,24 @@ class TelehooperMessage:
 	"""
 
 	service: str
+	"""Название сервиса, через который было отправлено сообщение."""
 	telegram_message_ids: list[int]
+	"""Список ID сообщений в Telegram. Может быть несколько, если сообщение является альбомом."""
 	service_message_ids: list[int]
+	"""Список ID сообщений в сервисе. Может быть несколько, если сообщение является альбомом."""
 	sent_via_bot: bool
+	"""Отправлено ли сообщение через бота."""
 
 	def __init__(self, service: str, telegram_mids: int | list[int], service_mids: int | list[int], sent_via_bot: bool = False) -> None:
+		"""
+		Инициализирует объект сообщения.
+
+		:param service: Название сервиса, через который было отправлено сообщение.
+		:param telegram_mids: ID сообщения(-ий) в Telegram.
+		:param service_mids: ID сообщения(-ий) в сервисе.
+		:param sent_via_bot: Отправлено ли сообщение через бота.
+		"""
+
 		self.service = service
 		self.telegram_message_ids = [telegram_mids] if isinstance(telegram_mids, int) else telegram_mids
 		self.service_message_ids = [service_mids] if isinstance(service_mids, int) else service_mids
@@ -335,11 +387,24 @@ class TelehooperSubGroup:
 	"""
 
 	id: int
+	"""ID топика в сервисе. Может быть значением `0`, если это главная группа, которая не имеет топиков."""
 	service_dialogue_name: str | None
+	"""Название диалога в сервисе. В некоторых случаях может отсутствовать."""
 	parent: TelehooperGroup
+	"""Группа, являющаяся родителем данной суб-группы."""
 	service: BaseTelehooperServiceAPI
+	"""API сервиса."""
 
 	def __init__(self, id: int, dialogue_name: str | None, service: BaseTelehooperServiceAPI, parent: TelehooperGroup) -> None:
+		"""
+		Инициализирует объект суб-группы.
+
+		:param id: ID топика в сервисе. Может быть значением `0`, если это главная группа, которая не имеет топиков.
+		:param dialogue_name: Название диалога в сервисе. В некоторых случаях может отсутствовать.
+		:param service: API сервиса.
+		:param parent: Группа, являющаяся родителем данной суб-группы.
+		"""
+
 		self.id = id
 		self.service_dialogue_name = dialogue_name
 		self.service = service
@@ -348,6 +413,9 @@ class TelehooperSubGroup:
 	async def send_message_in(self, text: str, silent: bool = False) -> int:
 		"""
 		Отправляет сообщение в Telegram-группу.
+
+		:param text: Текст сообщения.
+		:param silent: Отправить ли сообщение без уведомления.
 		"""
 
 		return await self.parent.send_message(text, topic=self.id, silent=silent)
@@ -355,9 +423,11 @@ class TelehooperSubGroup:
 	async def send_message_out(self, text: str) -> None:
 		"""
 		Отправляет сообщение в сервис.
+
+		:param text: Текст сообщения.
 		"""
 
-		await self.service.send_message(chat_id=self.parent.id, text=text)
+		await self.service.send_message(chat_id=self.parent.chat.id, text=text)
 
 	def __repr__(self) -> str:
 		return f"<{self.service.service_name} TelehooperSubGroup for {self.service_dialogue_name}>"
@@ -371,6 +441,8 @@ class TelehooperAPI:
 	async def get_user(user: User) -> TelehooperUser:
 		"""
 		Возвращает объект TelehooperUser.
+
+		:param user: Объект пользователя в Telegram.
 		"""
 
 		return TelehooperUser(
@@ -382,11 +454,12 @@ class TelehooperAPI:
 	async def get_user_by_id(user_id: int) -> TelehooperUser | None:
 		"""
 		Возвращает объект TelehooperUser, либо None, если данного пользователя нет в БД, или же если он не писал боту.
+
+		:param user_id: ID пользователя в Telegram.
 		"""
 
 		bot = Bot.get_current()
-		if not bot:
-			return
+		assert bot
 
 		try:
 			user = (await (bot).get_chat_member(user_id, user_id)).user
@@ -402,6 +475,10 @@ class TelehooperAPI:
 	async def get_group(user: TelehooperUser, chat: Chat | int, db_group: Document | None = None) -> TelehooperGroup | None:
 		"""
 		Возвращает объект группы, либо None, если данной группы нет в БД, или же если бот не состоит в ней.
+
+		:param user: Пользователь, который создал (владеет) группой.
+		:param chat: Объект группы в Telegram.
+		:param db_group: Документ группы в БД. Если не указано, бот попытается получить его самостоятельно.
 		"""
 
 		chat_id = chat if isinstance(chat, int) else chat.id
@@ -420,9 +497,11 @@ class TelehooperAPI:
 	async def restrict_in_debug(user: TelehooperUser | User | None) -> None:
 		"""
 		Вызывает Exception, если включён debug-режим у бота, а пользователь не имеет роли "tester".
+
+		:param user: Пользователь, которого нужно проверить. Если не указано, то бот мгновенно вызовет Exception при включённом debug-режиме.
 		"""
 
-		_exc = DisallowedInDebugException("Вы не можете пользоваться данным функционалом бота при запущенном debug-режиме. Если Вы разработчик — обратитесь к консоли бота.")
+		_exc = DisallowedInDebugException("Вы не можете пользоваться данным функционалом бота при запущенном debug-режиме. Если Вы разработчик — обратитесь к консоли бота")
 
 		if not user:
 			raise _exc
@@ -441,6 +520,12 @@ class TelehooperAPI:
 	def save_subgroup(group: TelehooperSubGroup) -> None:
 		"""
 		Сохраняет TelehooperSubGroup в память бота с целью кэширования.
+
+		Используйте следующие методы для получения TelehooperSubGroup:
+		- `get_subgroup_by_chat`.
+		- `get_subgroup_by_service_dialogue`.
+
+		:param group: TelehooperSubGroup, который нужно сохранить.
 		"""
 
 		_service_dialogues.append(group)
@@ -451,10 +536,13 @@ class TelehooperAPI:
 		Возвращает TelehooperSubGroup по диалогу из сервиса.
 
 		Если группа не найдена, возвращается None.
+
+		:param user: Пользователь, который создал (владеет) группой.
+		:param dialogue: Диалог, который нужно найти.
 		"""
 
 		for servDialog in _service_dialogues:
-			if servDialog.parent.creatorID != user.id:
+			if servDialog.parent.creatorID != user.telegramUser.id:
 				continue
 
 			if servDialog.service.service_name != dialogue.service_name:
@@ -473,13 +561,16 @@ class TelehooperAPI:
 		Возвращает TelehooperSubGroup по чату Telegram.
 
 		Если группа не найдена, возвращается None.
+
+		:param group: Telegram-группа, в которой нужно найти диалог.
+		:param topic_id: ID топика Telegram. Если не указано, то возвращается главная группа.
 		"""
 
 		for servDialog in _service_dialogues:
 			if servDialog.parent.creatorID != group.creatorID:
 				continue
 
-			if servDialog.parent.id != group.id:
+			if servDialog.parent.chat.id != group.chat.id:
 				continue
 
 			if servDialog.id != topic_id:
@@ -493,6 +584,11 @@ class TelehooperAPI:
 	async def save_message(service_name: str, telegram_message_id: int | list[int], service_message_id: int | list[int], sent_via_bot: bool = True):
 		"""
 		Сохраняет ID отправленного сообщения в БД.
+
+		:param service_name: Название сервиса, через который было отправлено сообщение.
+		:param telegram_message_id: ID сообщения(-ий) в Telegram.
+		:param service_message_id: ID сообщения(-ий) в сервисе.
+		:param sent_via_bot: Отправлено ли сообщение через бота.
 		"""
 
 		msg = TelehooperMessage(
@@ -510,6 +606,10 @@ class TelehooperAPI:
 	async def get_message_by_telegram_id(service_name: str, message_id: int, bypass_cache: bool = False) -> TelehooperMessage | None:
 		"""
 		Возвращает информацию о отправленном через бота сообщения по его ID в Telegram.
+
+		:param service_name: Название сервиса, через который было отправлено сообщение.
+		:param message_id: ID сообщения в Telegram.
+		:param bypass_cache: Игнорировать ли кэш. Если да, то бот будет искать сообщение только в БД.
 		"""
 
 		# Если нам это разрешено, возвращаем ID сообщения из кэша.
@@ -529,6 +629,10 @@ class TelehooperAPI:
 	async def get_message_by_service_id(service_name: str, message_id: int, bypass_cache: bool = False) -> TelehooperMessage | None:
 		"""
 		Возвращает информацию о отправленном через бота сообщения по его ID в сервисе.
+
+		:param service_name: Название сервиса, через который было отправлено сообщение.
+		:param message_id: ID сообщения в сервисе.
+		:param bypass_cache: Игнорировать ли кэш. Если да, то бот будет искать сообщение только в БД.
 		"""
 
 		# Если нам это разрешено, возвращаем ID сообщения из кэша.

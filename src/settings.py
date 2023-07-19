@@ -91,6 +91,7 @@ SETTINGS_TREE = {
 		}
 	}
 }
+"""Древо настроек бота."""
 
 if config.debug:
 	SETTINGS_TREE.update({
@@ -113,8 +114,13 @@ class SettingsHandler:
 	"""
 
 	settings: dict
+	"""Древо настроек."""
 
 	def __init__(self, settings: dict) -> None:
+		"""
+		Инициализирует класс-помощник для работы с настройками.
+		"""
+
 		self.settings = settings
 
 		self.integrity_check()
@@ -211,9 +217,12 @@ class SettingsHandler:
 		# Сохраняем список всех путей.
 		self.settings["Paths"] = known_paths
 
-	def get_buttons_by_setting_type(self, setting: dict, current_value) -> list[InlineKeyboardButton]:
+	def get_buttons_by_setting_type(self, setting: dict, current_value: Any) -> list[InlineKeyboardButton]:
 		"""
 		Возвращает кнопки клавиатуры в зависимости от типа настройки.
+
+		:param setting: Настройка, для которой нужно получить кнопки.
+		:param current_value: Текущее значение настройки.
 		"""
 
 		return_list = []
@@ -259,6 +268,9 @@ class SettingsHandler:
 	def get_keyboard(self, path: str | None = None, user_settings: dict | None = None) -> InlineKeyboardMarkup:
 		"""
 		Возвращает клавиатуру для древа настроек, по заданному пути `path` (если указан).
+
+		:param path: Путь к настройке, которую нужно выделить.
+		:param user_settings: Словарь пользовательских настроек. Если не указан, то используется значения настроек по умолчанию.
 		"""
 
 		keyboard_buttons = []
@@ -329,6 +341,8 @@ class SettingsHandler:
 	def render_tree(self, path: str | None = None) -> str:
 		"""
 		Отрисовывает дерево настроек, выглядящее как команда `tree` в Windows.
+
+		:param path: Путь к настройке, которую нужно выделить.
 		"""
 
 		def _render(path: list[str], level: int, settings_dict: dict) -> str:
@@ -374,6 +388,8 @@ class SettingsHandler:
 		Получает значение настройки по пути. Может вернуть как саму настройку, так и "папку" с настройками, в зависимости от `path`.
 
 		Если настройка не существует то вызывается исключение `KeyError`.
+
+		:param path: Путь к настройке.
 		"""
 
 		path_splitted = path.split(".")
@@ -389,6 +405,8 @@ class SettingsHandler:
 		Возвращает значение по умолчанию для настройки по пути `path`.
 
 		Если настройка не существует то вызывается исключение `KeyError`.
+
+		:param path: Путь к настройке.
 		"""
 
 		return self.get_setting(path)["Default"]

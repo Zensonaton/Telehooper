@@ -1,11 +1,11 @@
 # coding: utf-8
 
 import enum
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 from aiogram.types import Message
 
 if TYPE_CHECKING:
-	from api import TelehooperUser
+	from api import TelehooperUser, TelehooperMessage
 
 
 class ServiceDialogue:
@@ -16,13 +16,21 @@ class ServiceDialogue:
 	"""
 
 	id: int
+	"""ID диалога в сервисе."""
 	name: str | None
+	"""Название диалога."""
 	profile_url: str | None
+	"""Ссылка на профиль диалога."""
 	profile_img: bytes | None
+	"""Аватарка диалога в виде байтов."""
 	is_multiuser: bool
+	"""Является ли диалог групповым (т.е., беседой)."""
 	is_pinned: bool
+	"""Закреплён ли диалог."""
 	is_muted: bool
+	"""Заглушен ли диалог."""
 	service_name: str
+	"""Название сервиса, из которого получен диалог."""
 
 	def __init__(self, service_name: str, id: int, name: str | None = None, profile_url: str | None = None, profile_img: bytes | None = None, is_multiuser: bool = False, is_pinned: bool = False, is_muted: bool = False) -> None:
 		self.service_name = service_name
@@ -40,10 +48,15 @@ class ServiceDisconnectReason(enum.Enum):
 	"""
 
 	INITIATED_BY_USER = "by-user"
+	"""Отключение сервиса от бота было инициировано пользователем, воспользовавшись функционалом бота."""
 	EXTERNAL = "external"
+	"""Сервис был отключён внешними силами, например, владельцем аккаунта путём отзыва токена."""
 	ERRORED = "errored"
+	"""Сервис был отключён из-за ошибки, возникшей во время работы с ним."""
 	ISSUED_BY_ADMIN = "by-admin"
+	"""Сервис был отключён администратором бота."""
 	TOKEN_NOT_STORED = "no-token"
+	"""Сервис был отключён, так как у пользователя не был сохранён токен (настройка `Security.StoreTokens`)."""
 
 class TelehooperServiceUserInfo:
 	"""
@@ -51,10 +64,15 @@ class TelehooperServiceUserInfo:
 	"""
 
 	service_name: str
+	"""Название сервиса."""
 	id: int
+	"""ID пользователя в сервисе."""
 	name: str
+	"""Имя пользователя в сервисе."""
 	profile_url: str | None
+	"""Ссылка на профиль пользователя в сервисе."""
 	profile_img: bytes | None
+	"""Аватарка пользователя в виде байтов."""
 
 	def __init__(self, service_name: str, id: int, name: str, profile_url: str | None = None, profile_img: bytes | None = None) -> None:
 		self.service_name = service_name
@@ -69,8 +87,11 @@ class BaseTelehooperServiceAPI:
 	"""
 
 	user: "TelehooperUser"
+	"""Пользователь, которому принадлежит данный сервис."""
 	service_name: str
+	"""Название сервиса."""
 	service_user_id: int
+	"""ID пользователя в сервисе."""
 
 	def __init__(self, service_name: str, service_id: int, user: "TelehooperUser") -> None:
 		"""
@@ -78,6 +99,7 @@ class BaseTelehooperServiceAPI:
 
 		:param service_name: Название сервиса.
 		:param service_id: ID пользователя в сервисе.
+		:param user: Пользователь, которому принадлежит данный сервис.
 		"""
 
 		self.service_name = service_name
@@ -152,6 +174,26 @@ class BaseTelehooperServiceAPI:
 		Метод, вызываемый ботом, в случае получения нового сообщения в группе-диалоге (или топик-диалоге). Этот метод обрабатывает события, передавая их текст в сервис.
 
 		:param msg: Сообщение из Telegram.
+		"""
+
+		raise NotImplementedError
+
+	async def get_message_by_telegram_id(self, message_id: int, bypass_cache: bool = False) -> Optional["TelehooperMessage"]:
+		"""
+		Возвращает информацию о отправленном через бота сообщения по его ID в Telegram.
+
+		:param message_id: ID сообщения в Telegram.
+		:param bypass_cache: Игнорировать ли кэш. Если да, то бот будет искать сообщение только в БД.
+		"""
+
+		raise NotImplementedError
+
+	async def get_message_by_service_id(self, message_id: int, bypass_cache: bool = False) -> Optional["TelehooperMessage"]:
+		"""
+		Возвращает информацию о отправленном через бота сообщения по его ID в сервисе.
+
+		:param message_id: ID сообщения в сервисе.
+		:param bypass_cache: Игнорировать ли кэш. Если да, то бот будет искать сообщение только в БД.
 		"""
 
 		raise NotImplementedError

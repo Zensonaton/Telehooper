@@ -140,7 +140,6 @@ async def this_vk_messages_separated_inline_handler(query: types.CallbackQuery, 
 	# нагружая бота, а так же API ВКонтакте, повышая шанс на получение captcha.
 	start_time = asyncio.get_running_loop().time()
 	dialogues = await vkServiceAPI.get_list_of_dialogues(
-		retrieve_all=True,
 		force_update=is_forced_update,
 		skip_ids=[
 			vkServiceAPI.service_user_id

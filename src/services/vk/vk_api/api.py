@@ -97,7 +97,7 @@ class VKAPI:
 		Получает информацию об аккаунте. API: `account.getProfileInfo`.
 		"""
 
-		return await self._get_("account.getProfileInfo")
+		return await self._post_("account.getProfileInfo")
 
 	async def users_get(self, user_ids: list[int] | None = None) -> dict:
 		"""
@@ -111,7 +111,7 @@ class VKAPI:
 		if user_ids:
 			data["user_ids"] = ",".join(map(str, user_ids))
 
-		return await self._get_("users.get", data)
+		return await self._post_("users.get", data)
 
 	async def get_self_info(self, user_id: int | None = None) -> dict:
 		"""
@@ -148,7 +148,7 @@ class VKAPI:
 		Выдаёт список из бесед пользователя. API: `messages.getConversations`.
 		"""
 
-		return await self._get_("messages.getConversations", {
+		return await self._post_("messages.getConversations", {
 			"offset": offset,
 			"count": count,
 			"extended": 1 if extended else 0,
