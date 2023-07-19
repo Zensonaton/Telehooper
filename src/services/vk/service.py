@@ -94,14 +94,16 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 			# Проверяем, не было ли отправлено сообщение самим ботом.
 			msg_saved = await subgroup.service.get_message_by_service_id(event.message_id)
 
-			if msg_saved and msg_saved.sent_via_bot and not ignore_self_debug:
+			from_bot = msg_saved and msg_saved.sent_via_bot
+
+			if from_bot and not ignore_self_debug:
 				return
 
 			try:
 				new_message_text = ""
 
 				if sent_by_account_owner:
-					new_message_text = f"[<b>Вы</b>{' <i>debug-пересылка</i>' if ignore_self_debug else ''}]: "
+					new_message_text = f"[<b>Вы</b>{' <i>debug-пересылка</i>' if ignore_self_debug and from_bot else ''}]: "
 
 				new_message_text += event.text
 
