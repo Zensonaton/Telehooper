@@ -7,6 +7,7 @@ from typing import AsyncGenerator, Optional
 import aiohttp
 from aiohttp import ClientConnectionError
 from loguru import logger
+from services.vk.utils import VKLongpollMessageFlags
 
 from services.vk.vk_api.api import VKAPI
 
@@ -63,11 +64,14 @@ class LongpollNewMessageEvent(BaseVKLongpollEvent):
 	"""ID отправителя сообщения."""
 	text: str
 	"""Текст сообщения."""
+	flags: VKLongpollMessageFlags
+	"""Флаги сообщения."""
 
 	def __init__(self, event: list) -> None:
 		super().__init__(event)
 
 		self.message_id = self.event_data[0]
+		self.flags = VKLongpollMessageFlags(self.event_data[1])
 		self.peer_id = self.event_data[2]
 		self.date = self.event_data[3]
 		self.text = self.event_data[5]

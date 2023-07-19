@@ -33,6 +33,74 @@ def random_id() -> int:
 
 	return random.randint(-2147483647, 2147483648)
 
+class VKLongpollMessageFlags:
+	"""
+	Класс, который парсит флаги сообщения ВКонтакте.
+
+	Дополнительная информация: https://dev.vk.com/api/user-long-poll/getting-started#Флаги сообщений
+	"""
+
+	not_delivered: bool
+	"""Сообщение не было доставлено. Deprecated."""
+	delete_for_all: bool
+	"""Сообщение было удалено для всех пользователей."""
+	hidden: bool
+	"""Сообщение является ненастоящим, невидимым. Такие сообщения появляются при открытии диалога с сообществом."""
+	media: bool
+	"""Сообщение содержит медиа-вложения. Deprecated."""
+	fixed: bool
+	"""Сообщение было проверено пользователем на спам. Deprecated."""
+	deleted: bool
+	"""Сообщение удалено."""
+	spam: bool
+	"""Сообщение помечено как спам."""
+	friends: bool
+	"""Сообщение отправлено другом. Не применяется для сообщений из групповых бесед."""
+	chat: bool
+	"""Сообщение отправлено через чат. Deprecated."""
+	important: bool
+	"Помеченное сообщение как важное."
+	replied: bool
+	"""На сообщение был создан ответ."""
+	outbox: bool
+	"""Указывает, что сообщение является исходящим."""
+	unread: bool
+	"""Указывает, что сообщение является непрочитанным."""
+
+	_input_flags: int
+	"""Сырое значение флагов сообщения."""
+
+	def __init__(self, flags: int) -> None:
+		self._input_flags = flags
+
+		def _get_flag(flag_upper_value: int) -> bool:
+			"""
+			Проверяет, установлен ли флаг `flag`.
+			"""
+
+			nonlocal flags
+
+			if flags >= flag_upper_value:
+				flags -= flag_upper_value
+
+				return True
+
+			return False
+
+		self.hidden = _get_flag(2 ** 16)
+		self.media = _get_flag(2 ** 9)
+		self.fixed = _get_flag(2 ** 8)
+		self.deleted = _get_flag(2 ** 7)
+		self.spam = _get_flag(2 ** 6)
+		self.delete_for_all = self.spam
+		self.not_delivered = self.spam
+		self.friends = _get_flag(2 ** 5)
+		self.chat = _get_flag(2 ** 4)
+		self.important = _get_flag(2 ** 3)
+		self.replied = _get_flag(2 ** 2)
+		self.outbox = _get_flag(2 ** 1)
+		self.unread = _get_flag(2 ** 0)
+
 def get_message_flags(flags: int) -> tuple[bool, bool, bool, bool, bool, bool, bool, bool, bool, bool, bool, bool, bool]:
 	"""
 	Выдаёт tuple с флагами сообщения. [Документация ВК](https://vk.com/dev/using_longpoll_3).

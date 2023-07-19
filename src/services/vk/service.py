@@ -84,7 +84,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 			logger.debug(f"[VK] Новое сообщение с текстом \"{event.text}\", для подгруппы \"{subgroup.service_dialogue_name}\"")
 
-			sent_by_account_owner = event.peer_id == self.service_user_id
+			sent_by_account_owner = event.flags.outbox
 			ignore_self_debug = config.debug and await self.user.get_setting("Debug.SentViaBotInform")
 
 			# Проверяем, стоит ли боту обрабатывать исходящие сообщения.
