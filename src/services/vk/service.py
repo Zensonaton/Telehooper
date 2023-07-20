@@ -1,6 +1,7 @@
 # coding: utf-8
 
 import asyncio
+import json
 from typing import TYPE_CHECKING, Optional, cast
 
 from aiogram.types import Chat, Message
@@ -79,10 +80,11 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 				)
 			)
 
+			# Проверяем, что у пользователя есть подгруппа в которую можно отправить текст сообщения.
 			if not subgroup:
 				return
 
-			logger.debug(f"[VK] Новое сообщение с текстом \"{event.text}\", для подгруппы \"{subgroup.service_dialogue_name}\"")
+			logger.debug(f"[VK] Сообщение с текстом \"{event.text}\", для подгруппы \"{subgroup.service_dialogue_name}\"")
 
 			sent_by_account_owner = event.flags.outbox
 			ignore_self_debug = config.debug and await self.user.get_setting("Debug.SentViaBotInform")
@@ -91,23 +93,51 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 			if sent_by_account_owner and not (await self.user.get_setting("Services.ViaServiceMessages") or ignore_self_debug):
 				return
 
-			# Проверяем, не было ли отправлено сообщение самим ботом.
+			# Получаем информацию о отправленном сообщении.
 			msg_saved = await subgroup.service.get_message_by_service_id(event.message_id)
 
+			# Проверяем, не было ли отправлено сообщение самим ботом.
 			from_bot = msg_saved and msg_saved.sent_via_bot
-
 			if from_bot and not ignore_self_debug:
 				return
 
+			# Получаем ID сообщения с ответом, а так же парсим вложения сообщения.
+			reply_to = None
+
+			if event.attachments:
+				reply = event.attachments.get("reply")
+
+				if reply:
+					# Понятия не имею почему, но ВК возвращает строку (!) вместо dict'а для reply-вложения.
+					# ВК, Вы ебанутые?
+					reply = json.loads(reply)
+
+					conversation_message_id = reply["conversation_message_id"]
+
+					# CID полностью бесполезен нам, поэтому нужно получить реальный ID сообщения.
+					# Для этого мы используем метод messages.getByConversationMessageId.
+
+					real_message_id = (await self.vkAPI.messages_getByConversationMessageId(
+						peer_id=event.peer_id,
+						conversation_message_ids=conversation_message_id
+					))["items"][0]["id"]
+
+					# Получаем информацию о сообщении.
+					reply_message_info = await subgroup.service.get_message_by_service_id(real_message_id)
+
+					# Если информация о данном сообщении есть, то мы можем получить ID сообщения в Telegram.
+					if reply_message_info:
+						reply_to = reply_message_info.telegram_message_ids[0]
 			try:
 				new_message_text = ""
 
 				if sent_by_account_owner:
 					new_message_text = f"[<b>Вы</b>{' <i>debug-пересылка</i>' if ignore_self_debug and from_bot else ''}]: "
 
+				# TODO: Сделать escape HTML.
 				new_message_text += event.text
 
-				telegram_message_id = await subgroup.send_message_in(new_message_text, silent=sent_by_account_owner)
+				telegram_message_id = await subgroup.send_message_in(new_message_text, silent=sent_by_account_owner, reply_to=reply_to)
 
 				await TelehooperAPI.save_message("VK", telegram_message_id, event.message_id, False)
 			except Exception as e:
@@ -271,8 +301,8 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 		raise TypeError(f"Диалог с ID {chat_id} не найден")
 
-	async def send_message(self, chat_id: int, text: str) -> int:
-		return await self.vkAPI.messages_send(peer_id=chat_id, message=text)
+	async def send_message(self, chat_id: int, text: str, reply_to_message: int | None = None) -> int:
+		return await self.vkAPI.messages_send(peer_id=chat_id, message=text, reply_to=reply_to_message)
 
 	async def handle_inner_message(self, msg: Message, subgroup: "TelehooperSubGroup") -> None:
 		from api import TelehooperAPI
@@ -280,9 +310,16 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 		logger.debug(f"[TG] Обработка сообщения в Telegram: \"{msg.text}\" в \"{subgroup}\"")
 
+		reply_message_id = None
+		if msg.reply_to_message:
+			saved_message = await self.get_message_by_telegram_id(msg.reply_to_message.message_id)
+
+			reply_message_id = saved_message.service_message_ids[0] if saved_message else None
+
 		service_message_id = await self.send_message(
 			chat_id=subgroup.service_chat_id,
-			text=msg.text or "[пустой текст сообщения]"
+			text=msg.text or "[пустой текст сообщения]",
+			reply_to_message=reply_message_id
 		)
 		await TelehooperAPI.save_message("VK", msg.message_id, service_message_id, True)
 

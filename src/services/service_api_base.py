@@ -160,12 +160,13 @@ class BaseTelehooperServiceAPI:
 
 		raise NotImplementedError
 
-	async def send_message(self, chat_id: int, text: str) -> None:
+	async def send_message(self, chat_id: int, text: str, reply_to_message: int | None = None) -> None:
 		"""
 		Отправляет сообщение в диалог.
 
 		:param chat_id: ID диалога.
 		:param text: Текст сообщения.
+		:param reply_to_message: ID сообщения, на которое нужно ответить.
 		"""
 
 		raise NotImplementedError

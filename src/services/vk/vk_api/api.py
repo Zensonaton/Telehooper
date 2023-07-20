@@ -59,7 +59,16 @@ class VKAPI:
 
 		return response["response"]
 
-	async def _get_(self, method: str, params: dict[str, str | int | bool] | None = None) -> dict:
+	def _cleanup_none(self, data: dict) -> dict:
+		"""
+		Очищает словарь `data` от ключей None.
+
+		:param data: Словарь, который необходимо очистить.
+		"""
+
+		return {key: value for key, value in data.items() if value is not None}
+
+	async def _get_(self, method: str, params: dict[str, str | int | bool | None] | None = None) -> dict:
 		"""
 		Выполняет GET-запрос к API ВКонтакте.
 
@@ -74,10 +83,10 @@ class VKAPI:
 		params["v"] = self.version
 
 		async with aiohttp.ClientSession() as session:
-			async with session.get(f"https://api.vk.com/method/{method}", params=params) as response:
+			async with session.get(f"https://api.vk.com/method/{method}", params=self._cleanup_none(params)) as response:
 				return self._parse_response(await response.json())
 
-	async def _post_(self, method: str, params: dict[str, str | int | bool] | None = None) -> dict:
+	async def _post_(self, method: str, params: dict[str, str | int | bool | None] | None = None) -> dict:
 		"""
 		Выполняет POST-запрос к API ВКонтакте.
 
@@ -92,7 +101,7 @@ class VKAPI:
 		params["v"] = self.version
 
 		async with aiohttp.ClientSession() as session:
-			async with session.post(f"https://api.vk.com/method/{method}", params=params) as response:
+			async with session.post(f"https://api.vk.com/method/{method}", params=self._cleanup_none(params)) as response:
 				return self._parse_response(await response.json())
 
 	async def account_getProfileInfo(self) -> dict:
@@ -125,18 +134,20 @@ class VKAPI:
 
 		return (await self.users_get([user_id] if user_id else []))[0]
 
-	async def messages_send(self, peer_id: int, message: str) -> int:
+	async def messages_send(self, peer_id: int, message: str, reply_to: int | None = None) -> int:
 		"""
 		Отправляет сообщение пользователю. API: `messages.send`.
 
 		:param peer_id: ID пользователя/группы/беседы, в которую будет отправлено сообщение.
 		:param message: Текст сообщения.
+		:param reply_to: ID сообщения, на которое будет дан ответ.
 		"""
 
 		return cast(int, await self._post_("messages.send", {
 			"peer_id": peer_id,
 			"message": message,
-			"random_id": random_id()
+			"random_id": random_id(),
+			"reply_to": reply_to
 		}))
 
 	async def messages_getLongPollServer(self) -> dict:
@@ -149,6 +160,10 @@ class VKAPI:
 	async def messages_getConversations(self, offset: int = 0, count: int = 200, extended: bool = True) -> dict:
 		"""
 		Выдаёт список из бесед пользователя. API: `messages.getConversations`.
+
+		:param offset: Смещение относительно начала списка.
+		:param count: Количество бесед, которое необходимо получить.
+		:param extended: Нужно ли получить расширенную информацию о беседах.
 		"""
 
 		return await self._post_("messages.getConversations", {
@@ -156,4 +171,19 @@ class VKAPI:
 			"count": count,
 			"extended": 1 if extended else 0,
 			"fields": ALL_USER_FIELDS
+		})
+
+	async def messages_getByConversationMessageId(self, peer_id: int, conversation_message_ids: int | list[int]) -> dict:
+		"""
+		Возвращает сообщения по их conversation_message_id. API: `messages.getByConversationMessageId`.
+
+		:param peer_id: ID пользователя/группы/беседы, в которой находится сообщение.
+		:param conversation_message_ids: ID сообщения(-й).
+		"""
+
+		cids = conversation_message_ids if isinstance(conversation_message_ids, list) else [conversation_message_ids]
+
+		return await self._post_("messages.getByConversationMessageId", {
+			"peer_id": peer_id,
+			"conversation_message_ids": ",".join(map(str, cids))
 		})

@@ -66,6 +66,8 @@ class LongpollNewMessageEvent(BaseVKLongpollEvent):
 	"""Текст сообщения."""
 	flags: VKLongpollMessageFlags
 	"""Флаги сообщения."""
+	attachments: dict
+	"""Вложения сообщения."""
 
 	def __init__(self, event: list) -> None:
 		super().__init__(event)
@@ -75,6 +77,7 @@ class LongpollNewMessageEvent(BaseVKLongpollEvent):
 		self.peer_id = self.event_data[2]
 		self.date = self.event_data[3]
 		self.text = self.event_data[5]
+		self.attachments = self.event_data[6]
 
 class VKAPILongpoll:
 	"""

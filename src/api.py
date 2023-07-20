@@ -336,11 +336,12 @@ class TelehooperGroup:
 
 		await self.document.save()
 
-	async def send_message(self, text: str, topic: int = 0, silent: bool = False) -> int:
+	async def send_message(self, text: str, reply_to: int | None = None, topic: int = 0, silent: bool = False) -> int:
 		"""
 		Отправляет сообщение в группу. Возвращает ID отправленного сообщения.
 
 		:param text: Текст сообщения.
+		:param reply_to: ID сообщения, на которое нужно ответить.
 		:param topic: ID диалога в сервисе, в который нужно отправить сообщение. Если не указано, то сообщение будет отправлено в главный диалог группы.
 		:param silent: Отправить ли сообщение без уведомления.
 		"""
@@ -348,8 +349,10 @@ class TelehooperGroup:
 		msg = await self.bot.send_message(
 			chat_id=self.chat.id,
 			message_thread_id=topic,
+			reply_to_message_id=reply_to,
 			text=text,
-			disable_notification=silent
+			disable_notification=silent,
+			allow_sending_without_reply=True
 		)
 		return msg.message_id
 
@@ -415,15 +418,16 @@ class TelehooperSubGroup:
 		self.parent = parent
 		self.service_chat_id = service_chat_id
 
-	async def send_message_in(self, text: str, silent: bool = False) -> int:
+	async def send_message_in(self, text: str, reply_to: int | None = None, silent: bool = False) -> int:
 		"""
 		Отправляет сообщение в Telegram-группу.
 
 		:param text: Текст сообщения.
+		:param reply_to: ID сообщения, на которое нужно ответить.
 		:param silent: Отправить ли сообщение без уведомления.
 		"""
 
-		return await self.parent.send_message(text, topic=self.id, silent=silent)
+		return await self.parent.send_message(text, topic=self.id, silent=silent, reply_to=reply_to)
 
 	async def send_message_out(self, text: str) -> None:
 		"""

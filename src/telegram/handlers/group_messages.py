@@ -32,10 +32,14 @@ async def get_subgroup(msg: Message) -> dict | None:
 
 	telehooper_group = cast(TelehooperGroup, telehooper_group)
 
-	subgroup = TelehooperAPI.get_subgroup_by_chat(
-		telehooper_group,
-		msg.message_thread_id or 0
-	)
+	topic_id = msg.message_thread_id or 0
+
+	# Telegram в msg.message_thread_id возвращает ID сообщения, на которое был ответ.
+	# Это ломает всего бота, поэтому нам приходится костылить.
+	if not msg.is_topic_message:
+		topic_id = 0
+
+	subgroup = TelehooperAPI.get_subgroup_by_chat(telehooper_group, topic_id)
 
 	if not subgroup:
 		return None
