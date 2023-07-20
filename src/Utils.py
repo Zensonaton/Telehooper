@@ -209,3 +209,10 @@ def get_telegram_logging_info(user: TelegramUser | None, use_url: bool = False) 
 	username_or_link = f"https://t.me/{user.username}" if use_url else f"@{user.username}"
 
 	return f"{user.full_name} ({username_or_link}, ID {user.id})"
+
+def telegram_safe_str(input: str) -> str:
+	"""
+	Возвращает копию строки, являющаяся «безопасной» для отправки как сообщение в Telegram.
+	"""
+
+	return input.replace("<br>", "\n")

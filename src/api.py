@@ -6,7 +6,9 @@ from typing import Any, cast
 import aiohttp
 from aiocouch import Document
 from aiogram import Bot
-from aiogram.types import BufferedInputFile, Chat, Message, User
+from aiogram.types import (BufferedInputFile, Chat, InputMediaAudio,
+                           InputMediaDocument, InputMediaPhoto,
+                           InputMediaVideo, Message, User)
 
 import utils
 from config import config
@@ -336,25 +338,51 @@ class TelehooperGroup:
 
 		await self.document.save()
 
-	async def send_message(self, text: str, reply_to: int | None = None, topic: int = 0, silent: bool = False) -> int:
+	async def send_message(self, text: str, attachments: list[InputMediaAudio | InputMediaDocument | InputMediaPhoto | InputMediaVideo] | None = None, reply_to: int | None = None, topic: int = 0, silent: bool = False) -> list[int]:
 		"""
-		Отправляет сообщение в группу. Возвращает ID отправленного сообщения.
+		Отправляет сообщение в группу. Возвращает ID отправленного(-ых) сообщений.
 
 		:param text: Текст сообщения.
+		:param attachments: Telegram-вложения.
 		:param reply_to: ID сообщения, на которое нужно ответить.
 		:param topic: ID диалога в сервисе, в который нужно отправить сообщение. Если не указано, то сообщение будет отправлено в главный диалог группы.
 		:param silent: Отправить ли сообщение без уведомления.
 		"""
 
-		msg = await self.bot.send_message(
-			chat_id=self.chat.id,
-			message_thread_id=topic,
-			reply_to_message_id=reply_to,
-			text=text,
-			disable_notification=silent,
-			allow_sending_without_reply=True
-		)
-		return msg.message_id
+		if not attachments:
+			attachments = []
+
+		message_ids = []
+
+		# В Telegram, при отправке медиа-группы, поле "caption" выступает как текст сообщения, отображаемое сверху сообщения.
+		# По этой причине, тут мы меняем текст вложения на текст сообщения, которое мы пытаемся отправить.
+		if attachments:
+			attachments[0].caption = text
+
+		if attachments:
+			# У нас есть хотя бы одно вложение, отправляем как медиа-группу.
+
+			message_ids = [i.message_id for i in await self.bot.send_media_group(
+				chat_id=self.chat.id,
+				media=attachments,
+				message_thread_id=topic,
+				reply_to_message_id=reply_to,
+				disable_notification=silent,
+				allow_sending_without_reply=True
+			)]
+		else:
+			# Вложений нету.
+
+			message_ids = [(await self.bot.send_message(
+				chat_id=self.chat.id,
+				message_thread_id=topic,
+				reply_to_message_id=reply_to,
+				text=text,
+				disable_notification=silent,
+				allow_sending_without_reply=True
+			)).message_id]
+
+		return message_ids
 
 class TelehooperMessage:
 	"""
@@ -418,16 +446,17 @@ class TelehooperSubGroup:
 		self.parent = parent
 		self.service_chat_id = service_chat_id
 
-	async def send_message_in(self, text: str, reply_to: int | None = None, silent: bool = False) -> int:
+	async def send_message_in(self, text: str, attachments: list[InputMediaAudio | InputMediaDocument | InputMediaPhoto | InputMediaVideo] | None = None, reply_to: int | None = None, silent: bool = False) -> list[int]:
 		"""
 		Отправляет сообщение в Telegram-группу.
 
 		:param text: Текст сообщения.
+		:param attachments: URL-адреса вложений.
 		:param reply_to: ID сообщения, на которое нужно ответить.
 		:param silent: Отправить ли сообщение без уведомления.
 		"""
 
-		return await self.parent.send_message(text, topic=self.id, silent=silent, reply_to=reply_to)
+		return await self.parent.send_message(text, attachments=attachments, topic=self.id, silent=silent, reply_to=reply_to)
 
 	async def send_message_out(self, text: str) -> None:
 		"""

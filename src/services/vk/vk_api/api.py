@@ -181,9 +181,38 @@ class VKAPI:
 		:param conversation_message_ids: ID сообщения(-й).
 		"""
 
-		cids = conversation_message_ids if isinstance(conversation_message_ids, list) else [conversation_message_ids]
+		if isinstance(conversation_message_ids, int):
+			conversation_message_ids = [conversation_message_ids]
 
 		return await self._post_("messages.getByConversationMessageId", {
 			"peer_id": peer_id,
-			"conversation_message_ids": ",".join(map(str, cids))
+			"conversation_message_ids": ",".join(map(str, conversation_message_ids))
+		})
+
+	async def messages_getById(self, message_ids: int | list[int]) -> dict:
+		"""
+		Возвращает сообщения по их ID. API: `messages.getById`.
+
+		:param message_ids: ID сообщения(-й).
+		"""
+
+		if isinstance(message_ids, int):
+			message_ids = [message_ids]
+
+		return await self._post_("messages.getById", {
+			"message_ids": ",".join(map(str, message_ids))
+		})
+
+	async def photos_getById(self, photos: str | list[str]) -> dict:
+		"""
+		Возвращает информацию о фотографиях. API: `photos.getById`.
+
+		:param photos: Список фотографий.
+		"""
+
+		if isinstance(photos, str):
+			photos = [photos]
+
+		return await self._post_("photos.getById", {
+			"photos": ",".join(photos)
 		})

@@ -1,10 +1,12 @@
 # coding: utf-8
 
 import asyncio
+import html
 import json
 from typing import TYPE_CHECKING, Optional, cast
 
-from aiogram.types import Chat, Message
+from aiogram.types import (Chat, InputMediaAudio, InputMediaDocument,
+                           InputMediaPhoto, InputMediaVideo, Message)
 from loguru import logger
 from pydantic import SecretStr
 
@@ -86,60 +88,100 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 			logger.debug(f"[VK] Сообщение с текстом \"{event.text}\", для подгруппы \"{subgroup.service_dialogue_name}\"")
 
-			sent_by_account_owner = event.flags.outbox
-			ignore_self_debug = config.debug and await self.user.get_setting("Debug.SentViaBotInform")
-
-			# Проверяем, стоит ли боту обрабатывать исходящие сообщения.
-			if sent_by_account_owner and not (await self.user.get_setting("Services.ViaServiceMessages") or ignore_self_debug):
-				return
-
-			# Получаем информацию о отправленном сообщении.
-			msg_saved = await subgroup.service.get_message_by_service_id(event.message_id)
-
-			# Проверяем, не было ли отправлено сообщение самим ботом.
-			from_bot = msg_saved and msg_saved.sent_via_bot
-			if from_bot and not ignore_self_debug:
-				return
-
-			# Получаем ID сообщения с ответом, а так же парсим вложения сообщения.
-			reply_to = None
-
-			if event.attachments:
-				reply = event.attachments.get("reply")
-
-				if reply:
-					# Понятия не имею почему, но ВК возвращает строку (!) вместо dict'а для reply-вложения.
-					# ВК, Вы ебанутые?
-					reply = json.loads(reply)
-
-					conversation_message_id = reply["conversation_message_id"]
-
-					# CID полностью бесполезен нам, поэтому нужно получить реальный ID сообщения.
-					# Для этого мы используем метод messages.getByConversationMessageId.
-
-					real_message_id = (await self.vkAPI.messages_getByConversationMessageId(
-						peer_id=event.peer_id,
-						conversation_message_ids=conversation_message_id
-					))["items"][0]["id"]
-
-					# Получаем информацию о сообщении.
-					reply_message_info = await subgroup.service.get_message_by_service_id(real_message_id)
-
-					# Если информация о данном сообщении есть, то мы можем получить ID сообщения в Telegram.
-					if reply_message_info:
-						reply_to = reply_message_info.telegram_message_ids[0]
 			try:
+				attachment_media: list[InputMediaAudio | InputMediaDocument | InputMediaPhoto | InputMediaVideo] = []
+				sent_by_account_owner = event.flags.outbox
+				ignore_self_debug = config.debug and await self.user.get_setting("Debug.SentViaBotInform")
+
+				# Проверяем, стоит ли боту обрабатывать исходящие сообщения.
+				if sent_by_account_owner and not (await self.user.get_setting("Services.ViaServiceMessages") or ignore_self_debug):
+					return
+
+				# Получаем информацию о отправленном сообщении.
+				msg_saved = await subgroup.service.get_message_by_service_id(event.message_id)
+
+				# Проверяем, не было ли отправлено сообщение самим ботом.
+				from_bot = msg_saved and msg_saved.sent_via_bot
+				if from_bot and not ignore_self_debug:
+					return
+
+				# Получаем ID сообщения с ответом, а так же парсим вложения сообщения.
+				reply_to = None
+
+				# Парсим вложения.
+				if event.attachments:
+					attachments = event.attachments.copy()
+
+					message_extended = None
+
+					# Добываем полную информацию о сообщении, если это нужно.
+					if len(attachments) >= (2 if "reply" in attachments else 1):
+						message_extended = (await self.vkAPI.messages_getById(event.message_id))["items"][0]
+
+					# Обрабатываем ответы (reply).
+					if "reply" in attachments:
+						real_message_id = None
+
+						# Здесь может быть два пути.
+						# Либо бот уже получил полную информацию о сообщении, либо нет.
+						# Что бы не делать два запроса ради одной вещи, мы проверяем, есть ли у нас информация о сообщении.
+						if message_extended:
+							real_message_id = cast(int, message_extended["reply_message"]["id"])
+						else:
+							# Понятия не имею почему, но ВК возвращает JSON-строку (!) вместо dict'а для reply-вложения.
+							# ВК, Вы ебанутые?
+							reply = json.loads(attachments["reply"])
+
+							conversation_message_id = reply["conversation_message_id"]
+
+							# CID полностью бесполезен нам, поэтому нужно получить реальный ID сообщения.
+							# Для этого мы используем метод messages.getByConversationMessageId.
+							real_message_id = cast(int, (await self.vkAPI.messages_getByConversationMessageId(
+								peer_id=event.peer_id,
+								conversation_message_ids=conversation_message_id
+							))["items"][0]["id"])
+
+						# Настоящий ID сообщения получен. Получаем информацию о сообщении с БД бота.
+						reply_message_info = await subgroup.service.get_message_by_service_id(real_message_id)
+
+						# Если информация о данном сообщении есть, то мы можем получить ID сообщения в Telegram.
+						if reply_message_info:
+							reply_to = reply_message_info.telegram_message_ids[0]
+
+					# Проходимся по всем вложениям.
+					if message_extended:
+						for attachment in message_extended["attachments"]:
+							attachment_type = attachment["type"]
+							attachment = attachment[attachment["type"]]
+
+							if attachment_type == "photo":
+								attachment_media.append(InputMediaPhoto(
+									type="photo",
+									media=attachment["sizes"][-1]["url"]
+								))
+							else:
+								raise TypeError(f"Неизвестный тип вложения {type}")
+
+				# Подготавливаем текст сообщения.
 				new_message_text = ""
 
 				if sent_by_account_owner:
 					new_message_text = f"[<b>Вы</b>{' <i>debug-пересылка</i>' if ignore_self_debug and from_bot else ''}]: "
 
-				# TODO: Сделать escape HTML.
-				new_message_text += event.text
+				new_message_text += utils.telegram_safe_str(event.text)
 
-				telegram_message_id = await subgroup.send_message_in(new_message_text, silent=sent_by_account_owner, reply_to=reply_to)
-
-				await TelehooperAPI.save_message("VK", telegram_message_id, event.message_id, False)
+				# Отправляем готовое сообщение, и сохраняем его ID в БД бота.
+				await TelehooperAPI.save_message(
+					"VK",
+					await subgroup.send_message_in(
+						new_message_text,
+						attachments=attachment_media,
+						silent=sent_by_account_owner,
+						reply_to=reply_to
+					),
+					event.message_id,
+					False
+				)
 			except Exception as e:
 				# TODO: Отправлять сообщение об ошибке пользователю, делая при этом логирование самого текста ошибки.
 
