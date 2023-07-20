@@ -83,7 +83,7 @@ class VKAPI:
 		params["v"] = self.version
 
 		async with aiohttp.ClientSession() as session:
-			async with session.get(f"https://api.vk.com/method/{method}", params=self._cleanup_none(params)) as response:
+			async with session.get(f"https://api.vk.com/method/{method}", headers={"User-Agent": ""}, params=self._cleanup_none(params)) as response:
 				return self._parse_response(await response.json())
 
 	async def _post_(self, method: str, params: dict[str, str | int | bool | None] | None = None) -> dict:
@@ -101,7 +101,7 @@ class VKAPI:
 		params["v"] = self.version
 
 		async with aiohttp.ClientSession() as session:
-			async with session.post(f"https://api.vk.com/method/{method}", params=self._cleanup_none(params)) as response:
+			async with session.post(f"https://api.vk.com/method/{method}", headers={"User-Agent": ""}, params=self._cleanup_none(params)) as response:
 				return self._parse_response(await response.json())
 
 	async def account_getProfileInfo(self) -> dict:
@@ -216,3 +216,18 @@ class VKAPI:
 		return await self._post_("photos.getById", {
 			"photos": ",".join(photos)
 		})
+
+	async def video_get(self, videos: list[str] | str) -> dict:
+		"""
+		Возвращает информацию о видео. API: `video.get`.
+
+		:param videos: Список видео.
+		"""
+
+		if isinstance(videos, str):
+			videos = [videos]
+
+		return await self._post_("video.get", {
+			"videos": ",".join(videos)
+		})
+

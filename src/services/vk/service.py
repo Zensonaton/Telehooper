@@ -5,8 +5,10 @@ import html
 import json
 from typing import TYPE_CHECKING, Optional, cast
 
-from aiogram.types import (Chat, InputMediaAudio, InputMediaDocument,
-                           InputMediaPhoto, InputMediaVideo, Message)
+import aiohttp
+from aiogram.types import (BufferedInputFile, Chat, InputMediaAudio,
+                           InputMediaDocument, InputMediaPhoto,
+                           InputMediaVideo, Message)
 from loguru import logger
 from pydantic import SecretStr
 
@@ -21,6 +23,7 @@ from services.vk.vk_api.api import VKAPI
 from services.vk.vk_api.longpoll import (BaseVKLongpollEvent,
                                          LongpollNewMessageEvent,
                                          VKAPILongpoll)
+from aiogram.utils.chat_action import ChatActionSender
 
 if TYPE_CHECKING:
 	from api import TelehooperMessage, TelehooperSubGroup, TelehooperUser
@@ -159,6 +162,56 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 									type="photo",
 									media=attachment["sizes"][-1]["url"]
 								))
+							elif attachment_type == "video":
+								# Так как ВК не выдают прямую ссылку на видео, необходимо её извлечь из API.
+								# Что важно, передать ссылку напрямую не получается, поскольку ВК проверяет
+								# UserAgent и IP адрес, с которого был сделан запрос.
+
+								async with ChatActionSender(chat_id=subgroup.parent.chat.id, action="upload_video", bot=subgroup.parent.bot):
+									video = (await self.vkAPI.video_get(videos=f"{attachment['owner_id']}_{attachment['id']}_{attachment['access_key']}"))["items"][0]["files"]
+
+									video_quality_list = ["mp4_720", "mp4_480", "mp4_360", "mp4_240", "mp4_144"]
+
+									# Если пользователь разрешил использование видео в 1080p, то добавляем его в список.
+									if await self.user.get_setting("Services.HDVideo"):
+										video_quality_list.insert(0, "mp4_1080")
+
+									for quality in video_quality_list:
+										is_last = quality == "mp4_144"
+
+										if quality not in video:
+											continue
+
+										logger.debug(f"Найдено видео с качеством {quality}: {video[quality]}")
+
+										# Загружаем видео.
+										async with aiohttp.ClientSession() as client:
+											async with client.get(video[quality]) as response:
+												assert response.status == 200, f"Не удалось загрузить видео с качеством {quality}"
+
+												video_bytes = await response.read()
+
+												# Пытаемся найти самое большое видео, которое не превышает 50 МБ.
+												if len(video_bytes) > 50 * 1024 * 1024:
+													if is_last:
+														raise Exception("Размер видео слишком большой")
+
+													logger.debug(f"Файл размером {quality} оказался слишком большой ({len(video_bytes)} байт).")
+
+													continue
+
+										# Прикрепляем видео.
+										attachment_media.append(InputMediaVideo(
+											type="video",
+											media=BufferedInputFile(
+												video_bytes,
+												filename=f"{attachment['title'].strip()} {quality[4:]}p.mp4"
+											)
+										))
+
+										break
+									else:
+										raise Exception("Не удалось получить ссылку на видео")
 							elif attachment_type == "audio_message":
 								attachment_media.append(InputMediaAudio(
 									type="audio",
@@ -182,17 +235,25 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 						new_message_text += f": {utils.telegram_safe_str(event.text)}"
 
 				# Отправляем готовое сообщение, и сохраняем его ID в БД бота.
-				await TelehooperAPI.save_message(
-					"VK",
-					await subgroup.send_message_in(
-						new_message_text,
-						attachments=attachment_media,
-						silent=sent_by_account_owner,
-						reply_to=reply_to
-					),
-					event.message_id,
-					False
-				)
+				async def _save() -> None:
+					await TelehooperAPI.save_message(
+						"VK",
+						await subgroup.send_message_in(
+							new_message_text,
+							attachments=attachment_media,
+							silent=sent_by_account_owner,
+							reply_to=reply_to
+						),
+						event.message_id,
+						False
+					)
+
+				# Если у нас были вложения, то мы должны отправить сообщение с ними.
+				if attachment_media:
+					async with ChatActionSender.upload_document(chat_id=subgroup.parent.chat.id, bot=subgroup.parent.bot, initial_sleep=1):
+						await _save()
+				else:
+					await _save()
 			except Exception as e:
 				# TODO: Отправлять сообщение об ошибке пользователю, делая при этом логирование самого текста ошибки.
 
