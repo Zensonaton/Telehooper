@@ -159,8 +159,13 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 									type="photo",
 									media=attachment["sizes"][-1]["url"]
 								))
+							elif attachment_type == "audio_message":
+								attachment_media.append(InputMediaAudio(
+									type="audio",
+									media=attachment["link_ogg"]
+								))
 							else:
-								raise TypeError(f"Неизвестный тип вложения {type}")
+								raise TypeError(f"Неизвестный тип вложения \"{attachment_type}\"")
 
 				# Подготавливаем текст сообщения.
 				new_message_text = ""
