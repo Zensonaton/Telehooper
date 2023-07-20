@@ -171,9 +171,15 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 				new_message_text = ""
 
 				if sent_by_account_owner:
-					new_message_text = f"[<b>Вы</b>{' <i>debug-пересылка</i>' if ignore_self_debug and from_bot else ''}]: "
+					new_message_text = f"[<b>Вы</b>"
 
-				new_message_text += utils.telegram_safe_str(event.text)
+					if ignore_self_debug and from_bot:
+						new_message_text += " <i>debug-пересылка</i>"
+
+					new_message_text += "]"
+
+					if event.text:
+						new_message_text += f": {utils.telegram_safe_str(event.text)}"
 
 				# Отправляем готовое сообщение, и сохраняем его ID в БД бота.
 				await TelehooperAPI.save_message(
