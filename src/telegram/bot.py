@@ -74,6 +74,13 @@ def init_handlers() -> None:
 	for module in imported_modules:
 		dispatcher.include_router(module.router)
 
+	logger.debug("Загружаю middleware...")
+
+	from telegram.middlewares.ratelimitretrymiddleware import RetryRequestMiddleware
+
+	dispatcher.message.middleware(RetryRequestMiddleware())
+	dispatcher.callback_query.middleware(RetryRequestMiddleware())
+
 async def set_commands(use_async: bool = True) -> None:
 	"""
 	Устанавливает команды для бота.
