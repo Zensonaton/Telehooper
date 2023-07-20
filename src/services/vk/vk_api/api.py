@@ -7,7 +7,8 @@ from loguru import logger
 from pydantic import SecretStr
 
 from services.vk.exceptions import (AccountDeactivatedException,
-                                    BaseVKAPIException, TokenRevokedException)
+                                    BaseVKAPIException, CaptchaException,
+                                    TokenRevokedException)
 from services.vk.utils import random_id
 
 
@@ -48,6 +49,8 @@ class VKAPI:
 				raise AccountDeactivatedException(message=message)
 			elif code == 5:
 				raise TokenRevokedException(message=message)
+			elif code == 14:
+				raise CaptchaException(message=message)
 			else:
 				raise BaseVKAPIException(
 					error_code=code,

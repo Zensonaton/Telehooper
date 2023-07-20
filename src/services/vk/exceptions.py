@@ -44,3 +44,15 @@ class TokenRevokedException(BaseVKAPIException):
 		"""
 
 		super().__init__(error_code=error_code, message=message)
+
+class CaptchaException(BaseVKAPIException):
+	"""
+	Исключение, которое вызывается, если требуется ввод капчи.
+	"""
+
+	def __init__(self, error_code: int = 14, message: str = "Требуется ввод капчи.") -> None:
+		"""
+		Инициализация исключения.
+		"""
+
+		super().__init__(error_code=error_code, message=message)
