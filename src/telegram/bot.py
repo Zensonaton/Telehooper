@@ -4,6 +4,7 @@ import asyncio
 import importlib
 import os
 import pkgutil
+from types import ModuleType
 
 from aiogram import Bot, Dispatcher
 from aiogram.types import (BotCommand, BotCommandScopeAllGroupChats,
@@ -49,6 +50,7 @@ def init_handlers() -> None:
 
 	logger.debug("Загружаю все handler'ы для Telegram-бота...")
 
+	imported_modules: list[ModuleType] = []
 	for _, module_name, _ in pkgutil.iter_modules([os.path.join(os.path.dirname(__file__), "handlers")]):
 		logger.debug(f"Запускаю handler'ы из модуля {module_name}...")
 
@@ -63,9 +65,14 @@ def init_handlers() -> None:
 			if "router" not in dir(module):
 				raise Exception(f"Модуль {module_name} не содержит переменную 'router'.")
 
-			dispatcher.include_router(module.router)
+			imported_modules.append(module)
 
-	logger.debug("Загружаю все middleware'ы для Telegram-бота")
+	# Сортируем модули по приоритету.
+	imported_modules.sort(key=lambda x: getattr(x, "_priority_", 0), reverse=True)
+
+	# Инициализируем Router'ы.
+	for module in imported_modules:
+		dispatcher.include_router(module.router)
 
 async def set_commands(use_async: bool = True) -> None:
 	"""

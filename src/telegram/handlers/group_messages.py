@@ -9,6 +9,9 @@ from loguru import logger
 from api import TelehooperAPI, TelehooperGroup, TelehooperSubGroup
 
 
+_priority_ = -1
+"""Приоритет загрузки."""
+
 router = Router()
 router.message.filter(F.chat.type.in_(["group", "supergroup"]))
 
