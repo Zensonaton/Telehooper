@@ -231,3 +231,16 @@ class VKAPI:
 			"videos": ",".join(videos)
 		})
 
+	async def audio_getById(self, audios: list[str] | str) -> dict:
+		"""
+		Возвращает информацию о аудиозаписях. API: `audio.getById`.
+
+		:param audios: Список аудиозаписей.
+		"""
+
+		if isinstance(audios, str):
+			audios = [audios]
+
+		return await self._post_("audio.getById", {
+			"audios": ",".join(audios)
+		})
