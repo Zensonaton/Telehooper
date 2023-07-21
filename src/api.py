@@ -358,6 +358,27 @@ class TelehooperGroup:
 			allow_sending_without_reply=True
 		)]
 
+	async def send_geo(self, latitude: float, longitude: float, reply_to: int | None = None, topic: int = 0, silent: bool = False) -> list[Message]:
+		"""
+		Отправляет геолокацию в Telegram-группу.
+
+		:param latitude: Широта.
+		:param longitude: Долгота.
+		:param reply_to: ID сообщения, на которое нужно ответить.
+		:param topic: ID диалога в сервисе, в который нужно отправить сообщение. Если не указано, то сообщение будет отправлено в главный диалог группы.
+		:param silent: Отправить ли сообщение без уведомления.
+		"""
+
+		return [await self.bot.send_location(
+			chat_id=self.chat.id,
+			latitude=latitude,
+			longitude=longitude,
+			message_thread_id=topic,
+			reply_to_message_id=reply_to,
+			disable_notification=silent,
+			allow_sending_without_reply=True
+		)]
+
 	async def send_message(self, text: str, attachments: list[InputMediaAudio | InputMediaDocument | InputMediaPhoto | InputMediaVideo] | None = None, reply_to: int | None = None, topic: int = 0, silent: bool = False) -> list[int]:
 		"""
 		Отправляет сообщение в группу. Возвращает ID отправленного(-ых) сообщений.
@@ -501,6 +522,18 @@ class TelehooperSubGroup:
 		"""
 
 		return await self.parent.send_sticker(sticker, reply_to=reply_to, topic=self.id, silent=silent)
+
+	async def send_geo(self, latitude: float, longitude: float, reply_to: int | None = None, silent: bool = False) -> list[Message]:
+		"""
+		Отправляет геолокацию в Telegram-группу.
+
+		:param latitude: Широта.
+		:param longitude: Долгота.
+		:param reply_to: ID сообщения, на которое нужно ответить.
+		:param silent: Отправить ли сообщение без уведомления.
+		"""
+
+		return await self.parent.send_geo(latitude, longitude, reply_to=reply_to, topic=self.id, silent=silent)
 
 	async def send_message_in(self, text: str, attachments: list[InputMediaAudio | InputMediaDocument | InputMediaPhoto | InputMediaVideo] | None = None, reply_to: int | None = None, silent: bool = False) -> list[int]:
 		"""

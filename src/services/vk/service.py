@@ -115,34 +115,13 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 				if event.attachments:
 					attachments = event.attachments.copy()
 
-					message_extended = None
-
-					# Добываем полную информацию о сообщении, если это нужно.
-					if len(attachments) >= (2 if "reply" in attachments else 1):
-						message_extended = (await self.vkAPI.messages_getById(event.message_id))["items"][0]
+					# Добываем полную информацию о сообщении.
+					message_extended = (await self.vkAPI.messages_getById(event.message_id))["items"][0]
 
 					# Обрабатываем ответы (reply).
 					if "reply" in attachments:
-						real_message_id = None
-
-						# Здесь может быть два пути.
-						# Либо бот уже получил полную информацию о сообщении, либо нет.
-						# Что бы не делать два запроса ради одной вещи, мы проверяем, есть ли у нас информация о сообщении.
-						if message_extended:
-							real_message_id = cast(int, message_extended["reply_message"]["id"])
-						else:
-							# Понятия не имею почему, но ВК возвращает JSON-строку (!) вместо dict'а для reply-вложения.
-							# ВК, Вы ебанутые?
-							reply = json.loads(attachments["reply"])
-
-							conversation_message_id = reply["conversation_message_id"]
-
-							# CID полностью бесполезен нам, поэтому нужно получить реальный ID сообщения.
-							# Для этого мы используем метод messages.getByConversationMessageId.
-							real_message_id = cast(int, (await self.vkAPI.messages_getByConversationMessageId(
-								peer_id=event.peer_id,
-								conversation_message_ids=conversation_message_id
-							))["items"][0]["id"])
+						# Извлекаем ID сообщения, на которое был дан ответ.
+						real_message_id = cast(int, message_extended["reply_message"]["id"])
 
 						# Настоящий ID сообщения получен. Получаем информацию о сообщении с БД бота.
 						reply_message_info = await subgroup.service.get_message_by_service_id(real_message_id)
@@ -150,6 +129,25 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 						# Если информация о данном сообщении есть, то мы можем получить ID сообщения в Telegram.
 						if reply_message_info:
 							reply_to = reply_message_info.telegram_message_ids[0]
+
+					# Обрабатываем гео-вложения.
+					if "geo" in attachments:
+						attachment = message_extended["geo"]
+
+						# Высылаем сообщение.
+						await TelehooperAPI.save_message(
+							"VK",
+							(await subgroup.send_geo(
+								latitude=attachment["coordinates"]["latitude"],
+								longitude=attachment["coordinates"]["longitude"],
+								silent=sent_by_account_owner,
+								reply_to=reply_to
+							))[0].message_id,
+							event.message_id,
+							False
+						)
+
+						return
 
 					# Проходимся по всем вложениям.
 					if message_extended:
