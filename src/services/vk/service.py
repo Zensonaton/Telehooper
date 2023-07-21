@@ -12,6 +12,7 @@ from aiogram.types import (BufferedInputFile, Chat, FSInputFile, InputMediaAudio
 from aiogram.utils.chat_action import ChatActionSender
 from loguru import logger
 from pydantic import SecretStr
+from services.vk.utils import create_message_link
 
 import utils
 from config import config
@@ -96,6 +97,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 				sent_by_account_owner = event.flags.outbox
 				ignore_self_debug = config.debug and await self.user.get_setting("Debug.SentViaBotInform")
 				attachment_items: list[str] = []
+				message_url = create_message_link(event.peer_id, event.message_id, use_mobile=False) # TODO: Настройка для использования мобильной версии сайта.
 
 				# Проверяем, стоит ли боту обрабатывать исходящие сообщения.
 				if sent_by_account_owner and not (await self.user.get_setting("Services.ViaServiceMessages") or ignore_self_debug):
@@ -351,20 +353,20 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 								pass
 							elif attachment_type == "poll":
-								attachment_items.append(f"<a href=\"https://vk.com/im?sel={event.peer_id}&msgid={event.message_id}\">📊 Опрос: «{attachment['question']}»</a>")
+								attachment_items.append(f"<a href=\"{message_url}\">📊 Опрос: «{attachment['question']}»</a>")
 							elif attachment_type == "gift":
 								attachment_media.append(InputMediaPhoto(
 									type="photo",
 									media=attachment["thumb_256"]
 								))
 
-								attachment_items.append(f"<a href=\"https://vk.com/im?sel={event.peer_id}&msgid={event.message_id}\">🎁 Подарок</a>")
+								attachment_items.append(f"<a href=\"{message_url}\">🎁 Подарок</a>")
 							elif attachment_type == "market":
-								attachment_items.append(f"<a href=\"https://vk.com/im?sel={event.peer_id}&msgid={event.message_id}\">🛒 Товар: «{attachment['title']}»</a>")
+								attachment_items.append(f"<a href=\"{message_url}\">🛒 Товар: «{attachment['title']}»</a>")
 							elif attachment_type == "market_album":
 								pass
 							elif attachment_type == "wall_reply":
-								attachment_items.append(f"<a href=\"https://vk.com/im?sel={event.peer_id}&msgid={event.message_id}\">📝 Комментарий к записи</a>")
+								attachment_items.append(f"<a href=\"{message_url}\">📝 Комментарий к записи</a>")
 							else:
 								raise TypeError(f"Неизвестный тип вложения \"{attachment_type}\"")
 

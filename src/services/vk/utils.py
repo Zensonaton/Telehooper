@@ -101,40 +101,16 @@ class VKLongpollMessageFlags:
 		self.outbox = _get_flag(2 ** 1)
 		self.unread = _get_flag(2 ** 0)
 
-def get_message_flags(flags: int) -> tuple[bool, bool, bool, bool, bool, bool, bool, bool, bool, bool, bool, bool, bool]:
+def create_message_link(peer_id: int | str | None, message_id: int | str, use_mobile: bool = False) -> str:
 	"""
-	Выдаёт tuple с флагами сообщения. [Документация ВК](https://vk.com/dev/using_longpoll_3).
+	Возвращает ссылку на сообщение из ВКонтакте. При переходе по ней, пользователь автоматически перейдёт в диалог, где было выбрано это сообщение.
 
-	Значения в tuple:
-	`(UNREAD, OUTBOX, REPLIED, REPLIED, CHAT, FRIENDS, SPAM, DELЕTЕD, FIXED, MEDIA, HIDDEN, DELETE_FOR_ALL, NOT_DELIVERED)`
+	:param peer_id: ID диалога. Если `use_mobile` равен `True`, то это поле можно пропустить.
+	:param message_id: ID сообщения.
+	:param use_mobile: Использовать ли мобильную версию сайта (`m.vk.com`).
 	"""
 
-	def _value(flag: int) -> bool:
-		"""
-		Если текущее значение `flags` больше чем `flag`, то возвращает `True`, и отнимает от `flags` значение `flag`.
-		"""
+	if not use_mobile and peer_id is None:
+		raise Exception("Не указан ID диалога")
 
-		nonlocal flags
-
-		if flags >= flag:
-			flags -= flag
-
-			return True
-
-		return False
-
-	NOT_DELIVERED 	= _value(2 ** 18) 	# 12
-	DELETE_FOR_ALL 	= _value(2 ** 17) 	# 11
-	HIDDEN 			= _value(2 ** 16) 	# 10
-	MEDIA 			= _value(2 ** 9) 	# 9
-	FIXED 			= _value(2 ** 8) 	# 8
-	DELETED 		= _value(2 ** 7) 	# 7
-	SPAM 			= _value(2 ** 6) 	# 6
-	FRIENDS 		= _value(2 ** 5) 	# 5
-	CHAT 			= _value(2 ** 4) 	# 4
-	IMPORTANT 		= _value(2 ** 3) 	# 3
-	REPLIED 		= _value(2 ** 2) 	# 2
-	OUTBOX 			= _value(2 ** 1) 	# 1
-	UNREAD 			= _value(2 ** 0) 	# 0
-
-	return (UNREAD, OUTBOX, REPLIED, IMPORTANT, CHAT, FRIENDS, SPAM, DELETED, FIXED, MEDIA, HIDDEN, DELETE_FOR_ALL, NOT_DELIVERED)
+	return f"https://m.vk.com/mail?act=msg&id={message_id}" if use_mobile else f"https://vk.com/im?sel={peer_id}&msgid={message_id}"
