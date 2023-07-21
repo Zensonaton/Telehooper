@@ -1,7 +1,9 @@
 # coding: utf-8
 
 import base64
+import gzip
 import hashlib
+import io
 import os
 import re
 import time
@@ -9,6 +11,7 @@ from typing import Any
 
 from aiogram.types import User as TelegramUser
 from cryptography.fernet import Fernet
+from loguru import logger
 
 from config import config
 
@@ -216,3 +219,45 @@ def telegram_safe_str(input: str) -> str:
 	"""
 
 	return input.replace("<br>", "\n")
+
+async def convert_to_tgs_sticker(json_animation: bytes) -> bytes:
+	"""
+	Конвертирует анимацию в формате JSON (lottie) в TGS-стикер.
+
+	:param json_animation: Содержимое JSON-файла с lottie-анимацией.
+	"""
+
+	# Убеждаемся, что в json_animation есть ключ "tgs".
+	if b"\"tgs\":" not in json_animation:
+		json_animation = json_animation.replace(
+			b"\"v\":",
+			b"\"tgs\":1,\"v\":"
+		)
+
+	# Создаём .tgs-архив (который на самом деле является .gz-архивом) из JSON-файла.
+	gzip_file = io.BytesIO()
+
+	# FIXME: По неясной причине, данный код возвращает нерабочий (непринимаемый Telegram)
+	# .tgs-файл. Что бы я не делал, Telegram не хочет воспринимать файл за .tgs-стикер.
+	# Что примечательно, при создании файла при помощи 7z, всё работает нормально.
+	with gzip.GzipFile(fileobj=gzip_file, mode="wb", compresslevel=5) as gzipped_file:
+		gzipped_file.write(json_animation)
+
+	# Возвращаем байты .gz-архива.
+	return gzip_file.getvalue()
+
+class CodeTimer:
+	"""
+	Небольшая утилита, которая позволяет измерять время выполнения блока кода.
+	"""
+
+	def __enter__(self):
+		self.start_time = time.time()
+
+		return self
+
+	def __exit__(self, exc_type, exc_value, traceback):
+		end_time = time.time()
+		elapsed_time = end_time - self.start_time
+
+		logger.debug(f"Времени заняло: {elapsed_time:.6f}с")

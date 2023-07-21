@@ -6,9 +6,10 @@ import json
 from typing import TYPE_CHECKING, Optional, cast
 
 import aiohttp
-from aiogram.types import (BufferedInputFile, Chat, InputMediaAudio,
+from aiogram.types import (BufferedInputFile, Chat, FSInputFile, InputMediaAudio,
                            InputMediaDocument, InputMediaPhoto,
                            InputMediaVideo, Message)
+from aiogram.utils.chat_action import ChatActionSender
 from loguru import logger
 from pydantic import SecretStr
 
@@ -23,7 +24,6 @@ from services.vk.vk_api.api import VKAPI
 from services.vk.vk_api.longpoll import (BaseVKLongpollEvent,
                                          LongpollNewMessageEvent,
                                          VKAPILongpoll)
-from aiogram.utils.chat_action import ChatActionSender
 
 if TYPE_CHECKING:
 	from api import TelehooperMessage, TelehooperSubGroup, TelehooperUser
@@ -217,6 +217,65 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 									type="audio",
 									media=attachment["link_ogg"]
 								))
+							elif attachment_type == "sticker":
+								# В данный момент, поддержка анимированных стикеров отсутствует из-за возможного бага в библиотеке gzip.
+
+								is_animated = "animation_url" in attachment and False # TODO: Настройка для отключения анимированных стикеров.
+								attachment_cache_name = f"sticker{attachment['sticker_id']}{'anim' if is_animated else 'static'}"
+
+								# Пытаемся получить информацию о данном стикере из кэша вложений.
+								sticker_bytes = None
+								cached_sticker = await TelehooperAPI.get_attachment("VK", attachment_cache_name)
+
+								# Если стикер был найден в кэше, то скачиваем его.
+								if not cached_sticker:
+									logger.debug(f"Не был найден кэш для стикера с ID {attachment_cache_name}")
+
+									# Достаём URL анимации стикера, либо статичное изображение-"превью" этого стикера.
+									sticker_url = attachment.get("animation_url") if is_animated else attachment["images"][-1]["url"]
+
+									# Загружаем стикер.
+									async with aiohttp.ClientSession() as client:
+										async with client.get(sticker_url) as response:
+											assert response.status == 200, f"Не удалось загрузить стикер с ID {attachment_cache_name}"
+
+											sticker_bytes = await response.read()
+
+									# Делаем манипуляции над стикером, если он анимированный.
+									if is_animated:
+										# Этот кусок кода не используется.
+
+										sticker_bytes = await utils.convert_to_tgs_sticker(sticker_bytes)
+
+								# Отправляем стикер.
+								msg = await subgroup.send_sticker(
+									sticker=cached_sticker if cached_sticker else BufferedInputFile(
+										file=cast(bytes, sticker_bytes),
+										filename="sticker.tgs" if is_animated else f"VK sticker {attachment['sticker_id']}.png"
+									),
+									silent=sent_by_account_owner,
+									reply_to=reply_to
+								)
+
+								# Сохраняем в память.
+								await TelehooperAPI.save_message(
+									"VK",
+									msg[0].message_id,
+									event.message_id,
+									False
+								)
+
+								assert msg[0].sticker, "Стикер не был отправлен"
+
+								# Кэшируем стикер, если настройка у пользователя это позволяет.
+								if await self.user.get_setting("Security.MediaCache"):
+									await TelehooperAPI.save_attachment(
+										"VK",
+										attachment_cache_name,
+										msg[0].sticker.file_id
+									)
+
+								return
 							else:
 								raise TypeError(f"Неизвестный тип вложения \"{attachment_type}\"")
 

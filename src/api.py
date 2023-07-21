@@ -8,7 +8,7 @@ from aiocouch import Document
 from aiogram import Bot
 from aiogram.types import (BufferedInputFile, Chat, InputMediaAudio,
                            InputMediaDocument, InputMediaPhoto,
-                           InputMediaVideo, Message, User)
+                           InputMediaVideo, Message, User, InputFile)
 
 import utils
 from config import config
@@ -24,6 +24,7 @@ from settings import SETTINGS_TREE, SettingsHandler
 _saved_connections = {}
 _service_dialogues: list["TelehooperSubGroup"] = []
 _cached_message_ids: list["TelehooperMessage"] = []
+_cached_attachments: list["TelehooperCachedAttachment"] = []
 
 settings = SettingsHandler(SETTINGS_TREE)
 
@@ -338,6 +339,25 @@ class TelehooperGroup:
 
 		await self.document.save()
 
+	async def send_sticker(self, sticker: BufferedInputFile | InputFile | str, reply_to: int | None = None, topic: int = 0, silent: bool = False) -> list[Message]:
+		"""
+		Отправляет стикер в Telegram-группу.
+
+		:param sticker: Стикер.
+		:param reply_to: ID сообщения, на которое нужно ответить.
+		:param topic: ID диалога в сервисе, в который нужно отправить сообщение. Если не указано, то сообщение будет отправлено в главный диалог группы.
+		:param silent: Отправить ли сообщение без уведомления.
+		"""
+
+		return [await self.bot.send_sticker(
+			chat_id=self.chat.id,
+			sticker=sticker,
+			message_thread_id=topic,
+			reply_to_message_id=reply_to,
+			disable_notification=silent,
+			allow_sending_without_reply=True
+		)]
+
 	async def send_message(self, text: str, attachments: list[InputMediaAudio | InputMediaDocument | InputMediaPhoto | InputMediaVideo] | None = None, reply_to: int | None = None, topic: int = 0, silent: bool = False) -> list[int]:
 		"""
 		Отправляет сообщение в группу. Возвращает ID отправленного(-ых) сообщений.
@@ -413,6 +433,31 @@ class TelehooperMessage:
 		self.service_message_ids = [service_mids] if isinstance(service_mids, int) else service_mids
 		self.sent_via_bot = sent_via_bot
 
+class TelehooperCachedAttachment:
+	"""
+	Класс, описывающий вложение, которое было сохранено в Telegram. Данный класс предоставляет доступ к ID вложения в Telegram и в сервисе, а так же прочую информацию.
+	"""
+
+	service_name: str
+	"""Имя сервиса, с которым ассоциировано вложение."""
+	key: str
+	"""Ключ вложения в БД. Захеширован при помощи SHA-256."""
+	value: str
+	"""Значение вложения в БД. Зашифровано при помощи Fernet, ключ - `key` (до хэширования)."""
+
+	def __init__(self, service_name: str, key: str, value: str) -> None:
+		"""
+		Инициализирует объект вложения.
+
+		:param service_name: Имя сервиса, с которым ассоциировано вложение.
+		:param key: Ключ вложения в БД. Захеширован при помощи SHA-256.
+		:param value: Значение вложения в БД. Зашифровано при помощи Fernet, ключ - `key` (до хэширования).
+		"""
+
+		self.service_name = service_name
+		self.key = key
+		self.value = value
+
 class TelehooperSubGroup:
 	"""
 	Класс для под-группы в группе-диалоге. Используется для всех диалогов внутри группы Telegram. Класс существует поскольку группы могут быть топиками с множеством диалогов.
@@ -445,6 +490,17 @@ class TelehooperSubGroup:
 		self.service = service
 		self.parent = parent
 		self.service_chat_id = service_chat_id
+
+	async def send_sticker(self, sticker: BufferedInputFile | InputFile | str, reply_to: int | None = None, silent: bool = False) -> list[Message]:
+		"""
+		Отправляет стикер в Telegram-группу.
+
+		:param sticker: Стикер.
+		:param reply_to: ID сообщения, на которое нужно ответить.
+		:param silent: Отправить ли сообщение без уведомления.
+		"""
+
+		return await self.parent.send_sticker(sticker, reply_to=reply_to, topic=self.id, silent=silent)
 
 	async def send_message_in(self, text: str, attachments: list[InputMediaAudio | InputMediaDocument | InputMediaPhoto | InputMediaVideo] | None = None, reply_to: int | None = None, silent: bool = False) -> list[int]:
 		"""
@@ -686,3 +742,45 @@ class TelehooperAPI:
 
 		return None
 
+	@staticmethod
+	async def save_attachment(service_name: str, key: str, value: str):
+		"""
+		Сохраняет вложение с уникальным ID в БД с целью кэширования. Применяется для стикеров и GIF-анимаций.
+
+		:param service_name: Название сервиса, через который было отправлено сообщение.
+		:param key: Уникальный ключ вложения. Данный ключ не должен быть хэширован.
+		:param value: ID вложения в Telegram (поле `file_id` у сообщения). Данное значение не должно быть зашифрованым.
+		"""
+
+		attachment = TelehooperCachedAttachment(
+			service_name=service_name,
+			key=utils.sha256_hash(key),
+			value=utils.encrypt_with_key(value, key)
+		)
+
+		_cached_attachments.append(attachment)
+
+		# TODO: Сохранить в БД.
+
+	@staticmethod
+	async def get_attachment(service_name: str, key: str, bypass_cache: bool = False) -> str | None:
+		"""
+		Возвращает значение вложения по его уникальному ключу.
+
+		:param service_name: Название сервиса, через который было отправлено сообщение.
+		:param key: Уникальный ключ вложения. Не должен быть хэширован.
+		:param bypass_cache: Игнорировать ли кэш. Если да, то бот будет искать вложение только в БД.
+		"""
+
+		# Если нам это разрешено, возвращаем ID сообщения из кэша.
+		if not bypass_cache:
+			for attachment in _cached_attachments:
+				if attachment.service_name != service_name:
+					continue
+
+				if attachment.key == utils.sha256_hash(key):
+					return utils.decrypt_with_key(attachment.value, key)
+
+		# TODO: Извлечь информацию о вложении из БД.
+
+		return None
