@@ -95,6 +95,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 				attachment_media: list[InputMediaAudio | InputMediaDocument | InputMediaPhoto | InputMediaVideo] = []
 				sent_by_account_owner = event.flags.outbox
 				ignore_self_debug = config.debug and await self.user.get_setting("Debug.SentViaBotInform")
+				attachment_items: list[str] = []
 
 				# Проверяем, стоит ли боту обрабатывать исходящие сообщения.
 				if sent_by_account_owner and not (await self.user.get_setting("Services.ViaServiceMessages") or ignore_self_debug):
@@ -339,6 +340,31 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 										title=attachment["title"],
 										performer=attachment["artist"]
 									))
+							elif attachment_type == "wall":
+								# TODO: Имя группы/юзера откуда был пост.
+								#   В данный момент почти нереализуемо из-за того, что ВК не передаёт такую информацию, и нужно делать отдельный запрос.
+								# TODO: Настройка, что бы показывать содержимое поста, а не ссылку на него.
+
+								attachment_items.append(f"<a href=\"vk.com/wall{attachment['owner_id']}_{attachment['id']}\">🔄 Запись от {'пользователя' if attachment['owner_id'] > 0 else 'группы'}</a>")
+							elif attachment_type == "link":
+								# TODO: Проверить, какая первая ссылка есть в сообщении, и если она не совпадает с этой - сделать невидимую ссылку в самом начале.
+
+								pass
+							elif attachment_type == "poll":
+								attachment_items.append(f"<a href=\"https://vk.com/im?sel={event.peer_id}&msgid={event.message_id}\">📊 Опрос: «{attachment['question']}»</a>")
+							elif attachment_type == "gift":
+								attachment_media.append(InputMediaPhoto(
+									type="photo",
+									media=attachment["thumb_256"]
+								))
+
+								attachment_items.append(f"<a href=\"https://vk.com/im?sel={event.peer_id}&msgid={event.message_id}\">🎁 Подарок</a>")
+							elif attachment_type == "market":
+								attachment_items.append(f"<a href=\"https://vk.com/im?sel={event.peer_id}&msgid={event.message_id}\">🛒 Товар: «{attachment['title']}»</a>")
+							elif attachment_type == "market_album":
+								pass
+							elif attachment_type == "wall_reply":
+								attachment_items.append(f"<a href=\"https://vk.com/im?sel={event.peer_id}&msgid={event.message_id}\">📝 Комментарий к записи</a>")
 							else:
 								raise TypeError(f"Неизвестный тип вложения \"{attachment_type}\"")
 
@@ -355,6 +381,11 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 					if event.text:
 						new_message_text += f": {utils.telegram_safe_str(event.text)}"
+
+					if attachment_items:
+						new_message_text += "\n\n————————\n"
+
+						new_message_text += "  |  ".join(attachment_items) + "."
 
 				# Отправляем готовое сообщение, и сохраняем его ID в БД бота.
 				async def _save() -> None:
