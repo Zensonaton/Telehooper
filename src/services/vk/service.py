@@ -187,16 +187,23 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 											async with client.get(video[quality]) as response:
 												assert response.status == 200, f"Не удалось загрузить видео с качеством {quality}"
 
-												video_bytes = await response.read()
+												video_bytes = b""
 
-												# Пытаемся найти самое большое видео, которое не превышает 50 МБ.
-												if len(video_bytes) > 50 * 1024 * 1024:
-													if is_last:
-														raise Exception("Размер видео слишком большой")
+												while True:
+													chunk = await response.content.read(1024)
+													if not chunk:
+														break
 
-													logger.debug(f"Файл размером {quality} оказался слишком большой ({len(video_bytes)} байт).")
+													video_bytes += chunk
 
-													continue
+													# Пытаемся найти самое большое видео, которое не превышает 50 МБ.
+													if len(video_bytes) > 50 * 1024 * 1024:
+														if is_last:
+															raise Exception("Размер видео слишком большой")
+
+														logger.debug(f"Файл размером {quality} оказался слишком большой ({len(video_bytes)} байт).")
+
+														continue
 
 										# Прикрепляем видео.
 										attachment_media.append(InputMediaVideo(
@@ -274,6 +281,34 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 									)
 
 								return
+							elif attachment_type == "doc":
+								async with ChatActionSender(chat_id=subgroup.parent.chat.id, action="upload_document", bot=subgroup.parent.bot):
+									async with aiohttp.ClientSession() as client:
+										async with client.get(attachment["url"]) as response:
+											assert response.status == 200, f"Не удалось загрузить документ с ID {attachment['id']}"
+
+											file_bytes = b""
+
+											while True:
+												chunk = await response.content.read(1024)
+												if not chunk:
+													break
+
+												file_bytes += chunk
+
+												if len(file_bytes) > 50 * 1024 * 1024:
+													logger.debug(f"Файл оказался слишком большой ({len(file_bytes)} байт).")
+
+													raise Exception("Размер файла слишком большой")
+
+									# Прикрепляем документ.
+									attachment_media.append(InputMediaDocument(
+										type="document",
+										media=BufferedInputFile(
+											file=file_bytes,
+											filename=attachment["title"]
+										)
+									))
 							else:
 								raise TypeError(f"Неизвестный тип вложения \"{attachment_type}\"")
 
