@@ -93,6 +93,9 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 			logger.debug(f"[VK] Сообщение с текстом \"{event.text}\", для подгруппы \"{subgroup.service_dialogue_name}\"")
 
+			# Обновляем объект пользователя.
+			await self.user.refresh_document()
+
 			try:
 				attachment_media: list[InputMediaAudio | InputMediaDocument | InputMediaPhoto | InputMediaVideo] = []
 				sent_by_account_owner = event.flags.outbox
