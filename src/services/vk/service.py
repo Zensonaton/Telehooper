@@ -101,7 +101,11 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 				sent_by_account_owner = event.flags.outbox
 				ignore_self_debug = config.debug and await self.user.get_setting("Debug.SentViaBotInform")
 				attachment_items: list[str] = []
-				message_url = create_message_link(event.peer_id, event.message_id, use_mobile=False) # TODO: Настройка для использования мобильной версии сайта.
+				message_url = create_message_link(
+					event.peer_id,
+					event.message_id,
+					use_mobile=await self.user.get_setting("Services.VK.MobileVKURLs")
+				)
 
 				# Проверяем, стоит ли боту обрабатывать исходящие сообщения.
 				if sent_by_account_owner and not (await self.user.get_setting("Services.VK.ViaServiceMessages") or ignore_self_debug):
