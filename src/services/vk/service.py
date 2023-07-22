@@ -576,11 +576,13 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 	async def send_message(self, chat_id: int, text: str, reply_to_message: int | None = None) -> int:
 		return await self.vkAPI.messages_send(peer_id=chat_id, message=text, reply_to=reply_to_message)
 
-	async def handle_inner_message(self, msg: Message, subgroup: "TelehooperSubGroup") -> None:
+	async def handle_inner_message(self, msg: Message, subgroup: "TelehooperSubGroup", attachments: list) -> None:
 		from api import TelehooperAPI
 
 
 		logger.debug(f"[TG] Обработка сообщения в Telegram: \"{msg.text}\" в \"{subgroup}\"")
+
+
 
 		reply_message_id = None
 		if msg.reply_to_message:

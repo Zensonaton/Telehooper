@@ -4,11 +4,12 @@ import asyncio
 from typing import cast
 
 from aiogram import F, Router
-from aiogram.types import Message, User
 from aiogram.filters import Command
+from aiogram.types import Audio, Document, Message, PhotoSize, User, Video
 from loguru import logger
 
-from api import TelehooperAPI, TelehooperGroup, TelehooperSubGroup, TelehooperUser
+from api import (TelehooperAPI, TelehooperGroup, TelehooperSubGroup,
+                 TelehooperUser)
 
 
 _priority_ = -1
@@ -107,4 +108,4 @@ async def on_group_message(msg: Message, subgroup: TelehooperSubGroup) -> None:
 	Handler для случая, если бот получил в группе сообщение, для которого существует диалог в сервисе.
 	"""
 
-	await subgroup.service.handle_inner_message(msg, subgroup)
+	await subgroup.service.handle_inner_message(msg, subgroup, [])

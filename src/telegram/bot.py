@@ -76,7 +76,7 @@ def init_handlers() -> None:
 
 	logger.debug("Загружаю middleware...")
 
-	from telegram.middlewares.ratelimitretrymiddleware import RetryRequestMiddleware
+	from telegram.middlewares.ratelimitretry import RetryRequestMiddleware
 
 	dispatcher.message.middleware(RetryRequestMiddleware())
 	dispatcher.callback_query.middleware(RetryRequestMiddleware())

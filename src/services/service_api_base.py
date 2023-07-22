@@ -171,12 +171,13 @@ class BaseTelehooperServiceAPI:
 
 		raise NotImplementedError
 
-	async def handle_inner_message(self, msg: Message, subgroup: "TelehooperSubGroup") -> None:
+	async def handle_inner_message(self, msg: Message, subgroup: "TelehooperSubGroup", attachments: list) -> None:
 		"""
 		Метод, вызываемый ботом, в случае получения нового сообщения в группе-диалоге (или топик-диалоге). Этот метод обрабатывает события, передавая их текст в сервис.
 
-		:param msg: Сообщение из Telegram.
+		:param msg: Сообщение из Telegram. Если бот получил сразу кучу сообщений за раз (т.е., медиагруппу), то данная переменная будет равна первому сообщения из медиагруппы.
 		:param subgroup: Подгруппа, в которой было получено сообщение.
+		:param attachments: Вложения к сообщению.
 		"""
 
 		raise NotImplementedError
