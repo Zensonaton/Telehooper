@@ -730,6 +730,49 @@ class TelehooperAPI:
 		# TODO: Сохранить в БД.
 
 	@staticmethod
+	async def delete_message(service_name: str, telegram_message_id: int | list[int] | None = None, service_message_id: int | list[int] | None = None):
+		"""
+		Удаляет ID сообщения из БД с соответствием по ID сообщения сервиса или Telegram.
+
+		:param service_name: Название сервиса, через который было отправлено сообщение.
+		:param telegram_message_id: ID сообщения(-ий) в Telegram.
+		:param service_message_id: ID сообщения(-ий) в сервисе.
+		"""
+
+		assert telegram_message_id or service_message_id, "Не указаны ID сообщений"
+
+		if isinstance(telegram_message_id, int):
+			telegram_message_id = [telegram_message_id]
+
+		if isinstance(service_message_id, int):
+			service_message_id = [service_message_id]
+
+		telegram_message_id = cast(list[int], telegram_message_id)
+		service_message_id = cast(list[int], service_message_id)
+
+		for index, msg in enumerate(_cached_message_ids):
+			if msg.service != service_name:
+				continue
+
+			for mid in telegram_message_id:
+				if mid in msg.telegram_message_ids:
+					continue
+
+				del _cached_message_ids[index]
+
+				return
+
+			for mid in service_message_id:
+				if mid in msg.service_message_ids:
+					continue
+
+				del _cached_message_ids[index]
+
+				return
+
+		# TODO: Удалить из БД.
+
+	@staticmethod
 	async def get_message_by_telegram_id(service_name: str, message_id: int, bypass_cache: bool = False) -> TelehooperMessage | None:
 		"""
 		Возвращает информацию о отправленном через бота сообщения по его ID в Telegram.

@@ -12,6 +12,7 @@ from aiogram.types import (BufferedInputFile, Chat, FSInputFile, InputMediaAudio
 from aiogram.utils.chat_action import ChatActionSender
 from loguru import logger
 from pydantic import SecretStr
+from services.vk.exceptions import AccessDeniedException
 from services.vk.utils import create_message_link
 
 import utils
@@ -382,15 +383,17 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 					new_message_text += "]"
 
 					if event.text:
-						new_message_text += f": {utils.telegram_safe_str(event.text)}"
+						new_message_text += ": "
 
-					if attachment_items:
-						new_message_text += "\n\n————————\n"
+				new_message_text += utils.telegram_safe_str(event.text)
 
-						new_message_text += "  |  ".join(attachment_items) + "."
+				if attachment_items:
+					new_message_text += "\n\n————————\n"
+
+					new_message_text += "  |  ".join(attachment_items) + "."
 
 				# Отправляем готовое сообщение, и сохраняем его ID в БД бота.
-				async def _save() -> None:
+				async def _send_and_save() -> None:
 					await TelehooperAPI.save_message(
 						"VK",
 						await subgroup.send_message_in(
@@ -406,9 +409,9 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 				# Если у нас были вложения, то мы должны отправить сообщение с ними.
 				if attachment_media:
 					async with ChatActionSender.upload_document(chat_id=subgroup.parent.chat.id, bot=subgroup.parent.bot, initial_sleep=1):
-						await _save()
+						await _send_and_save()
 				else:
-					await _save()
+					await _send_and_save()
 			except Exception as e:
 				# TODO: Отправлять сообщение об ошибке пользователю, делая при этом логирование самого текста ошибки.
 
@@ -591,6 +594,83 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 			reply_to_message=reply_message_id
 		)
 		await TelehooperAPI.save_message("VK", msg.message_id, service_message_id, True)
+
+	async def handle_message_delete(self, msg: Message, subgroup: "TelehooperSubGroup") -> None:
+		from api import TelehooperAPI
+
+
+		logger.debug(f"[TG] Обработка удаления сообщения в Telegram: \"{msg.text}\" в \"{subgroup}\"")
+
+		saved_message = await self.get_message_by_telegram_id(msg.message_id)
+
+		if not saved_message:
+			await subgroup.send_message_in(
+				"<b>⚠️ Ошибка удаления сообщения</b>.\n"
+				"\n"
+				"Сообщение не было найдено ботом, поэтому оно не было удалено.",
+				silent=True
+			)
+
+			return
+
+		try:
+			await self.vkAPI.messages_delete(saved_message.service_message_ids)
+		except AccessDeniedException:
+			# TODO: Уточнить причину ошибки в зависимости от типа диалога.
+
+			reason = "Прошло более 24-х часов с момента отправки сообщения."
+			if not saved_message.sent_via_bot:
+				reason = "Вы попытались удалить сообщение, отправленное Вашим собедеседником, либо же Вы не являетесь Администратором в беседе."
+
+			await subgroup.send_message_in(
+				"<b>⚠️ Ошибка удаления сообщения</b>.\n"
+				"\n"
+				f"{reason}",
+				silent=True
+			)
+
+			return
+
+		# Удаляем из кэша сообщений.
+		await TelehooperAPI.delete_message(
+			"VK",
+			saved_message.service_message_ids
+		)
+
+	async def handle_message_edit(self, msg: Message, subgroup: "TelehooperSubGroup") -> None:
+		logger.debug(f"[TG] Обработка редактирования сообщения в Telegram: \"{msg.text}\" в \"{subgroup}\"")
+
+		saved_message = await self.get_message_by_telegram_id(msg.message_id)
+
+		if not saved_message:
+			await subgroup.send_message_in(
+				"<b>⚠️ Ошибка редактирования сообщения</b>.\n"
+				"\n"
+				"Сообщение не было найдено ботом, поэтому оно не было отредактировано.",
+				silent=True,
+				reply_to=msg.message_id
+			)
+
+			return
+
+		try:
+			await self.vkAPI.messages_edit(
+				message_id=saved_message.service_message_ids[0],
+				peer_id=subgroup.service_chat_id,
+				message=msg.text or "[пустой текст сообщения]"
+			)
+		except AccessDeniedException:
+			await subgroup.send_message_in(
+				"<b>⚠️ Ошибка редактирования сообщения</b>.\n"
+				"\n"
+				f"Сообщение слишком старое что бы его редактировать.",
+				silent=True
+			)
+
+	async def handle_message_read(self, subgroup: "TelehooperSubGroup") -> None:
+		logger.debug(f"[TG] Обработка прочтения сообщения в Telegram в \"{subgroup}\"")
+
+		await self.vkAPI.messages_markAsRead(subgroup.service_chat_id)
 
 	async def get_message_by_telegram_id(self, message_id: int, bypass_cache: bool = False) -> Optional["TelehooperMessage"]:
 		from api import TelehooperAPI

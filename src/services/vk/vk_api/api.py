@@ -6,7 +6,8 @@ import aiohttp
 from loguru import logger
 from pydantic import SecretStr
 
-from services.vk.exceptions import (AccountDeactivatedException,
+from services.vk.exceptions import (AccessDeniedException,
+                                    AccountDeactivatedException,
                                     BaseVKAPIException, CaptchaException,
                                     TokenRevokedException)
 from services.vk.utils import random_id
@@ -43,7 +44,7 @@ class VKAPI:
 
 		if response.get("error"):
 			code = response["error"]["error_code"]
-			message = response["error"]
+			message = response["error"]["error_msg"]
 
 			if code in [3610, 17, 18]:
 				raise AccountDeactivatedException(message=message)
@@ -51,6 +52,8 @@ class VKAPI:
 				raise TokenRevokedException(message=message)
 			elif code == 14:
 				raise CaptchaException(message=message)
+			elif code == 15:
+				raise AccessDeniedException(message=message)
 			else:
 				raise BaseVKAPIException(
 					error_code=code,
@@ -243,4 +246,54 @@ class VKAPI:
 
 		return await self._post_("audio.getById", {
 			"audios": ",".join(audios)
+		})
+
+	async def messages_delete(self, message_ids: int | list[int], delete_for_all: bool = True) -> dict:
+		"""
+		Удаляет сообщение по его ID. API: `messages.delete`.
+
+		:param message_ids: ID сообщения(-й).
+		:param delete_for_all: Удалить ли сообщение для всех пользователей. Работает только если сообщение было отправлено не более 24 часов назад.
+		"""
+
+		if isinstance(message_ids, int):
+			message_ids = [message_ids]
+
+		return await self._post_("messages.delete", {
+			"message_ids": ",".join(map(str, message_ids)),
+			"delete_for_all": 1 if delete_for_all else 0
+		})
+
+	async def messages_edit(self, peer_id: int, message_id: int, message: str, keep_forward_messages: bool = True, keep_snippets = True) -> dict:
+		"""
+		Редактирует сообщение по его ID. API: `messages.edit`.
+
+		:param peer_id: ID пользователя/группы/беседы, в которой находится сообщение.
+		:param message_id: ID сообщения.
+		:param message: Новый текст сообщения.
+		:param keep_forward_messages: Оставить ли пересланные сообщения.
+		:param keep_snippets: Оставить ли прикреплённые в сообщении ссылки.
+		"""
+
+		return await self._post_("messages.edit", {
+			"peer_id": peer_id,
+			"message_id": message_id,
+			"message": message,
+			"keep_forward_messages": 1 if keep_forward_messages else 0,
+			"keep_snippets": 1 if keep_snippets else 0
+		})
+
+	async def messages_markAsRead(self, peer_id: int, start_message_id: int | None = None, mark_conversation_as_read: bool = True) -> dict:
+		"""
+		Помечает сообщения как прочитанные. API: `messages.markAsRead`.
+
+		:param peer_id: ID пользователя/группы/беседы, в которой находится сообщение.
+		:param start_message_id: ID сообщения, начиная с которого нужно пометить сообщения как прочитанные.
+		:param mark_conversation_as_read: Пометить ли беседу как прочитанную.
+		"""
+
+		return await self._post_("messages.markAsRead", {
+			"peer_id": peer_id,
+			"start_message_id": start_message_id,
+			"mark_conversation_as_read": 1 if mark_conversation_as_read else 0
 		})

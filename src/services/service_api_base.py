@@ -181,6 +181,45 @@ class BaseTelehooperServiceAPI:
 
 		raise NotImplementedError
 
+	async def handle_message_delete(self, msg: Message, subgroup: "TelehooperSubGroup") -> None:
+		"""
+		Метод, вызываемый ботом, в случае попытки удаления сообщения в группе-диалоге (или топик-диалоге) в боте при помощи команды `/delete`.
+
+		:param msg: Сообщение из Telegram, которое должно быть удалено. Должно являться ответом (reply) на сообщение вместо сообщения с командой.
+		:param subgroup: Подгруппа, в которой было получено сообщение.
+		"""
+
+		raise NotImplementedError
+
+	async def handle_message_edit(self, msg: Message, subgroup: "TelehooperSubGroup") -> None:
+		"""
+		Метод, вызываемый ботом, в случае попытки редактирования сообщения в группе-диалоге (или топик-диалоге).
+
+		:param msg: Новое сообщение из Telegram.
+		:param subgroup: Подгруппа, в которой сообщение было отредактировано пользователем.
+		"""
+
+		raise NotImplementedError
+
+	async def handle_message_read(self, subgroup: "TelehooperSubGroup") -> None:
+		"""
+		Метод, вызываемый ботом, в случае прочтения сообщения в группе-диалоге (или топик-диалоге) в боте при помощи команды `/read` либо нажатия кнопки "прочитать".
+
+		:param subgroup: Подгруппа, в которой сообщение было прочитано.
+		"""
+
+		raise NotImplementedError
+
+	async def handle_callback_button(self, msg: Message, subgroup: "TelehooperSubGroup") -> None:
+		"""
+		Метод, вызываемый ботом при нажатии на кнопку в сообщении в группе-диалоге (или топик-диалоге). Данный метод вызывается только при нажатии на кнопки, которые были скопированы с сервиса.
+
+		:param msg: Сообщение из Telegram.
+		:param subgroup: Подгруппа, в которой сообщение было прочитано.
+		"""
+
+		raise NotImplementedError
+
 	async def get_message_by_telegram_id(self, message_id: int, bypass_cache: bool = False) -> Optional["TelehooperMessage"]:
 		"""
 		Возвращает информацию о отправленном через бота сообщения по его ID в Telegram.
