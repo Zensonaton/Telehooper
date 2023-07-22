@@ -4,6 +4,7 @@ from typing import cast
 
 from aiogram import F, Bot, Router, types
 from aiogram.filters import Command, Text
+from api import TelehooperAPI, TelehooperGroup
 
 from consts import CommandButtons
 from DB import get_group, get_user
@@ -19,12 +20,12 @@ async def group_convert_message(chat_id: int, user: types.User, message_to_edit:
 	"""
 
 	bot = Bot.get_current()
+	assert bot
 
-	if not bot:
-		return
+	telehooper_user = await TelehooperAPI.get_user(user)
 
 	try:
-		group = await get_group(chat_id)
+		telehooper_group = await TelehooperAPI.get_group(telehooper_user, chat_id)
 	except:
 		await bot.send_message(
 			chat_id,
@@ -40,33 +41,40 @@ async def group_convert_message(chat_id: int, user: types.User, message_to_edit:
 
 		return
 
+	telehooper_group = cast(TelehooperGroup, telehooper_group)
+
 	# Сохраняем то, что у бота есть права администратора в группе.
-	group["AdminRights"] = True
+	telehooper_group.document["AdminRights"] = True
 
-	await group.save()
+	await telehooper_group.document.save()
 
-	db_user = await get_user(user)
-
-	if not db_user["Connections"]:
-		_text = (
-			"<b>🫂 Группа-диалог</b>.\n"
-			"\n"
-			f"{'Вы пытаетесь' if called_from_command else 'Отлично! Права администратора были получены, однако в данный момент, Вы пытаетесь'} подключить группу к сервису, пока как у Вас нет никаких подключённых сервисов. 😔\n"
-			"\n"
-			f"ℹ️ Вы можете подключить сервис к Telehooper, воспользовавшись командой /connect. {'' if called_from_command else 'После подключения сервисов Вы сможете вернуться в этот диалог и попробовать снова, прописав команду /this.'}"
+	# Проверяем на то, что данная группа уже является диалогом.
+	if telehooper_group.chats:
+		await TelehooperAPI.send_or_edit_message(
+			text=(
+				"<b>🫂 Группа-диалог</b>.\n"
+				"\n"
+				f"Данная группа уже является диалогом(-и). Настройка такого диалога будет добавлена в будущих обновлениях бота. 👀"
+			),
+			chat_id=chat_id,
+			message_to_edit=message_to_edit
 		)
 
-		if message_to_edit:
-			await bot.edit_message_text(
-				text=_text,
-				chat_id=chat_id,
-				message_id=message_to_edit.message_id if isinstance(message_to_edit, types.Message) else message_to_edit
-			)
-		else:
-			await bot.send_message(
-				chat_id,
-				text=_text
-			)
+		return
+
+	# Проверяем на наличие подключённых сервисов.
+	if not telehooper_user.document["Connections"]:
+		await TelehooperAPI.send_or_edit_message(
+			text=(
+				"<b>🫂 Группа-диалог</b>.\n"
+				"\n"
+				f"{'Вы пытаетесь' if called_from_command else 'Отлично! Права администратора были получены, однако в данный момент, Вы пытаетесь'} подключить группу к сервису, пока как у Вас нет никаких подключённых сервисов. 😔\n"
+				"\n"
+				f"ℹ️ Вы можете подключить сервис к Telehooper, воспользовавшись командой /connect. {'' if called_from_command else 'После подключения сервисов Вы сможете вернуться в этот диалог и попробовать снова, прописав команду /this.'}"
+			),
+			chat_id=chat_id,
+			message_to_edit=message_to_edit
+		)
 
 		return
 
@@ -80,40 +88,23 @@ async def group_convert_message(chat_id: int, user: types.User, message_to_edit:
 		]
 	)
 
-	footer_txt = (
-		"Вы пытаетесь подключить группу к сервису.\n"
-		"После подключения группы к сервису Вы сможете получать сообщения или другой контент с нужного Вам сервиса.\n"
-	) if called_from_command else (
-		"Отлично! Вы выдали необходимые мне права администратора.\n"
-		"Теперь Вы можете выбрать нужный сервис, а после указать, какой именно контент Вы хотите получать с сервиса.\n"
+	await TelehooperAPI.send_or_edit_message(
+		text=(
+			"<b>🫂 Группа-диалог</b>.\n"
+			"\n"
+			f"{'Вы пытаетесь подключить группу к сервису.' if called_from_command else 'Отлично! Вы выдали необходимые мне права администратора.'}\n"
+			f"{'После подключения группы к сервису Вы сможете получать сообщения или другой контент с нужного Вам сервиса.' if called_from_command else 'Теперь Вы можете выбрать нужный сервис, а после указать, какой именно контент Вы хотите получать с сервиса.'}\n"
+			"\n"
+			"В данный момент, к боту подключено следующее:\n"
+			f" • <b>ВКонтакте</b>: <a href=\"vk.com/{telehooper_user.connections['VK']['Username']}\">{telehooper_user.connections['VK']['FullName']}</a>.\n"
+			"\n"
+			f"ℹ️ {'Выберите нужный сервис из списка ниже.' if called_from_command else 'Если Вы потеряете данное сообщение, то Вы сможете вызвать его снова, прописав команду <code>/this</code>.'}"
+		),
+		chat_id=chat_id,
+		message_to_edit=message_to_edit,
+		disable_web_page_preview=True,
+		reply_markup=keyboard
 	)
-
-	_text = (
-		"<b>🫂 Группа-диалог</b>.\n"
-		"\n"
-		f"{footer_txt}"
-		"\n"
-		"В данный момент, к боту подключено следующее:\n"
-		f" • <b>ВКонтакте</b>: <a href=\"vk.com/{db_user['Connections']['VK']['Username']}\">{db_user['Connections']['VK']['FullName']}</a>.\n"
-		"\n"
-		f"ℹ️ {'Выберите нужный сервис из списка ниже.' if called_from_command else 'Если Вы потеряете данное сообщение, то Вы сможете вызвать его снова, прописав команду <code>/this</code>.'}"
-	)
-
-	if message_to_edit:
-		await bot.edit_message_text(
-			text=_text,
-			chat_id=chat_id,
-			message_id=message_to_edit.message_id if isinstance(message_to_edit, types.Message) else message_to_edit,
-			reply_markup=keyboard,
-			disable_web_page_preview=True
-		)
-	else:
-		await bot.send_message(
-			chat_id,
-			text=_text,
-			reply_markup=keyboard,
-			disable_web_page_preview=True
-		)
 
 @router.message(Command("this"))
 @router.message(Text(CommandButtons.THIS))

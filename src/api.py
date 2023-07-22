@@ -6,9 +6,11 @@ from typing import Any, cast
 import aiohttp
 from aiocouch import Document
 from aiogram import Bot
-from aiogram.types import (BufferedInputFile, Chat, InputMediaAudio,
+from aiogram.types import (BufferedInputFile, Chat, ForceReply,
+                           InlineKeyboardMarkup, InputFile, InputMediaAudio,
                            InputMediaDocument, InputMediaPhoto,
-                           InputMediaVideo, Message, User, InputFile)
+                           InputMediaVideo, Message, ReplyKeyboardMarkup,
+                           ReplyKeyboardRemove, User)
 
 import utils
 from config import config
@@ -18,7 +20,6 @@ from exceptions import DisallowedInDebugException
 from services.service_api_base import BaseTelehooperServiceAPI, ServiceDialogue
 from services.vk.service import VKServiceAPI
 from settings import SETTINGS_TREE, SettingsHandler
-
 
 # Да, я знаю что это плохой способ. Знаю. Ни к чему другому, адекватному я не пришёл.
 _saved_connections = {}
@@ -860,3 +861,45 @@ class TelehooperAPI:
 		# TODO: Извлечь информацию о вложении из БД.
 
 		return None
+
+	@staticmethod
+	async def send_or_edit_message(text: str, chat_id: int, message_to_edit: Message | int | None, thread_id: int | None = None, reply_markup: InlineKeyboardMarkup | ReplyKeyboardMarkup | ReplyKeyboardRemove | ForceReply | None = None, disable_web_page_preview: bool = False, allow_sending_without_reply: bool = False, bot: Bot | None = None) -> Message | int:
+		"""
+		Пытается отредактировать либо отправить сообщение в группу. Возвращает объект сообщения.
+		"""
+
+		message_id = message_to_edit.message_id if isinstance(message_to_edit, Message) else message_to_edit
+
+		bot = bot if bot else Bot.get_current()
+		assert bot
+
+		async def _send() -> Message:
+			return await bot.send_message(
+				chat_id=chat_id,
+				message_thread_id=thread_id,
+				text=text,
+				allow_sending_without_reply=allow_sending_without_reply,
+				disable_web_page_preview=disable_web_page_preview,
+				reply_markup=reply_markup
+			)
+
+		# Если не задан ID сообщения, то отправляем новое.
+		if not message_id:
+			return await _send()
+
+		assert message_id
+
+		# Пытаемся отредактировать сообщение, если не удаётся - отправляем новое.
+		try:
+			assert isinstance(reply_markup, InlineKeyboardMarkup)
+
+			await bot.edit_message_text(
+				chat_id=chat_id,
+				message_id=message_id,
+				text=text,
+				reply_markup=reply_markup
+			)
+
+			return message_id
+		except:
+			return await _send()
