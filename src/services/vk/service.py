@@ -104,7 +104,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 				message_url = create_message_link(event.peer_id, event.message_id, use_mobile=False) # TODO: Настройка для использования мобильной версии сайта.
 
 				# Проверяем, стоит ли боту обрабатывать исходящие сообщения.
-				if sent_by_account_owner and not (await self.user.get_setting("Services.ViaServiceMessages") or ignore_self_debug):
+				if sent_by_account_owner and not (await self.user.get_setting("Services.VK.ViaServiceMessages") or ignore_self_debug):
 					return
 
 				# Получаем информацию о отправленном сообщении.
@@ -178,7 +178,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 									video_quality_list = ["mp4_720", "mp4_480", "mp4_360", "mp4_240", "mp4_144"]
 
 									# Если пользователь разрешил использование видео в 1080p, то добавляем его в список.
-									if await self.user.get_setting("Services.HDVideo"):
+									if await self.user.get_setting("Services.VK.HDVideo"):
 										video_quality_list.insert(0, "mp4_1080")
 
 									for quality in video_quality_list:

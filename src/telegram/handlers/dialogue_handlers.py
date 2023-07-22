@@ -69,7 +69,7 @@ async def delete_command_handler(msg: Message, subgroup: TelehooperSubGroup, use
 	await subgroup.service.handle_message_delete(msg.reply_to_message, subgroup)
 
 	# Удаляем сообщение (команду), если этого позволяет настройка.
-	if await user.get_setting("Services.CleanupAfterUse"):
+	if await user.get_setting(f"Services.{subgroup.service.service_name}.CleanupAfterUse"):
 		await asyncio.sleep(1)
 
 		try:
@@ -86,7 +86,7 @@ async def read_command_handler(msg: Message, subgroup: TelehooperSubGroup, user:
 	await subgroup.service.handle_message_read(subgroup)
 
 	# Удаляем сообщение (команду), если этого позволяет настройка.
-	if await user.get_setting("Services.CleanupAfterUse"):
+	if await user.get_setting(f"Services.{subgroup.service.service_name}.CleanupAfterUse"):
 		await asyncio.sleep(1)
 
 		try:
