@@ -903,3 +903,36 @@ class TelehooperAPI:
 			return message_id
 		except:
 			return await _send()
+
+async def get_subgroup(msg: Message) -> dict | None:
+	"""
+	Фильтр для входящих сообщений в группе. Если данная группа является диалог-группой, то данный метод вернёт объект TelehooperSubGroup.
+
+	:param msg: Объект сообщения в Telegram.
+	"""
+
+	# Понятия не имею как, но бот получал свои же сообщения в данном хэндлере.
+	if msg.from_user and msg.from_user.is_bot:
+		return None
+
+	telehooper_user = await TelehooperAPI.get_user(cast(User, msg.from_user))
+	telehooper_group = await TelehooperAPI.get_group(telehooper_user, msg.chat)
+
+	if not telehooper_group:
+		return None
+
+	telehooper_group = cast(TelehooperGroup, telehooper_group)
+
+	topic_id = msg.message_thread_id or 0
+
+	# Telegram в msg.message_thread_id возвращает ID сообщения, на которое был ответ.
+	# Это ломает всего бота, поэтому нам приходится костылить.
+	if not msg.is_topic_message:
+		topic_id = 0
+
+	subgroup = TelehooperAPI.get_subgroup_by_chat(telehooper_group, topic_id)
+
+	if not subgroup:
+		return None
+
+	return {"subgroup": subgroup, "user": telehooper_user}
