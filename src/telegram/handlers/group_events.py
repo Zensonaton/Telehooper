@@ -164,7 +164,7 @@ async def show_platform_admin_steps_inline_handler(_: CallbackQuery, msg: Messag
 			" • Нажмите на кнопку «Управление группой».\n"
 			" • Выберите пункт «Администраторы».\n"
 			" • Нажмите на кнопку «Добавить администратора».\n"
-			" • Найдите бота @telehooper_bot.\n"
+			f" • Найдите бота @{utils.get_bot_username()}.\n"
 			" • Разрешите всё, кроме пункта «Анонимность».\n"
 			"\n"
 			"Android:\n"

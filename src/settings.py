@@ -1,11 +1,13 @@
 # coding: utf-8
 
+import re
 from typing import Any, cast
 
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from case_insensitive_dict import CaseInsensitiveDict
 from loguru import logger
 
+import utils
 from config import config
 
 
@@ -57,8 +59,6 @@ SETTINGS_TREE = {
 				"Name": "Кнопка «прочитать»",
 				"Documentation": (
 					"Включает или отключает кнопку «Прочитать» возле новых сообщений, отправленных собеседником диалога. Данная кнопка показана под самым «последним» отправленным собеседником сообщением, и она автоматически скрывается при нажатии. Данная кнопка выполняет такое же действие, как и команда <code>/read</code>, если используемый сервис это поддерживает.\n"
-					"\n"
-					"Так же рекомендуется уделить внимание на настройку <i>⚙️ Закреп со статусом</i> (<code>/s Visual.UsePinInDialogues</code>), ведь в закреплённом сообщении показана информации о том, было прочитано сообщение или нет."
 				),
 				"Default": True
 			},
@@ -445,3 +445,30 @@ class SettingsHandler:
 		"""
 
 		return self.get_setting(path)["Default"]
+
+	def get_setting_name(self, path: str) -> str:
+		"""
+		Возвращает название настройки (без эмодзи) по пути `path`.
+		"""
+
+		return self.get_setting(path)["Name"]
+
+	def replace_placeholders(self, input: str) -> str:
+		"""
+		Заменяет плейсхолдеры вида `{{Setting.Path.Something}}` на ссылки на эти самые настройки.
+
+		:param input: Входная строка.
+		"""
+
+		placeholders = re.findall(r"{{(.*?)}}", input)
+
+		for setting_path in placeholders:
+			command_url = utils.create_command_url(f"/s {setting_path}")
+			command_name = f"⚙️ {self.get_setting_name(setting_path)}"
+
+			input = input.replace(
+				"{{" + setting_path + "}}",
+				f"<i><a href=\"{command_url}\">{command_name}</a></i>"
+			)
+
+		return input

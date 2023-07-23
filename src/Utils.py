@@ -3,11 +3,13 @@
 import base64
 import gzip
 import hashlib
+import html
 import io
 import os
 import re
 import time
 from typing import Any
+from aiogram import Bot
 
 from aiogram.types import User as TelegramUser
 from cryptography.fernet import Fernet
@@ -261,3 +263,35 @@ class CodeTimer:
 		elapsed_time = end_time - self.start_time
 
 		logger.debug(f"Времени заняло: {elapsed_time:.6f}с")
+
+def get_bot_username() -> str:
+	"""
+	Возвращает username бота.
+	"""
+
+	from telegram import bot
+
+
+	assert bot.username
+
+	return bot.username
+
+def create_command_url(command: str) -> str:
+	"""
+	Возвращает строку, которую стоит использовать внутри тэга `<a>` для вызова команды `command`.
+
+	:param command: Команда, которую нужно вызвать.
+	"""
+
+	username = get_bot_username()
+
+	if command.startswith("/"):
+		command = command[1:]
+
+	deeplink = base64.b64encode(command.encode()).decode()
+
+	# deeplink = html.escape(command)
+	if len(deeplink) > 64:
+		raise ValueError(f"Длина команды не может превышать 64 символа")
+
+	return f"https://t.me/{username}?start={deeplink}"

@@ -6,7 +6,7 @@ from aiogram import F, Router
 from aiogram.filters import Command, CommandObject, Text
 from aiogram.types import CallbackQuery, Message, User
 
-from api import TelehooperAPI, TelehooperUser, settings
+from api import CommandWithDeepLink, TelehooperAPI, TelehooperUser, settings
 from consts import CommandButtons
 from exceptions import SettingNotFoundException
 
@@ -71,7 +71,7 @@ async def settings_command_message(msg: Message, user: TelehooperUser, edit_mess
 		reply_markup=settings_rendered
 	)
 
-@router.message(Command("settings", "s", "setting"))
+@router.message(CommandWithDeepLink("settings", "s", "setting"))
 @router.message(Text(CommandButtons.SETTINGS))
 async def settings_command_handler(msg: Message, command: CommandObject | None = None) -> None:
 	"""

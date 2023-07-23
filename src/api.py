@@ -1,16 +1,20 @@
 # coding: utf-8
 
 import asyncio
-from typing import Any, cast
+import base64
+from typing import Any, Optional, Sequence, Union, cast
+from aiogram.filters.command import CommandPatternType
 
 import aiohttp
 from aiocouch import Document, NotFoundError
 from aiogram import Bot
+from aiogram.filters import Command
 from aiogram.types import (BufferedInputFile, Chat, ForceReply,
-                           InlineKeyboardMarkup, InputFile, InputMediaAudio,
-                           InputMediaDocument, InputMediaPhoto,
-                           InputMediaVideo, Message, ReplyKeyboardMarkup,
-                           ReplyKeyboardRemove, User)
+						   InlineKeyboardMarkup, InputFile, InputMediaAudio,
+						   InputMediaDocument, InputMediaPhoto,
+						   InputMediaVideo, Message, ReplyKeyboardMarkup,
+						   ReplyKeyboardRemove, User)
+from magic_filter import MagicFilter
 
 import utils
 from config import config
@@ -20,6 +24,7 @@ from exceptions import DisallowedInDebugException
 from services.service_api_base import BaseTelehooperServiceAPI, ServiceDialogue
 from services.vk.service import VKServiceAPI
 from settings import SETTINGS_TREE, SettingsHandler
+
 
 # Да, я знаю что это плохой способ. Знаю. Ни к чему другому, адекватному я не пришёл.
 _saved_connections = {}
@@ -299,7 +304,7 @@ class TelehooperGroup:
 		# Пытаемся поменять описание группы.
 		try:
 			await self.chat.set_description(
-				f"@telehooper_bot: Группа для диалога «{dialogue.name}» из ВКонтакте.\n"
+				f"@{utils.get_bot_username()}: Группа для диалога «{dialogue.name}» из ВКонтакте.\n"
 				"\n"
 				"ℹ️ Для управления данной группой используйте команду /this."
 			)
@@ -564,6 +569,14 @@ class TelehooperAPI:
 	"""
 	Класс с различными API бота Telehooper.
 	"""
+
+	@staticmethod
+	def get_settings() -> SettingsHandler:
+		"""
+		Возвращает объект SettingsHandler, который предоставляет доступ к настройкам бота.
+		"""
+
+		return settings
 
 	@staticmethod
 	async def get_user(user: User) -> TelehooperUser:
@@ -940,3 +953,37 @@ async def get_subgroup(msg: Message) -> dict | None:
 		return None
 
 	return {"subgroup": subgroup, "user": telehooper_user}
+
+class CommandWithDeepLink(Command):
+	"""
+	Фильтр для Handler'ов, который позволяет обрабатывать команды из deep-link'ов.
+	"""
+
+	def __init__(self, *values: CommandPatternType, commands: CommandPatternType | Sequence[CommandPatternType] | None = None, prefix: str = "/", ignore_case: bool = False, ignore_mention: bool = False, magic: MagicFilter | None = None):
+		super().__init__(*values, commands=commands, prefix=prefix, ignore_case=ignore_case, ignore_mention=ignore_mention, magic=magic)
+
+	async def __call__(self, message: Message, bot: Bot) -> dict | bool:
+		"""
+		Вызывается при каждом входящем сообщении.
+		"""
+
+		def deeplink_command() -> dict | bool:
+			command = self.extract_command(message.text or message.caption or "")
+
+			if not command or command.command != "start":
+				return False
+
+			if not command.args:
+				return False
+
+			try:
+				command_extracted = self.extract_command("/" + base64.b64decode(command.args).decode())
+			except:
+				return False
+
+			if command_extracted.command not in self.commands:
+				return False
+
+			return {"command": command_extracted}
+
+		return (await super().__call__(message, bot)) or deeplink_command()

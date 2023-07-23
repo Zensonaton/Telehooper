@@ -28,6 +28,7 @@ bot = Bot(
 	parse_mode="HTML"
 )
 dispatcher = Dispatcher()
+username: str | None
 
 def get_bot() -> Bot:
 	"""
@@ -155,7 +156,7 @@ async def reconnect_services(use_async: bool = True) -> None:
 							text=(
 								"<b>⚠️ Потеряно соединение с ВКонтакте</b>.\n"
 								"\n"
-								"Telehooper потерял соединение со страницей «ВКонтакте», поскольку настройка <i>⚙️ Хранение токенов в БД</i> (<code>/s Security.StoreTokens</code>) была выставлена в значение «выключено».\n"
+								"Telehooper потерял соединение со страницей «ВКонтакте», поскольку настройка {{Security.StoreTokens}} была выставлена в значение «выключено».\n"
 								"\n"
 								"ℹ️ Вы можете повторно подключиться к «ВКонтакте», используя команду /connect.\n"
 							)

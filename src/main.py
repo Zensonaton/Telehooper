@@ -39,16 +39,19 @@ async def bot_init() -> None:
 	logger.info("Восстанавливаю сессии сервисов...")
 	await bot.reconnect_services()
 
+	# Узнаём username бота.
+	bot_me = await bot.bot.get_me()
+	bot.username = bot_me.username
+
+	logger.debug(f"Username бота: @{bot.username}.")
+
 	# Устанавливаем команды.
 	await bot.set_commands()
 
 	# Запускаем самого Telegram-бота.
 	logger.info("Все проверки перед запуском прошли успешно! Запускаем Telegram-бота...")
 	await bot.bot.delete_webhook(drop_pending_updates=True)
-	await bot.dispatcher.start_polling(
-		bot.bot,
-		allowed_updates=bot.dispatcher.resolve_used_update_types()
-	)
+	await bot.dispatcher.start_polling(bot.bot, allowed_updates=bot.dispatcher.resolve_used_update_types())
 
 # Запускаем бота.
 if __name__ == "__main__":
