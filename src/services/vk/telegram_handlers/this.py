@@ -1,15 +1,16 @@
 # coding: utf-8
 
 import asyncio
-from typing import cast
 
-from aiogram import F, Router, types, Bot
+from aiogram import Bot, F, Router
 from aiogram.filters import Text
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, BotCommand, BotCommandScopeChatAdministrators
-from services.vk.consts import VK_GROUP_DIALOGUE_COMMANDS
+from aiogram.types import (BotCommand, BotCommandScopeChatAdministrators,
+                           CallbackQuery, InlineKeyboardButton,
+                           InlineKeyboardMarkup, Message, User)
 
 import utils
 from api import TelehooperAPI
+from services.vk.consts import VK_GROUP_DIALOGUE_COMMANDS
 
 
 router = Router()
@@ -17,7 +18,7 @@ router = Router()
 DIALOGUES_PER_PAGE = 10
 
 @router.callback_query(Text("/this vk"), F.message.as_("msg"))
-async def this_vk_inline_handler(query: types.CallbackQuery, msg: types.Message) -> None:
+async def this_vk_inline_handler(query: CallbackQuery, msg: Message) -> None:
 	"""
 	Inline Callback Handler для команды `/this`.
 
@@ -42,7 +43,7 @@ async def this_vk_inline_handler(query: types.CallbackQuery, msg: types.Message)
 	)
 
 @router.callback_query(Text("/this vk messages"), F.message.as_("msg"))
-async def this_vk_messages_inline_handler(query: types.CallbackQuery, msg: types.Message) -> None:
+async def this_vk_messages_inline_handler(query: CallbackQuery, msg: Message) -> None:
 	"""
 	Inline Callback Handler для команды `/this`.
 
@@ -69,7 +70,7 @@ async def this_vk_messages_inline_handler(query: types.CallbackQuery, msg: types
 	)
 
 @router.callback_query(Text("/this vk posts"), F.message.as_("msg"))
-async def this_vk_posts_inline_handler(query: types.CallbackQuery, msg: types.Message) -> None:
+async def this_vk_posts_inline_handler(query: CallbackQuery, msg: Message) -> None:
 	"""
 	Inline Callback Handler для команды `/this`.
 
@@ -93,8 +94,8 @@ async def this_vk_posts_inline_handler(query: types.CallbackQuery, msg: types.Me
 		reply_markup=keyboard
 	)
 
-@router.callback_query(Text(startswith="/this vk messages separated"), F.message.as_("msg"))
-async def this_vk_messages_separated_inline_handler(query: types.CallbackQuery, msg: types.Message) -> None:
+@router.callback_query(Text(startswith="/this vk messages separated"), F.message.as_("msg"), F.from_user.as_("user"), F.data.as_("query"))
+async def this_vk_messages_separated_inline_handler(_: CallbackQuery, msg: Message, user: User, query: str) -> None:
 	"""
 	Inline Callback Handler для команды `/this`.
 
@@ -103,14 +104,12 @@ async def this_vk_messages_separated_inline_handler(query: types.CallbackQuery, 
 
 	# TODO: Возможность написать юзеру в ВК через никнейм/ссылку.
 
-	assert msg.from_user
-	assert query.data
+	telehooper_user = await TelehooperAPI.get_user(user)
+	vkServiceAPI = telehooper_user.get_vk_connection()
 
-	user = await TelehooperAPI.get_user(query.from_user)
-	vkServiceAPI = user.get_vk_connection()
 	assert vkServiceAPI is not None, "Сервис ВКонтакте не существует"
 
-	is_forced_update = cast(str, query.data).endswith("forced")
+	is_forced_update = query.endswith("forced")
 	will_load_chats = is_forced_update or not vkServiceAPI.has_cached_list_of_dialogues()
 
 	if will_load_chats:
@@ -155,9 +154,9 @@ async def this_vk_messages_separated_inline_handler(query: types.CallbackQuery, 
 	last_page = total_dialogues // DIALOGUES_PER_PAGE + 1
 
 	current_page = 1
-	if "page" in (query.data or ""):
+	if "page" in (query or ""):
 		current_page = utils.clamp(
-			int(query.data.split(" ")[-1]),
+			int(query.split(" ")[-1]),
 			1,
 			last_page
 		)
@@ -202,17 +201,15 @@ async def this_vk_messages_separated_inline_handler(query: types.CallbackQuery, 
 		reply_markup=keyboard
 	)
 
-@router.callback_query(Text(startswith="/this vk convert"), F.message.as_("msg"))
-async def this_vk_convert_inline_handler(query: types.CallbackQuery, msg: types.Message) -> None:
+@router.callback_query(Text(startswith="/this vk convert"), F.message.as_("msg"), F.from_user.as_("user"), F.data.as_("query"))
+async def this_vk_convert_inline_handler(_: CallbackQuery, msg: Message, user: User, query: str) -> None:
 	"""
 	Inline Callback Handler для команды `/this`.
 
 	Вызывается при нажатии выборе диалога/группы в команде `/this` для ВКонтакте.
 	"""
 
-	assert query.data
-
-	splitted = query.data.split()
+	splitted = query.split()
 
 	chat_id = int(splitted[3])
 	is_messages = "messages" in splitted
@@ -221,12 +218,12 @@ async def this_vk_convert_inline_handler(query: types.CallbackQuery, msg: types.
 	assert is_messages
 	assert is_separated
 
-	user = await TelehooperAPI.get_user(query.from_user)
-	group = await TelehooperAPI.get_group(user, msg.chat)
-	vkServiceAPI = user.get_vk_connection()
+	telehooper_user = await TelehooperAPI.get_user(user)
+	telehooper_group = await TelehooperAPI.get_group(telehooper_user, msg.chat)
+	vkServiceAPI = telehooper_user.get_vk_connection()
 	bot = Bot.get_current()
 
-	assert group is not None, "Группа не существует"
+	assert telehooper_group is not None, "Группа не существует"
 	assert vkServiceAPI is not None, "Сервис ВКонтакте не существует"
 	assert bot is not None, "Telegram-бот не существует"
 
@@ -247,8 +244,7 @@ async def this_vk_convert_inline_handler(query: types.CallbackQuery, msg: types.
 	# TODO: Права на права админа у юзера?
 	# TODO: Сделать настройку, а так же извлечение текста закрепа из диалога ВКонтакте, сделав его закрепом в Telegram.
 
-	await asyncio.sleep(1.5)
-	await group.convert_to_dialogue_group(user, dialog, msg, vkServiceAPI)
+	await telehooper_group.convert_to_dialogue_group(telehooper_user, dialog, msg, vkServiceAPI)
 
 	# Изменяем список команд.
 	await bot.set_my_commands(

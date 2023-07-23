@@ -2,19 +2,20 @@
 
 from typing import cast
 
-from aiogram import F, Bot, Router, types
+from aiogram import Bot, F, Router
 from aiogram.filters import Command, Text
-from api import TelehooperAPI, TelehooperGroup
+from aiogram.types import (CallbackQuery, InlineKeyboardButton,
+                           InlineKeyboardMarkup, Message, User)
 
+from api import TelehooperAPI, TelehooperGroup
 from consts import CommandButtons
-from DB import get_group, get_user
 from services.vk.telegram_handlers.this import router as VKRouter
 
 
 router = Router()
 router.include_router(VKRouter)
 
-async def group_convert_message(chat_id: int, user: types.User, message_to_edit: types.Message | int | None = None, called_from_command: bool = True) -> None:
+async def group_convert_message(chat_id: int, user: User, message_to_edit: Message | int | None = None, called_from_command: bool = True) -> None:
 	"""
 	Сообщение у команды /this, либо же при выдаче прав администратора боту после его добавления в группу.
 	"""
@@ -78,12 +79,12 @@ async def group_convert_message(chat_id: int, user: types.User, message_to_edit:
 
 		return
 
-	keyboard = types.InlineKeyboardMarkup(
+	keyboard = InlineKeyboardMarkup(
 		inline_keyboard=[
 			[
 				# TODO: Убедиться, что сервис и вправду подключён.
 
-				types.InlineKeyboardButton(text="ВКонтакте", callback_data="/this vk")
+				InlineKeyboardButton(text="ВКонтакте", callback_data="/this vk")
 			]
 		]
 	)
@@ -108,7 +109,7 @@ async def group_convert_message(chat_id: int, user: types.User, message_to_edit:
 
 @router.message(Command("this"))
 @router.message(Text(CommandButtons.THIS))
-async def this_command_handler(msg: types.Message):
+async def this_command_handler(msg: Message):
 	"""
 	Handler для команды `/this`.
 	"""
@@ -123,14 +124,14 @@ async def this_command_handler(msg: types.Message):
 
 		return
 
-	await group_convert_message(msg.chat.id, cast(types.User, msg.from_user), called_from_command=True)
+	await group_convert_message(msg.chat.id, cast(User, msg.from_user), called_from_command=True)
 
-@router.callback_query(Text("/this"), F.message.as_("msg"))
-async def this_inline_handler(query: types.CallbackQuery, msg: types.Message) -> None:
+@router.callback_query(Text("/this"), F.message.as_("msg"), F.from_user.as_("user"))
+async def this_inline_handler(query: CallbackQuery, msg: Message, user: User) -> None:
 	"""
 	Inline Callback Handler для команды `/this`.
 
 	Вызывается при нажатии на нажатии на кнопку "назад", показывая содержимое команды `/this`.
 	"""
 
-	await group_convert_message(msg.chat.id, cast(types.User, query.from_user), message_to_edit=query.message, called_from_command=False)
+	await group_convert_message(msg.chat.id, user, message_to_edit=query.message, called_from_command=False)

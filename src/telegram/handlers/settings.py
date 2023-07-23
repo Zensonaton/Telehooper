@@ -1,8 +1,10 @@
 # coding: utf-8
 
 from typing import cast
-from aiogram import F, Router, types
+
+from aiogram import F, Router
 from aiogram.filters import Command, CommandObject, Text
+from aiogram.types import CallbackQuery, Message, User
 
 from api import TelehooperAPI, TelehooperUser, settings
 from consts import CommandButtons
@@ -11,7 +13,7 @@ from exceptions import SettingNotFoundException
 
 router = Router()
 
-async def settings_command_message(msg: types.Message, user: TelehooperUser, edit_message: bool = False, path: str | None = None) -> None:
+async def settings_command_message(msg: Message, user: TelehooperUser, edit_message: bool = False, path: str | None = None) -> None:
 	"""
 	Сообщение для команды `/settings`.
 	"""
@@ -62,20 +64,16 @@ async def settings_command_message(msg: types.Message, user: TelehooperUser, edi
 			f"  • {'Состояние' if type(value) is bool else 'Значение'}: {value_str}."
 		)
 
-	if edit_message:
-		await msg.edit_text(
-			_text,
-			reply_markup=settings_rendered
-		)
-	else:
-		await msg.answer(
-			_text,
-			reply_markup=settings_rendered
-		)
+	await TelehooperAPI.send_or_edit_message(
+		text=_text,
+		chat_id=msg.chat.id,
+		message_to_edit=msg if edit_message else None,
+		reply_markup=settings_rendered
+	)
 
 @router.message(Command("settings", "s", "setting"))
 @router.message(Text(CommandButtons.SETTINGS))
-async def settings_command_handler(msg: types.Message, command: CommandObject | None = None) -> None:
+async def settings_command_handler(msg: Message, command: CommandObject | None = None) -> None:
 	"""
 	Handler для команды `/settings`.
 	"""
@@ -92,8 +90,8 @@ async def settings_command_handler(msg: types.Message, command: CommandObject | 
 
 	await settings_command_message(msg, user, path=path)
 
-@router.callback_query(Text(startswith="/settings set"), F.message.as_("msg"))
-async def settings_set_inline_handler(query: types.CallbackQuery, msg: types.Message):
+@router.callback_query(Text(startswith="/settings set"), F.message.as_("msg"), F.from_user.as_("user"))
+async def settings_set_inline_handler(query: CallbackQuery, msg: Message, user: User):
 	"""
 	Inline Callback Handler для команды `/help`.
 
@@ -102,7 +100,7 @@ async def settings_set_inline_handler(query: types.CallbackQuery, msg: types.Mes
 
 	assert msg.from_user
 
-	user = await TelehooperAPI.get_user(query.from_user)
+	telehooper_user = await TelehooperAPI.get_user(user)
 
 	path_splitted = (query.data or "").split()
 	if len(path_splitted) < 3:
@@ -127,11 +125,11 @@ async def settings_set_inline_handler(query: types.CallbackQuery, msg: types.Mes
 	except:
 		raise SettingNotFoundException(f"Настройка \"{path}\" не найдена.")
 
-	await user.save_setting(path, value_parsed)
-	await settings_command_message(msg, user, edit_message=True, path=path)
+	await telehooper_user.save_setting(path, value_parsed)
+	await settings_command_message(msg, telehooper_user, edit_message=True, path=path)
 
-@router.callback_query(Text(startswith="/settings"), F.message.as_("msg"))
-async def settings_select_inline_handler(query: types.CallbackQuery, msg: types.Message):
+@router.callback_query(Text(startswith="/settings"), F.message.as_("msg"), F.from_user.as_("user"))
+async def settings_select_inline_handler(query: CallbackQuery, msg: Message, user: User):
 	"""
 	Inline Callback Handler для команды `/help`.
 
@@ -140,7 +138,7 @@ async def settings_select_inline_handler(query: types.CallbackQuery, msg: types.
 
 	assert msg.from_user
 
-	user = await TelehooperAPI.get_user(query.from_user)
+	telehooper_user = await TelehooperAPI.get_user(user)
 
 	path = ""
 	path_splitted = (query.data or "").split()
@@ -153,4 +151,4 @@ async def settings_select_inline_handler(query: types.CallbackQuery, msg: types.
 		except:
 			raise SettingNotFoundException(f"Настройка \"{path}\" не найдена.")
 
-	await settings_command_message(msg, user, edit_message=True, path=path)
+	await settings_command_message(msg, telehooper_user, edit_message=True, path=path)

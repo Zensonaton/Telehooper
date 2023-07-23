@@ -4,7 +4,7 @@ import asyncio
 from typing import Any, cast
 
 import aiohttp
-from aiocouch import Document
+from aiocouch import Document, NotFoundError
 from aiogram import Bot
 from aiogram.types import (BufferedInputFile, Chat, ForceReply,
                            InlineKeyboardMarkup, InputFile, InputMediaAudio,
@@ -614,12 +614,15 @@ class TelehooperAPI:
 		bot = Bot.get_current()
 		assert bot
 
-		return TelehooperGroup(
-			user,
-			db_group if db_group else await get_group(chat_id),
-			chat if isinstance(chat, Chat) else (await bot.get_chat(chat_id)),
-			bot
-		)
+		try:
+			return TelehooperGroup(
+				user,
+				db_group if db_group else await get_group(chat_id),
+				chat if isinstance(chat, Chat) else (await bot.get_chat(chat_id)),
+				bot
+			)
+		except NotFoundError:
+			return None
 
 	@staticmethod
 	async def restrict_in_debug(user: TelehooperUser | User | None) -> None:
@@ -897,7 +900,8 @@ class TelehooperAPI:
 				chat_id=chat_id,
 				message_id=message_id,
 				text=text,
-				reply_markup=reply_markup
+				reply_markup=reply_markup,
+				disable_web_page_preview=disable_web_page_preview
 			)
 
 			return message_id

@@ -558,7 +558,6 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 		# Удаляем из памяти.
 		del self.token
 		del self.vkAPI
-		del self._cachedDialogues
 		del self._longPollTask
 
 	async def current_user_info(self) -> TelehooperServiceUserInfo:

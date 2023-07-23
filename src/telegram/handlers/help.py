@@ -2,17 +2,19 @@
 
 from typing import cast
 
-from aiogram import Router, types
+from aiogram import Router
 from aiogram.filters import Command, CommandObject, Text
-from aiogram.utils.keyboard import InlineKeyboardBuilder
+from aiogram.types import (CallbackQuery, InlineKeyboardButton,
+                           InlineKeyboardMarkup, Message)
 
 import utils
+from api import TelehooperAPI
 from consts import FAQ_INFO, CommandButtons
 
 
 router = Router()
 
-async def help_command_message(msg: types.Message, edit_message: bool = False, selected: int = 0) -> None:
+async def help_command_message(msg: Message, edit_message: bool = False, selected: int = 0) -> None:
 	"""
 	Сообщение для команды `/help`.
 	"""
@@ -20,35 +22,29 @@ async def help_command_message(msg: types.Message, edit_message: bool = False, s
 	selected_key = list(FAQ_INFO.keys())[selected]
 	selected_text = FAQ_INFO[selected_key]
 
-	builder = InlineKeyboardBuilder()
+	keyboard_btns = []
 
 	for index, key in enumerate(FAQ_INFO.keys()):
 		is_current = key == selected_key
 
-		builder.add(
-			types.InlineKeyboardButton(
+		keyboard_btns.append([
+			InlineKeyboardButton(
 				text=f"👉 {key} 👈" if is_current else key,
 				callback_data="do-nothing" if is_current else f"/help {index}"
 			)
-		)
-	builder.adjust(1)
+		])
 
-	if edit_message:
-		await msg.edit_text(
-			selected_text,
-			reply_markup=builder.as_markup(resize_keyboard=True),
-			disable_web_page_preview=True
-		)
-	else:
-		await msg.answer(
-			selected_text,
-			reply_markup=builder.as_markup(resize_keyboard=True),
-			disable_web_page_preview=True
-		)
+	await TelehooperAPI.send_or_edit_message(
+		text=selected_text,
+		chat_id=msg.chat.id,
+		reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard_btns),
+		disable_web_page_preview=True,
+		message_to_edit=msg if edit_message else None
+	)
 
 @router.message(Command("help", "info", "faq"))
 @router.message(Text(CommandButtons.HELP))
-async def help_command_handler(msg: types.Message, command: CommandObject | None = None) -> None:
+async def help_command_handler(msg: Message, command: CommandObject | None = None) -> None:
 	"""
 	Handler для команды `/help`.
 	"""
@@ -70,7 +66,7 @@ async def help_command_handler(msg: types.Message, command: CommandObject | None
 	)
 
 @router.callback_query(Text(startswith="/help"))
-async def help_page_inline_handler(query: types.CallbackQuery) -> None:
+async def help_page_inline_handler(query: CallbackQuery) -> None:
 	"""
 	Inline Callback Handler для команды `/help`.
 
@@ -84,7 +80,7 @@ async def help_page_inline_handler(query: types.CallbackQuery) -> None:
 	)
 
 	await help_command_message(
-		cast(types.Message, query.message),
+		cast(Message, query.message),
 		edit_message=True,
 		selected=int(page)
 	)

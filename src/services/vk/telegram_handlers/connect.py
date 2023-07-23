@@ -1,11 +1,9 @@
 # coding: utf-8
 
-import asyncio
-from typing import cast
-
-from aiogram import F, Router, types
+from aiogram import F, Router
 from aiogram.filters import Text
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.types import (CallbackQuery, InlineKeyboardButton,
+                           InlineKeyboardMarkup, Message, User)
 from loguru import logger
 from pydantic import SecretStr
 
@@ -24,7 +22,7 @@ from ..consts import VK_OAUTH_URL
 router = Router()
 
 @router.callback_query(Text("/connect vk"), F.message.as_("msg"))
-async def connect_vk_inline_handler(query: types.CallbackQuery, msg: types.Message) -> None:
+async def connect_vk_inline_handler(query: CallbackQuery, msg: Message) -> None:
 	"""
 	Inline Callback Handler для команды `/connect`.
 
@@ -54,8 +52,8 @@ async def connect_vk_inline_handler(query: types.CallbackQuery, msg: types.Messa
 		reply_markup=keyboard
 	)
 
-@router.message(Text(startswith="https://oauth.vk.com/blank.html#access_token="))
-async def connect_vk_token_handler(msg: types.Message) -> None:
+@router.message(Text(startswith="https://oauth.vk.com/blank.html#access_token="), F.msg.from_user.as_("user"))
+async def connect_vk_token_handler(msg: Message, user: User) -> None:
 	"""
 	Handler для команды `/connect`.
 
@@ -74,23 +72,20 @@ async def connect_vk_token_handler(msg: types.Message) -> None:
 
 		return
 
-	if not msg.from_user:
-		return
+	telehooper_user = await TelehooperAPI.get_user(user)
 
-	user = await TelehooperAPI.get_user(msg.from_user)
+	await telehooper_user.restrict_in_debug()
 
-	await user.restrict_in_debug()
+	allow_tokens_storing = await telehooper_user.get_setting("Security.StoreTokens")
 
-	allow_tokens_storing = await user.get_setting("Security.StoreTokens")
-
-	if user.document["Connections"].get("VK"):
+	if telehooper_user.document["Connections"].get("VK"):
 		# TODO: Автоматически отключать предыдущий аккаунт ВКонтакте, если он был подключён.
 		# Либо же дать такую опцию пользователю.
 
 		await msg.answer(
 			"<b>⚠️ Ошибка подключения сервиса ВКонтакте</b>.\n"
 			"\n"
-			f"К Telehooper уже <a href=\"vk.com/id{user.document['Connections']['VK']['ID']}\">подключён аккаунт ВКонтакте</a>. Вы не можете подключить сразу несколько аккаунтов одного типа к Telehooper.\n"
+			f"К Telehooper уже <a href=\"vk.com/id{telehooper_user.document['Connections']['VK']['ID']}\">подключён аккаунт ВКонтакте</a>. Вы не можете подключить сразу несколько аккаунтов одного типа к Telehooper.\n"
 			"\n"
 			"ℹ️ Для подключения нового аккаунта Вы можете можете отключить старый, для этого пропишите команду /me.",
 			disable_web_page_preview=True
@@ -117,10 +112,10 @@ async def connect_vk_token_handler(msg: types.Message) -> None:
 
 	# Пытаемся авторизоваться.
 	try:
-		auth_result = await authorize_by_token(cast(types.User, msg.from_user), token)
+		auth_result = await authorize_by_token(user, token)
 
 		# Сохраняем в базу данных сессию пользователя.
-		user.document["Connections"]["VK"] = {
+		telehooper_user.document["Connections"]["VK"] = {
 			"Token": utils.encrypt_with_env_key(token.get_secret_value()) if allow_tokens_storing else None,
 			"ConnectedAt": utils.get_timestamp(),
 			"LastActivityAt": utils.get_timestamp(),
@@ -130,7 +125,7 @@ async def connect_vk_token_handler(msg: types.Message) -> None:
 			"OwnedDialogues": {}
 		}
 
-		await user.document.save()
+		await telehooper_user.document.save()
 	except AccountDeactivatedException as error:
 		await msg.answer(
 			"<b>⚠️ Ошибка подключения сервиса ВКонтакте</b>.\n"
@@ -181,14 +176,14 @@ async def connect_vk_token_handler(msg: types.Message) -> None:
 		vkServiceAPI = VKServiceAPI(
 			token=token,
 			vk_user_id=auth_result["id"],
-			user=user
+			user=telehooper_user
 		)
-		user.save_connection(vkServiceAPI)
+		telehooper_user.save_connection(vkServiceAPI)
 
 		await vkServiceAPI.start_listening()
 
 @router.message(Text(startswith="https://oauth.vk.com/authorize"))
-async def connect_vk_wrong_url_handler(msg: types.Message) -> None:
+async def connect_vk_wrong_url_handler(msg: Message) -> None:
 	"""
 	Handler для команды `/connect`.
 
@@ -206,7 +201,7 @@ async def connect_vk_wrong_url_handler(msg: types.Message) -> None:
 		"ℹ️ Если у Вас возникли проблемы, то постарайтесь снова прочитать содержимое информации у команды /connect.",
 	)
 
-async def authorize_by_token(user: types.User, token: SecretStr) -> dict:
+async def authorize_by_token(user: User, token: SecretStr) -> dict:
 	"""
 	Пытается авторизоваться через токен ВКонтакте. Данный метод отправляет сообщения в чат "Избранное" во ВКонтакте, а так же в ЛС к специальному боту, для оповещения (что бы пользователь получил уведомление).
 
@@ -268,7 +263,5 @@ async def authorize_by_token(user: types.User, token: SecretStr) -> dict:
 			f"{VK_INVISIBLE_CHARACTER}• Отключить аккаунт ВКонтакте от Telehooper: «logoff»."
 		)
 	)
-
-	await asyncio.sleep(1)
 
 	return user_info

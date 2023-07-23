@@ -1,8 +1,9 @@
 # coding: utf-8
 
-from aiogram import F, Router, types
+from aiogram import F, Router
 from aiogram.filters import Command, Text
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.types import (CallbackQuery, InlineKeyboardButton,
+                           InlineKeyboardMarkup, Message, User)
 
 import utils
 from api import TelehooperAPI
@@ -13,7 +14,7 @@ from services.vk.telegram_handlers.me import router as VKRouter
 router = Router()
 router.include_router(VKRouter)
 
-async def me_command_message(msg: types.Message, from_user: types.User, edit_message: bool = False) -> None:
+async def me_command_message(msg: Message, from_user: User, edit_message: bool = False) -> None:
 	"""
 	Сообщение для команды `/me`.
 	"""
@@ -38,33 +39,26 @@ async def me_command_message(msg: types.Message, from_user: types.User, edit_mes
 			InlineKeyboardButton(text="ВКонтакте", callback_data="/me vk")
 		)
 
-	_text = (
-		"<b>👤 Ваш профиль</b>.\n"
-		"\n"
-		"Базовая информация о Вашем профиле:\n"
-		f" • <b>Telegram</b>: {utils.get_telegram_logging_info(msg.from_user)}.\n"
-		f" • <b>ВКонтакте</b>: {vk_info}.\n"
-		"\n"
-		f"ℹ️ {'Вы можете управлять подключёнными сервисами нажимая на кнопки снизу. ' if has_any_connections else ''}Для подключения {'нового' if has_any_connections else 'Вашего первого'} сервиса воспользуйтесь командой /connect."
+	await TelehooperAPI.send_or_edit_message(
+		text=(
+			"<b>👤 Ваш профиль</b>.\n"
+			"\n"
+			"Базовая информация о Вашем профиле:\n"
+			f" • <b>Telegram</b>: {utils.get_telegram_logging_info(msg.from_user)}.\n"
+			f" • <b>ВКонтакте</b>: {vk_info}.\n"
+			"\n"
+			f"ℹ️ {'Вы можете управлять подключёнными сервисами нажимая на кнопки снизу. ' if has_any_connections else ''}Для подключения {'нового' if has_any_connections else 'Вашего первого'} сервиса воспользуйтесь командой /connect."
+		),
+		disable_web_page_preview=True,
+		chat_id=msg.chat.id,
+		reply_markup=InlineKeyboardMarkup(inline_keyboard=[keyboard]),
+		message_to_edit=msg if edit_message else None
 	)
-
-	if edit_message:
-		await msg.edit_text(
-			_text,
-			disable_web_page_preview=True,
-			reply_markup=InlineKeyboardMarkup(inline_keyboard=[keyboard])
-		)
-	else:
-		await msg.answer(
-			_text,
-			disable_web_page_preview=True,
-			reply_markup=InlineKeyboardMarkup(inline_keyboard=[keyboard])
-		)
 
 
 @router.message(Command("me"))
 @router.message(Text(CommandButtons.ME))
-async def me_command_handler(msg: types.Message) -> None:
+async def me_command_handler(msg: Message) -> None:
 	"""
 	Handler для команды `/me`.
 	"""
@@ -73,12 +67,12 @@ async def me_command_handler(msg: types.Message) -> None:
 
 	await me_command_message(msg, msg.from_user)
 
-@router.callback_query(Text("/me"), F.message.as_("msg"))
-async def me_command_inline_handler(query: types.CallbackQuery, msg: types.Message) -> None:
+@router.callback_query(Text("/me"), F.message.as_("msg"), F.from_user.as_("user"))
+async def me_command_inline_handler(_: CallbackQuery, msg: Message, user: User) -> None:
 	"""
 	Inline Callback Handler для команды `/me`.
 
 	Вызывается при выходе в меню у команды `/me`.
 	"""
 
-	await me_command_message(msg, query.from_user, edit_message=True)
+	await me_command_message(msg, user, edit_message=True)

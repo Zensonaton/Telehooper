@@ -2,10 +2,12 @@
 
 import asyncio
 
-from aiogram import Bot, F, Router, types
+from aiogram import Bot, F, Router
 from aiogram.filters import (ADMINISTRATOR, CREATOR, IS_MEMBER, IS_NOT_MEMBER,
                              JOIN_TRANSITION, MEMBER, RESTRICTED,
                              ChatMemberUpdatedFilter, Text)
+from aiogram.types import (CallbackQuery, ChatMemberUpdated,
+                           InlineKeyboardButton, InlineKeyboardMarkup, Message)
 from loguru import logger
 
 import utils
@@ -30,7 +32,7 @@ async def _supergroup_convert_check(chat_id: int) -> bool:
 	return chat_id in _supergroup_converts
 
 @router.my_chat_member(ChatMemberUpdatedFilter(member_status_changed=JOIN_TRANSITION))
-async def on_telehooper_added_in_chat_handler(event: types.ChatMemberUpdated, bot: Bot) -> None:
+async def on_telehooper_added_in_chat_handler(event: ChatMemberUpdated, bot: Bot) -> None:
 	"""
 	Handler для события добавления бота в группу.
 
@@ -64,9 +66,9 @@ async def on_telehooper_added_in_chat_handler(event: types.ChatMemberUpdated, bo
 	if event.new_chat_member.user.id != bot.id:
 		return
 
-	keyboard = types.InlineKeyboardMarkup(
+	keyboard = InlineKeyboardMarkup(
 		inline_keyboard=[
-			[types.InlineKeyboardButton(text="👋 Инструкция по выдаче прав администратора", callback_data="/this showAdminTips")]
+			[InlineKeyboardButton(text="👋 Инструкция по выдаче прав администратора", callback_data="/this showAdminTips")]
 		]
 	)
 
@@ -105,7 +107,7 @@ async def on_telehooper_added_in_chat_handler(event: types.ChatMemberUpdated, bo
 	await group_db.save()
 
 @router.chat_member(ChatMemberUpdatedFilter(member_status_changed=JOIN_TRANSITION))
-async def on_other_member_add_handler(event: types.ChatMemberUpdated, bot: Bot) -> None:
+async def on_other_member_add_handler(event: ChatMemberUpdated, bot: Bot) -> None:
 	"""
 	Handler для случая, если в группу (в котором находится Telehooper) был добавлен какой-то сторонний пользователь.
 	"""
@@ -144,7 +146,7 @@ async def on_other_member_add_handler(event: types.ChatMemberUpdated, bot: Bot) 
 	await group.save()
 
 @router.callback_query(Text("/this showAdminTips"), F.message.as_("msg"))
-async def show_platform_admin_steps_inline_handler(_: types.CallbackQuery, msg: types.Message) -> None:
+async def show_platform_admin_steps_inline_handler(_: CallbackQuery, msg: Message) -> None:
 	"""
 	Handler, вызываемый если пользователь в welcome-сообщении нажал на кнопку с инструкцией по выдаче прав администратора.
 	"""
@@ -175,7 +177,7 @@ async def show_platform_admin_steps_inline_handler(_: types.CallbackQuery, msg: 
 	)
 
 @router.my_chat_member(ChatMemberUpdatedFilter(member_status_changed=(RESTRICTED | MEMBER) >> (ADMINISTRATOR | CREATOR)))
-async def on_admin_promoted_handler(event: types.ChatMemberUpdated):
+async def on_admin_promoted_handler(event: ChatMemberUpdated):
 	# TODO: Убедиться, что данное сообщение будет показано лишь один раз.
 
 	await asyncio.sleep(1)
@@ -194,19 +196,19 @@ async def on_admin_promoted_handler(event: types.ChatMemberUpdated):
 		await group_convert_message(event.chat.id, event.from_user, None, called_from_command=False)
 
 @router.chat_member(ChatMemberUpdatedFilter(member_status_changed=(ADMINISTRATOR | CREATOR) >> (RESTRICTED | MEMBER)))
-async def on_bot_demotion_handler(event: types.ChatMemberUpdated):
+async def on_bot_demotion_handler(event: ChatMemberUpdated):
 	# TODO: Обработка события, если у бота забрали права администратора.
 
 	...
 
 @router.chat_member(ChatMemberUpdatedFilter(member_status_changed=IS_MEMBER >> IS_NOT_MEMBER))
-async def on_bot_chat_kick_handler(event: types.ChatMemberUpdated):
+async def on_bot_chat_kick_handler(event: ChatMemberUpdated):
 	# TODO: Обработка события, если бота удалили из группы.
 
 	...
 
 @router.message(F.migrate_to_chat_id)
-async def group_to_supergroup_convert_handler(message: types.Message):
+async def group_to_supergroup_convert_handler(message: Message):
 	"""
 	Handler для события конвертации Telegram-группы в супергруппу.
 

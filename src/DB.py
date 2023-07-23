@@ -1,10 +1,8 @@
 # coding: utf-8
 
-import os
-
 from aiocouch import CouchDB, Database, Document
 from aiocouch.exception import NotFoundError
-from aiogram import types
+from aiogram.types import Chat, Message, User
 from loguru import logger
 
 import utils
@@ -55,7 +53,7 @@ async def get_db(db_name: str | None = None, check_auth: bool = False, force_new
 
 	return DB
 
-async def get_user(user: types.User, create_by_default: bool = True) -> Document:
+async def get_user(user: User, create_by_default: bool = True) -> Document:
 	"""
 	Возвращает данные пользователя из базы данных.
 
@@ -73,7 +71,7 @@ async def get_user(user: types.User, create_by_default: bool = True) -> Document
 		return await db["user_" + id]
 	except NotFoundError:
 		if not create_by_default:
-			raise NotFoundError(f"Пользователь с ID {id} не был найден в базе данных.")
+			raise NotFoundError(f"Пользователь с ID {id} не был найден в базе данных")
 
 		# Пользователь не был найден, поэтому мы создаем его.
 		user_db = await db.create(
@@ -110,7 +108,7 @@ async def get_global(create_by_default: bool = True) -> Document:
 
 		return global_db
 
-def get_default_user(user: types.User, version: int = utils.get_bot_version()) -> dict:
+def get_default_user(user: User, version: int = utils.get_bot_version()) -> dict:
 	"""
 	Возвращает шаблон пользователя для сохранения в базу данных.
 	"""
@@ -141,16 +139,16 @@ def get_default_global(version: int = utils.get_bot_version()) -> dict:
 		"DocVer": version
 	}
 
-async def get_group(chat: int | types.Chat) -> Document:
+async def get_group(chat: int | Chat) -> Document:
 	"""
 	Возвращает информацию о группе из базы данных. Учтите, что данный метод не создаёт группу, если она не была найдена.
 	"""
 
 	db = await get_db()
 
-	return await db[f"group_{chat.id if isinstance(chat, types.Chat) else chat}"]
+	return await db[f"group_{chat.id if isinstance(chat, Chat) else chat}"]
 
-def get_default_group(chat: types.Chat, creator: types.User, status_message: types.Message, admin_rights: bool = False, topics_enabled: bool = False, version: int = utils.get_bot_version()) -> dict:
+def get_default_group(chat: Chat, creator: User, status_message: Message, admin_rights: bool = False, topics_enabled: bool = False, version: int = utils.get_bot_version()) -> dict:
 	"""
 	Возвращает шаблон группы для сохранения в базу данных.
 	"""

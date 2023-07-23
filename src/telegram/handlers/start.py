@@ -1,7 +1,8 @@
 # coding: utf-8
 
-from aiogram import Router, types
+from aiogram import Router
 from aiogram.filters import Command
+from aiogram.types import KeyboardButton, Message, ReplyKeyboardMarkup
 
 from consts import CommandButtons
 
@@ -9,16 +10,16 @@ from consts import CommandButtons
 router = Router()
 
 @router.message(Command("start"))
-async def start_handler(msg: types.Message) -> None:
+async def start_handler(msg: Message) -> None:
 	"""
 	Handler для команды `/start`.
 	"""
 
 	kbd_buttons = [
-		types.KeyboardButton(text=CommandButtons.CONNECT),
-		types.KeyboardButton(text=CommandButtons.ME),
-		types.KeyboardButton(text=CommandButtons.SETTINGS),
-		types.KeyboardButton(text=CommandButtons.HELP)
+		KeyboardButton(text=CommandButtons.CONNECT),
+		KeyboardButton(text=CommandButtons.ME),
+		KeyboardButton(text=CommandButtons.SETTINGS),
+		KeyboardButton(text=CommandButtons.HELP)
 	]
 	message_text = (
 		"<b>Привет! 🙋</b>\n"
@@ -36,7 +37,7 @@ async def start_handler(msg: types.Message) -> None:
 
 	if msg.chat.type in ["group", "supergroup"]:
 		kbd_buttons.append(
-			types.KeyboardButton(text=CommandButtons.THIS)
+			KeyboardButton(text=CommandButtons.THIS)
 		)
 		message_text = (
 			"<b>🔍 Список команд в группе</b>.\n"
@@ -51,7 +52,7 @@ async def start_handler(msg: types.Message) -> None:
 
 		raise Exception("Каналы не поддерживаются в данный момент!")
 
-	keyboard = types.ReplyKeyboardMarkup(
+	keyboard = ReplyKeyboardMarkup(
 		keyboard=[
 			kbd_buttons
 		],
