@@ -8,7 +8,8 @@ from aiogram.filters import Command
 from aiogram.types import Message
 from loguru import logger
 
-from api import TelehooperSubGroup, TelehooperUser, get_subgroup
+from api import (TelehooperSubGroup, TelehooperUser, get_mediagroup,
+                 get_subgroup)
 
 
 _priority_ = -1
@@ -70,10 +71,10 @@ async def on_message_edit(msg: Message, subgroup: TelehooperSubGroup) -> None:
 
 	await subgroup.service.handle_message_edit(msg, subgroup)
 
-@router.message(get_subgroup)
-async def on_group_message(msg: Message, subgroup: TelehooperSubGroup) -> None:
+@router.message(get_mediagroup, get_subgroup)
+async def on_group_message(msg: Message, subgroup: TelehooperSubGroup, mediagroup: list) -> None:
 	"""
 	Handler для случая, если бот получил в группе сообщение, для которого существует диалог в сервисе.
 	"""
 
-	await subgroup.service.handle_inner_message(msg, subgroup, [])
+	await subgroup.service.handle_inner_message(msg, subgroup, mediagroup)

@@ -2,18 +2,20 @@
 
 import asyncio
 import base64
-from typing import Any, Optional, Sequence, Union, cast
-from aiogram.filters.command import CommandPatternType
+from typing import Any, Sequence, cast
 
 import aiohttp
 from aiocouch import Document, NotFoundError
 from aiogram import Bot
 from aiogram.filters import Command
-from aiogram.types import (BufferedInputFile, Chat, ForceReply,
-						   InlineKeyboardMarkup, InputFile, InputMediaAudio,
-						   InputMediaDocument, InputMediaPhoto,
-						   InputMediaVideo, Message, ReplyKeyboardMarkup,
-						   ReplyKeyboardRemove, User)
+from aiogram.filters.command import CommandPatternType
+from aiogram.types import Audio, BufferedInputFile, Chat
+from aiogram.types import Document as TelegramDocument
+from aiogram.types import (ForceReply, InlineKeyboardMarkup, InputFile,
+                           InputMediaAudio, InputMediaDocument,
+                           InputMediaPhoto, InputMediaVideo, Message,
+                           PhotoSize, ReplyKeyboardMarkup, ReplyKeyboardRemove,
+                           User, Video)
 from magic_filter import MagicFilter
 
 import utils
@@ -31,6 +33,7 @@ _saved_connections = {}
 _service_dialogues: list["TelehooperSubGroup"] = []
 _cached_message_ids: list["TelehooperMessage"] = []
 _cached_attachments: list["TelehooperCachedAttachment"] = []
+_media_group_messages: dict[str, list] = {}
 
 settings = SettingsHandler(SETTINGS_TREE)
 
@@ -954,6 +957,53 @@ async def get_subgroup(msg: Message) -> dict | None:
 
 	return {"subgroup": subgroup, "user": telehooper_user}
 
+async def get_mediagroup(msg: Message) -> dict | None:
+	"""
+	Заставляет Handler дождаться получения всех сообщений из которых состоит медиа-группа, собирая все вложения в один список.
+
+	:param msg: Объект сообщения в Telegram.
+	"""
+
+	def get_content(msg: Message) -> PhotoSize | Video | Audio | TelegramDocument | None:
+		"""
+		Извлекает медиа-контент из сообщения.
+
+		:param message: Сообщение, из которого нужно извлечь медиа-контент.
+		"""
+
+		if msg.photo:
+			return msg.photo[-1]
+
+		if msg.video:
+			return msg.video
+
+		if msg.audio:
+			return msg.audio
+
+		if msg.document:
+			return msg.document
+
+		return None
+
+	if not msg.media_group_id:
+		return {"mediagroup": [get_content(msg)]}
+
+	media_id = msg.media_group_id
+
+	# Если уже существует медиагруппа с таким ключом, то просто добавляем сообщение в кэш медиагруппы.
+	if media_id in _media_group_messages:
+		_media_group_messages[media_id].append(msg)
+
+		return None
+
+	# Если медиагруппы с таким ключом нет, то создаём её.
+	_media_group_messages[media_id] = [msg]
+
+
+	await asyncio.sleep(0.5)
+
+	return {"mediagroup": [get_content(i) for i in _media_group_messages.pop(media_id)]}
+
 class CommandWithDeepLink(Command):
 	"""
 	Фильтр для Handler'ов, который позволяет обрабатывать команды из deep-link'ов.
@@ -968,7 +1018,11 @@ class CommandWithDeepLink(Command):
 		"""
 
 		def deeplink_command() -> dict | bool:
-			command = self.extract_command(message.text or message.caption or "")
+			text = message.text or message.caption
+			if not text:
+				return False
+
+			command = self.extract_command(text)
 
 			if not command or command.command != "start":
 				return False

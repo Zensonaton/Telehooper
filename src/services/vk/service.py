@@ -1,19 +1,15 @@
 # coding: utf-8
 
 import asyncio
-import html
-import json
 from typing import TYPE_CHECKING, Optional, cast
 
 import aiohttp
-from aiogram.types import (BufferedInputFile, Chat, FSInputFile, InputMediaAudio,
+from aiogram.types import (Audio, BufferedInputFile, Document, InputMediaAudio,
                            InputMediaDocument, InputMediaPhoto,
-                           InputMediaVideo, Message)
+                           InputMediaVideo, Message, PhotoSize, Video)
 from aiogram.utils.chat_action import ChatActionSender
 from loguru import logger
 from pydantic import SecretStr
-from services.vk.exceptions import AccessDeniedException
-from services.vk.utils import create_message_link
 
 import utils
 from config import config
@@ -22,6 +18,8 @@ from services.service_api_base import (BaseTelehooperServiceAPI,
                                        ServiceDialogue,
                                        ServiceDisconnectReason,
                                        TelehooperServiceUserInfo)
+from services.vk.exceptions import AccessDeniedException
+from services.vk.utils import create_message_link
 from services.vk.vk_api.api import VKAPI
 from services.vk.vk_api.longpoll import (BaseVKLongpollEvent,
                                          LongpollNewMessageEvent,
@@ -582,13 +580,11 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 	async def send_message(self, chat_id: int, text: str, reply_to_message: int | None = None) -> int:
 		return await self.vkAPI.messages_send(peer_id=chat_id, message=text, reply_to=reply_to_message)
 
-	async def handle_inner_message(self, msg: Message, subgroup: "TelehooperSubGroup", attachments: list) -> None:
+	async def handle_inner_message(self, msg: Message, subgroup: "TelehooperSubGroup", attachments: list[Audio | Document | Message | PhotoSize | Video]) -> None:
 		from api import TelehooperAPI
 
 
-		logger.debug(f"[TG] Обработка сообщения в Telegram: \"{msg.text}\" в \"{subgroup}\"")
-
-
+		logger.debug(f"[TG] Обработка сообщения в Telegram: \"{msg.text}\" в \"{subgroup}\" {'с вложениями' if attachments else ''}")
 
 		reply_message_id = None
 		if msg.reply_to_message:
