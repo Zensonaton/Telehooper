@@ -295,3 +295,15 @@ def create_command_url(command: str) -> str:
 		raise ValueError(f"Длина команды не может превышать 64 символа")
 
 	return f"https://t.me/{username}?start={deeplink}"
+
+def replace_placeholders(input: str) -> str:
+	"""
+	Возвращает копию строки с заменёнными placeholder'ами вида `{{something}}`.
+
+	:param input: Входная строка.
+	"""
+
+	from api import TelehooperAPI
+
+
+	return TelehooperAPI.get_settings().replace_placeholders(input)

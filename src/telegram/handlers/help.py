@@ -20,7 +20,7 @@ async def help_command_message(msg: Message, edit_message: bool = False, selecte
 	"""
 
 	selected_key = list(FAQ_INFO.keys())[selected]
-	selected_text = TelehooperAPI.get_settings().replace_placeholders(FAQ_INFO[selected_key])
+	selected_text = utils.replace_placeholders(FAQ_INFO[selected_key])
 
 	keyboard_btns = []
 

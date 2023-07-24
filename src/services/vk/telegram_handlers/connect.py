@@ -167,10 +167,10 @@ async def connect_vk_token_handler(msg: Message, user: User) -> None:
 		if auth_result["has_photo"]:
 			await msg.answer_photo(
 				photo=auth_result["photo_max"],
-				caption=_text
+				caption=utils.replace_placeholders(_text)
 			)
 		else:
-			await msg.answer(_text)
+			await msg.answer(utils.replace_placeholders(_text))
 
 		# Создаём объект сервиса, а так же сохраняем его в память пользователя Telehooper.
 		vkServiceAPI = VKServiceAPI(

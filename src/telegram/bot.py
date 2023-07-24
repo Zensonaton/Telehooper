@@ -153,7 +153,7 @@ async def reconnect_services(use_async: bool = True) -> None:
 						# Отправляем сообщение.
 						await bot.send_message(
 							chat_id=user["ID"],
-							text=(
+							text=utils.replace_placeholders(
 								"<b>⚠️ Потеряно соединение с ВКонтакте</b>.\n"
 								"\n"
 								"Telehooper потерял соединение со страницей «ВКонтакте», поскольку настройка {{Security.StoreTokens}} была выставлена в значение «выключено».\n"
