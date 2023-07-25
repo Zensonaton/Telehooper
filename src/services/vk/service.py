@@ -1,6 +1,9 @@
 # coding: utf-8
 
 import asyncio
+import io
+import json
+from re import sub
 from typing import TYPE_CHECKING, Optional, cast
 
 import aiohttp
@@ -577,10 +580,10 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 		raise TypeError(f"Диалог с ID {chat_id} не найден")
 
-	async def send_message(self, chat_id: int, text: str, reply_to_message: int | None = None) -> int:
-		return await self.vkAPI.messages_send(peer_id=chat_id, message=text, reply_to=reply_to_message)
+	async def send_message(self, chat_id: int, text: str, reply_to_message: int | None = None, attachments: list[str] | str | None = None) -> int:
+		return await self.vkAPI.messages_send(peer_id=chat_id, message=text, reply_to=reply_to_message, attachment=attachments)
 
-	async def handle_inner_message(self, msg: Message, subgroup: "TelehooperSubGroup", attachments: list[Audio | Document | Message | PhotoSize | Video]) -> None:
+	async def handle_inner_message(self, msg: Message, subgroup: "TelehooperSubGroup", attachments: list[Audio | Document | PhotoSize | Video]) -> None:
 		from api import TelehooperAPI
 
 
@@ -592,10 +595,85 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 			reply_message_id = saved_message.service_message_ids[0] if saved_message else None
 
+		attachments_to_send: str | None = None
+		if attachments:
+			attachments_vk = cast(Audio | Document | PhotoSize | Video | str, attachments.copy())
+
+			for attch_type in ["PhotoSize", "Audio", "Document", "Video"]:
+				attchs_of_same_type = [attch for attch in attachments_vk if attch.__class__.__name__ == attch_type]
+
+				if not attchs_of_same_type:
+					continue
+
+				# По 5 элементов.
+				attachments_results: list[dict] = []
+				for index in range(0, len(attchs_of_same_type), 5):
+					attchs_of_same_type_part = attchs_of_same_type[index:index + 5]
+
+					upload_url: str
+					ext: str
+					if attch_type == "PhotoSize":
+						# Загружаем фото на сервера ВК.
+
+						response = await self.vkAPI.photos_getMessagesUploadServer(peer_id=subgroup.service_chat_id)
+						upload_url = response["upload_url"]
+						ext = "jpg"
+					else:
+						raise TypeError(f"Неизвестный тип вложения {attch_type}")
+
+					logger.debug(f"URL для загрузки вложений типа {attch_type}: {upload_url}")
+
+					# Выгружаем вложения на сервера ВК.
+					async with aiohttp.ClientSession() as client:
+						form_data = aiohttp.FormData()
+
+						for index, attach in enumerate(attchs_of_same_type_part):
+							attach = cast(PhotoSize | Audio | Document | Video, attach)
+							logger.debug(f"Загружаю вложение #{index} из Telegram с FileID {attach.file_id}")
+
+							file = await subgroup.parent.bot.download(attach.file_id)
+							assert file, "Не удалось загрузить вложение из Telegram"
+
+							form_data.add_field(name=f"file{index}", value=file.read(), filename=f"{attch_type}{index}.{ext}")
+
+						async with client.post(upload_url, data=form_data) as response:
+							assert response.status == 200, f"Не удалось загрузить вложение типа {attch_type}"
+							response = VKAPI._parse_response(await response.json(content_type=None))
+
+							logger.debug(f"Вложения успешно отправлены во ВКонтакте: {response}")
+
+							attachments_results.append(response)
+
+				# Закончили отправлять все вложения пачками по 5 элементов.
+				# Говорим ВК, что мы хотим отправить вложения в сообщении.
+				attachment_str: list[str] = []
+
+				for attachment in attachments_results:
+					if attch_type == "PhotoSize":
+						resp = await self.vkAPI.photos_saveMessagesPhoto(photo=attachment["photo"], server=attachment["server"], hash=attachment["hash"])
+
+						for photo in resp:
+							attachment_str.append(f"photo{photo['owner_id']}_{photo['id']}_{photo['access_key']}")
+
+				# Теперь нам нужно заменить вложения в сообщении на те, что мы получили от ВК.
+				for index, attch in enumerate(attachments_vk):
+					if attch.__class__.__name__ != attch_type:
+						continue
+
+					attachments_vk[index] = attachment_str.pop(0) # type: ignore
+
+			# Мы закончили работать с вложениями! Проверяем, что мы обработали все вложения.
+			assert all(isinstance(attch, str) for attch in attachments_vk), "Не все вложения были обработаны"
+
+			attachments_to_send = ",".join(cast(list[str], attachments_vk))
+
+			logger.debug(f"Вложения для отправки: {attachments_to_send}")
+
 		service_message_id = await self.send_message(
 			chat_id=subgroup.service_chat_id,
-			text=msg.text or "[пустой текст сообщения]",
-			reply_to_message=reply_message_id
+			text=msg.text or msg.caption or "",
+			reply_to_message=reply_message_id,
+			attachments=attachments_to_send
 		)
 		await TelehooperAPI.save_message("VK", msg.message_id, service_message_id, True)
 

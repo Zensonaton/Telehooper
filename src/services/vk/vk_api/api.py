@@ -35,7 +35,8 @@ class VKAPI:
 		self.token = token
 		self.version = api_version
 
-	def _parse_response(self, response: dict) -> dict:
+	@staticmethod
+	def _parse_response(response: dict) -> dict:
 		"""
 		Парсит ответ от ВКонтакте.
 		"""
@@ -60,9 +61,13 @@ class VKAPI:
 					message=message
 				)
 
-		return response["response"]
+		if "response" in response:
+			return response["response"]
 
-	def _cleanup_none(self, data: dict) -> dict:
+		return response
+
+	@staticmethod
+	def _cleanup_none(data: dict) -> dict:
 		"""
 		Очищает словарь `data` от ключей None.
 
@@ -137,20 +142,25 @@ class VKAPI:
 
 		return (await self.users_get([user_id] if user_id else []))[0]
 
-	async def messages_send(self, peer_id: int, message: str, reply_to: int | None = None) -> int:
+	async def messages_send(self, peer_id: int, message: str, reply_to: int | None = None, attachment: list[str] | str | None = None) -> int:
 		"""
 		Отправляет сообщение пользователю. API: `messages.send`.
 
 		:param peer_id: ID пользователя/группы/беседы, в которую будет отправлено сообщение.
 		:param message: Текст сообщения.
 		:param reply_to: ID сообщения, на которое будет дан ответ.
+		:param attachment: Вложения к сообщению.
 		"""
+
+		if not isinstance(attachment, str):
+			attachment = ",".join(attachment or [])
 
 		return cast(int, await self._post_("messages.send", {
 			"peer_id": peer_id,
 			"message": message,
 			"random_id": random_id(),
-			"reply_to": reply_to
+			"reply_to": reply_to,
+			"attachment": attachment
 		}))
 
 	async def messages_getLongPollServer(self) -> dict:
@@ -296,4 +306,31 @@ class VKAPI:
 			"peer_id": peer_id,
 			"start_message_id": start_message_id,
 			"mark_conversation_as_read": 1 if mark_conversation_as_read else 0
+		})
+
+	async def photos_getMessagesUploadServer(self, peer_id: int) -> dict:
+		"""
+		Возвращает ссылку для загрузки голосовых сообщений. API: `messages.getMessagesUploadServer`.
+
+		:param peer_id: ID пользователя/группы/беседы, в которую будет отправлено сообщение.
+		"""
+
+		return await self._post_("photos.getMessagesUploadServer", {
+			"peer_id": peer_id,
+			"type": "audio_message"
+		})
+
+	async def photos_saveMessagesPhoto(self, photo: str, server: int, hash: str) -> dict:
+		"""
+		Сохраняет фотографию после успешной загрузки. API: `photos.saveMessagesPhoto`.
+
+		:param photo: Фотография.
+		:param server: Сервер.
+		:param hash: Хэш.
+		"""
+
+		return await self._post_("photos.saveMessagesPhoto", {
+			"photo": photo,
+			"server": server,
+			"hash": hash
 		})

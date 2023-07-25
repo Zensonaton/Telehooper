@@ -986,7 +986,11 @@ async def get_mediagroup(msg: Message) -> dict | None:
 		return None
 
 	if not msg.media_group_id:
-		return {"mediagroup": [get_content(msg)]}
+		content = get_content(msg)
+		if not content:
+			return {"mediagroup": []}
+
+		return {"mediagroup": [content]}
 
 	media_id = msg.media_group_id
 
