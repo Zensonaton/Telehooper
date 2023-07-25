@@ -52,7 +52,7 @@ async def connect_vk_inline_handler(query: CallbackQuery, msg: Message) -> None:
 		reply_markup=keyboard
 	)
 
-@router.message(Text(startswith="https://oauth.vk.com/blank.html#access_token="), F.msg.from_user.as_("user"))
+@router.message(Text(startswith="https://oauth.vk.com/blank.html#access_token="), F.from_user.as_("user"))
 async def connect_vk_token_handler(msg: Message, user: User) -> None:
 	"""
 	Handler для команды `/connect`.

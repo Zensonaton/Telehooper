@@ -1,15 +1,13 @@
 # coding: utf-8
 
 import asyncio
-import io
-import json
-from re import sub
 from typing import TYPE_CHECKING, Optional, cast
 
 import aiohttp
 from aiogram.types import (Audio, BufferedInputFile, Document, InputMediaAudio,
                            InputMediaDocument, InputMediaPhoto,
-                           InputMediaVideo, Message, PhotoSize, Video)
+                           InputMediaVideo, Message, PhotoSize, Sticker, Video,
+                           Voice)
 from aiogram.utils.chat_action import ChatActionSender
 from loguru import logger
 from pydantic import SecretStr
@@ -583,7 +581,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 	async def send_message(self, chat_id: int, text: str, reply_to_message: int | None = None, attachments: list[str] | str | None = None) -> int:
 		return await self.vkAPI.messages_send(peer_id=chat_id, message=text, reply_to=reply_to_message, attachment=attachments)
 
-	async def handle_inner_message(self, msg: Message, subgroup: "TelehooperSubGroup", attachments: list[Audio | Document | PhotoSize | Video]) -> None:
+	async def handle_inner_message(self, msg: Message, subgroup: "TelehooperSubGroup", attachments: list[PhotoSize | Video | Audio | Document | Voice | Sticker]) -> None:
 		from api import TelehooperAPI
 
 
@@ -597,9 +595,9 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 		attachments_to_send: str | None = None
 		if attachments:
-			attachments_vk = cast(Audio | Document | PhotoSize | Video | str, attachments.copy())
+			attachments_vk = cast(PhotoSize | Video | Audio | Document | Voice | Sticker | str, attachments.copy())
 
-			for attch_type in ["PhotoSize", "Audio", "Document", "Video"]:
+			for attch_type in ["PhotoSize", "Video", "Audio", "Document", "Voice", "Sticker"]:
 				attchs_of_same_type = [attch for attch in attachments_vk if attch.__class__.__name__ == attch_type]
 
 				if not attchs_of_same_type:
@@ -613,11 +611,11 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 					upload_url: str
 					ext: str
 					if attch_type == "PhotoSize":
-						# Загружаем фото на сервера ВК.
-
-						response = await self.vkAPI.photos_getMessagesUploadServer(peer_id=subgroup.service_chat_id)
-						upload_url = response["upload_url"]
+						upload_url = (await self.vkAPI.photos_getMessagesUploadServer(peer_id=subgroup.service_chat_id))["upload_url"]
 						ext = "jpg"
+					elif attch_type == "Voice":
+						upload_url = (await self.vkAPI.docs_getMessagesUploadServer(type="audio_message", peer_id=subgroup.service_chat_id))["upload_url"]
+						ext = "ogg"
 					else:
 						raise TypeError(f"Неизвестный тип вложения {attch_type}")
 
@@ -628,13 +626,19 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 						form_data = aiohttp.FormData()
 
 						for index, attach in enumerate(attchs_of_same_type_part):
-							attach = cast(PhotoSize | Audio | Document | Video, attach)
-							logger.debug(f"Загружаю вложение #{index} из Telegram с FileID {attach.file_id}")
+							attach = cast(PhotoSize | Audio | Document | Video | Voice, attach)
+							logger.debug(f"Загружаю вложение #{index} из Telegram с FileID {attach.file_unique_id}")
 
 							file = await subgroup.parent.bot.download(attach.file_id)
 							assert file, "Не удалось загрузить вложение из Telegram"
 
-							form_data.add_field(name=f"file{index}", value=file.read(), filename=f"{attch_type}{index}.{ext}")
+							# ВКонтакте отправляет незадокументированную ошибку "no_file", если при отправке
+							# документов (в т.ч. и голосовых сообщений) в FormData используется поле "file1" вместо "file".
+							field_name = "file"
+							if len(attchs_of_same_type_part) > 1:
+								field_name = f"file{index}"
+
+							form_data.add_field(name=field_name, value=file.read(), filename=f"file{index}.{ext}")
 
 						async with client.post(upload_url, data=form_data) as response:
 							assert response.status == 200, f"Не удалось загрузить вложение типа {attch_type}"
@@ -652,8 +656,12 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 					if attch_type == "PhotoSize":
 						resp = await self.vkAPI.photos_saveMessagesPhoto(photo=attachment["photo"], server=attachment["server"], hash=attachment["hash"])
 
-						for photo in resp:
-							attachment_str.append(f"photo{photo['owner_id']}_{photo['id']}_{photo['access_key']}")
+						for saved_attch in resp:
+							attachment_str.append(VKAPI.get_attachment_string("photo", saved_attch["owner_id"], saved_attch["id"], saved_attch.get("access_key")))
+					elif attch_type == "Voice":
+						saved_attch = (await self.vkAPI.docs_save(file=attachment["file"], title="Voice message"))["audio_message"]
+
+						attachment_str.append(VKAPI.get_attachment_string("doc", saved_attch["owner_id"], saved_attch["id"], saved_attch.get("access_key")))
 
 				# Теперь нам нужно заменить вложения в сообщении на те, что мы получили от ВК.
 				for index, attch in enumerate(attachments_vk):

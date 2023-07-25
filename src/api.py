@@ -15,7 +15,7 @@ from aiogram.types import (ForceReply, InlineKeyboardMarkup, InputFile,
                            InputMediaAudio, InputMediaDocument,
                            InputMediaPhoto, InputMediaVideo, Message,
                            PhotoSize, ReplyKeyboardMarkup, ReplyKeyboardRemove,
-                           User, Video)
+                           User, Video, Voice, Sticker)
 from magic_filter import MagicFilter
 
 import utils
@@ -964,7 +964,7 @@ async def get_mediagroup(msg: Message) -> dict | None:
 	:param msg: Объект сообщения в Telegram.
 	"""
 
-	def get_content(msg: Message) -> PhotoSize | Video | Audio | TelegramDocument | None:
+	def get_content(msg: Message) -> PhotoSize | Video | Audio | TelegramDocument | Voice | Sticker | None:
 		"""
 		Извлекает медиа-контент из сообщения.
 
@@ -982,6 +982,12 @@ async def get_mediagroup(msg: Message) -> dict | None:
 
 		if msg.document:
 			return msg.document
+
+		if msg.voice:
+			return msg.voice
+
+		if msg.sticker:
+			return msg.sticker
 
 		return None
 

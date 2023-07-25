@@ -1,6 +1,6 @@
 # coding: utf-8
 
-from typing import Any, cast
+from typing import Any, Literal, cast
 
 import aiohttp
 from loguru import logger
@@ -44,8 +44,9 @@ class VKAPI:
 		logger.debug(f"VK API response: {response}")
 
 		if response.get("error"):
-			code = response["error"]["error_code"]
-			message = response["error"]["error_msg"]
+			error: dict | str = response["error"]
+			code = error["error_code"] if isinstance(error, dict) else -1
+			message = error["error_msg"] if isinstance(error, dict) else error
 
 			if code in [3610, 17, 18]:
 				raise AccountDeactivatedException(message=message)
@@ -75,6 +76,22 @@ class VKAPI:
 		"""
 
 		return {key: value for key, value in data.items() if value is not None}
+
+	@staticmethod
+	def get_attachment_string(type: str, owner_id: int, id: int, access_key: str | None = None) -> str:
+		"""
+		Возвращает строку с вложением.
+
+		:param type: Тип вложения.
+		:param owner_id: ID владельца вложения.
+		:param id: ID вложения.
+		:param access_key: Ключ доступа к вложению.
+		"""
+
+		if access_key:
+			return f"{type}{owner_id}_{id}_{access_key}"
+
+		return f"{type}{owner_id}_{id}"
 
 	async def _get_(self, method: str, params: dict[str, str | int | bool | None] | None = None) -> dict:
 		"""
@@ -322,7 +339,7 @@ class VKAPI:
 
 	async def photos_saveMessagesPhoto(self, photo: str, server: int, hash: str) -> dict:
 		"""
-		Сохраняет фотографию после успешной загрузки. API: `photos.saveMessagesPhoto`.
+		Сохраняет фотографию после успешной загрузки методом `photos.getMessagesUploadServer`. API: `photos.saveMessagesPhoto`.
 
 		:param photo: Фотография.
 		:param server: Сервер.
@@ -333,4 +350,35 @@ class VKAPI:
 			"photo": photo,
 			"server": server,
 			"hash": hash
+		})
+
+	async def docs_getMessagesUploadServer(self, peer_id: int, type: Literal["doc", "audio_message"] = "doc") -> dict:
+		"""
+		Возвращает ссылку для загрузки документов. API: `docs.getMessagesUploadServer`.
+
+		:param peer_id: ID пользователя/группы/беседы, в которую будет отправлено сообщение.
+		:param type: Тип документа. Может быть либо `doc`, либо `audio_message`.
+		"""
+
+		return await self._post_("docs.getMessagesUploadServer", {
+			"peer_id": peer_id,
+			"type": type
+		})
+
+	async def docs_save(self, file: str, title: str | None = None, tags: str | list[str] | None = None) -> dict:
+		"""
+		Сохраняет документ после успешной загрузки. API: `docs.save`.
+
+		:param file: Поле `file` из ответа API-метода `docs.getMessagesUploadServer`.
+		:param title: Название.
+		:param tags: Теги.
+		"""
+
+		if not isinstance(tags, str):
+			tags = ",".join(tags or [])
+
+		return await self._post_("docs.save", {
+			"file": file,
+			"title": title,
+			"tags": tags
 		})
