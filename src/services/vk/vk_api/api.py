@@ -382,3 +382,32 @@ class VKAPI:
 			"title": title,
 			"tags": tags
 		})
+
+	async def video_save(self, name: str | None = None, description: str | None = None, wallpost: bool = False, link: str | None = None, group_id: int | None = None, album_id: int | None = None, is_private: bool = False, no_comments: bool = False, repeat: bool = False, compression: bool = False) -> dict:
+		"""
+		Сохраняет видео после успешной загрузки. API: `video.save`.
+
+		:param name: Название.
+		:param description: Описание.
+		:param wallpost: Опубликовать ли на стене.
+		:param link: Ссылка на видео.
+		:param group_id: ID группы, в которой будет опубликовано видео.
+		:param album_id: ID альбома, в котором будет опубликовано видео.
+		:param is_private: Приватность видео.
+		:param no_comments: Запретить ли комментарии.
+		:param repeat: Зациклить ли видео.
+		:param compression: Сжать ли видео.
+		"""
+
+		return await self._post_("video.save", {
+			"name": name,
+			"description": description,
+			"wallpost": 1 if wallpost else 0,
+			"link": link,
+			"group_id": group_id,
+			"album_id": album_id,
+			"is_private": 1 if is_private else 0,
+			"no_comments": 1 if no_comments else 0,
+			"repeat": 1 if repeat else 0,
+			"compression": 1 if compression else 0
+		})

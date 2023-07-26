@@ -616,6 +616,9 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 					elif attch_type == "Voice":
 						upload_url = (await self.vkAPI.docs_getMessagesUploadServer(type="audio_message", peer_id=subgroup.service_chat_id))["upload_url"]
 						ext = "ogg"
+					elif attch_type == "Video":
+						upload_url = (await self.vkAPI.video_save(name="Video message", is_private=True, wallpost=False))["upload_url"]
+						ext = "mp4"
 					else:
 						raise TypeError(f"Неизвестный тип вложения {attch_type}")
 
@@ -662,6 +665,8 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 						saved_attch = (await self.vkAPI.docs_save(file=attachment["file"], title="Voice message"))["audio_message"]
 
 						attachment_str.append(VKAPI.get_attachment_string("doc", saved_attch["owner_id"], saved_attch["id"], saved_attch.get("access_key")))
+					elif attch_type == "Video":
+						attachment_str.append(VKAPI.get_attachment_string("video", attachment["owner_id"], attachment["video_id"], attachment.get("access_key")))
 
 				# Теперь нам нужно заменить вложения в сообщении на те, что мы получили от ВК.
 				for index, attch in enumerate(attachments_vk):
