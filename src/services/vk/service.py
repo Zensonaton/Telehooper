@@ -376,6 +376,11 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 										title=attachment["title"],
 										performer=attachment["artist"]
 									))
+							elif attachment_type == "graffiti":
+								attachment_media.append(InputMediaPhoto(
+									type="photo",
+									media=attachment["url"]
+								))
 							elif attachment_type == "wall":
 								# TODO: Имя группы/юзера откуда был пост.
 								#   В данный момент почти нереализуемо из-за того, что ВК не передаёт такую информацию, и нужно делать отдельный запрос.
@@ -630,92 +635,129 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 				if not attchs_of_same_type:
 					continue
 
+				# "Готовое" значение вложения. Если тут есть значение, то мы не должны по-новой загружать вложение.
+				attachment_value: str | None = None
+
 				# По 5 элементов.
 				attachments_results: list[dict] = []
 				for index in range(0, len(attchs_of_same_type), 5):
 					attchs_of_same_type_part = attchs_of_same_type[index:index + 5]
 
-					upload_url: str
-					ext: str
+					upload_url: str | None = None
+					ext: str | None = None
 					if attch_type == "PhotoSize":
 						upload_url = (await self.vkAPI.photos_getMessagesUploadServer(peer_id=subgroup.service_chat_id))["upload_url"]
 						ext = "jpg"
 					elif attch_type == "Voice":
+						assert len(attachments) == 1, "Вложение типа Voice не может быть отправлено вместе с другими вложениями"
+
 						upload_url = (await self.vkAPI.docs_getMessagesUploadServer(type="audio_message", peer_id=subgroup.service_chat_id))["upload_url"]
 						ext = "ogg"
 					elif attch_type in ["Video", "VideoNote"]:
 						upload_url = (await self.vkAPI.video_save(name="Video message", is_private=True, wallpost=False))["upload_url"]
 						ext = "mp4"
+					elif attch_type == "Sticker":
+						assert len(attachments) == 1, "Вложение типа Sticker не может быть отправлено вместе с другими вложениями"
+
+						# Проверяем в кэше.
+						sticker_cache_name = f"sticker{attachments[0].file_unique_id}static"
+						attachment_value = await TelehooperAPI.get_attachment("VK", sticker_cache_name)
+
+						if not attachment_value:
+							upload_url = (await self.vkAPI.docs_getMessagesUploadServer(type="graffiti", peer_id=subgroup.service_chat_id))["upload_url"]
+							ext = "png"
+
+						# TODO: Изменение размера стикера что бы он не был слишком большим для ВК.
 					else:
 						raise TypeError(f"Неизвестный тип вложения {attch_type}")
 
 					logger.debug(f"URL для загрузки вложений типа {attch_type}: {upload_url}")
 
 					# Выгружаем вложения на сервера ВК.
-					async with aiohttp.ClientSession() as client:
-						form_data = aiohttp.FormData()
+					if upload_url:
+						assert ext, f"Не дано расширение для вложения типа {attch_type}"
 
-						async def _download(index, file_id: str) -> tuple[int, bytes]:
-							logger.debug(f"Загружаю вложение #{index} из Telegram с FileID {file_id}")
+						async with aiohttp.ClientSession() as client:
+							form_data = aiohttp.FormData()
 
-							file = await subgroup.parent.bot.download(file_id)
-							assert file, "Не удалось загрузить вложение из Telegram"
+							async def _download(index, file_id: str) -> tuple[int, bytes]:
+								logger.debug(f"Загружаю вложение #{index} из Telegram с FileID {file_id}")
 
-							return index, file.read()
+								file = await subgroup.parent.bot.download(file_id)
+								assert file, "Не удалось загрузить вложение из Telegram"
 
-						# Подготавливаем список задач на загрузку вложений.
-						tasks = []
-						for index, attach in enumerate(attchs_of_same_type_part):
-							attach = cast(PhotoSize | Audio | Document | Video | Voice, attach)
+								return index, file.read()
 
-							tasks.append(_download(index, attach.file_id))
+							# Подготавливаем список задач на загрузку вложений.
+							tasks = []
+							for index, attach in enumerate(attchs_of_same_type_part):
+								attach = cast(PhotoSize | Audio | Document | Video | Voice, attach)
 
-						# Ожидаем загрузки, восстанавливаем преждний порядок.
-						downloaded_results = await asyncio.gather(*tasks)
-						downloaded_results.sort(key=lambda x: x[0])
+								tasks.append(_download(index, attach.file_id))
 
-						for index, file_bytes in downloaded_results:
-							# ВКонтакте отправляет незадокументированную ошибку "no_file", если при отправке
-							# документов (в т.ч. и голосовых сообщений) в FormData используется поле "file1" вместо "file".
-							field_name = "file"
-							if len(attchs_of_same_type_part) > 1:
-								field_name = f"file{index}"
+							# Ожидаем загрузки, восстанавливаем преждний порядок.
+							downloaded_results = await asyncio.gather(*tasks)
+							downloaded_results.sort(key=lambda x: x[0])
 
-							form_data.add_field(name=field_name, value=file_bytes, filename=f"file{index}.{ext}")
+							for index, file_bytes in downloaded_results:
+								# ВКонтакте отправляет незадокументированную ошибку "no_file", если при отправке
+								# документов (в т.ч. и голосовых сообщений) в FormData используется поле "file1" вместо "file".
+								field_name = "file"
+								if len(attchs_of_same_type_part) > 1:
+									field_name = f"file{index}"
 
-						# Отправляем загруженные вложения на сервера ВК.
-						async with client.post(upload_url, data=form_data) as response:
-							assert response.status == 200, f"Не удалось загрузить вложение типа {attch_type}"
-							response = VKAPI._parse_response(await response.json(content_type=None))
+								form_data.add_field(name=field_name, value=file_bytes, filename=f"file{index}.{ext}")
 
-							logger.debug(f"Вложения успешно отправлены во ВКонтакте: {response}")
+							# Отправляем загруженные вложения на сервера ВК.
+							async with client.post(upload_url, data=form_data) as response:
+								assert response.status == 200, f"Не удалось загрузить вложение типа {attch_type}"
+								response = VKAPI._parse_response(await response.json(content_type=None))
 
-							attachments_results.append(response)
+								logger.debug(f"Вложения успешно отправлены во ВКонтакте.")
+
+								attachments_results.append(response)
 
 				# Закончили отправлять все вложения пачками по 5 элементов.
 				# Говорим ВК, что мы хотим отправить вложения в сообщении.
-				attachment_str: list[str] = []
+				attachment_str_list: list[str] = []
 
-				for attachment in attachments_results:
-					if attch_type == "PhotoSize":
-						assert attachment["photo"], "Объект photo является пустым"
-						resp = await self.vkAPI.photos_saveMessagesPhoto(photo=attachment["photo"], server=attachment["server"], hash=attachment["hash"])
+				# Если мы уже извлекли вложение из кэша, то нам нужно просто их добавить в список.
+				if attachment_value:
+					attachment_str_list.append(attachment_value)
+				else:
+					for attachment in attachments_results:
+						if attch_type == "PhotoSize":
+							assert attachment["photo"], "Объект photo является пустым"
+							resp = await self.vkAPI.photos_saveMessagesPhoto(photo=attachment["photo"], server=attachment["server"], hash=attachment["hash"])
 
-						for saved_attch in resp:
-							attachment_str.append(VKAPI.get_attachment_string("photo", saved_attch["owner_id"], saved_attch["id"], saved_attch.get("access_key")))
-					elif attch_type == "Voice":
-						saved_attch = (await self.vkAPI.docs_save(file=attachment["file"], title="Voice message"))["audio_message"]
+							for saved_attch in resp:
+								attachment_str_list.append(VKAPI.get_attachment_string("photo", saved_attch["owner_id"], saved_attch["id"], saved_attch.get("access_key")))
+						elif attch_type == "Voice":
+							saved_attch = (await self.vkAPI.docs_save(file=attachment["file"], title="Voice message"))["audio_message"]
 
-						attachment_str.append(VKAPI.get_attachment_string("doc", saved_attch["owner_id"], saved_attch["id"], saved_attch.get("access_key")))
-					elif attch_type in ["Video", "VideoNote"]:
-						attachment_str.append(VKAPI.get_attachment_string("video", attachment["owner_id"], attachment["video_id"], attachment.get("access_key")))
+							attachment_str_list.append(VKAPI.get_attachment_string("doc", saved_attch["owner_id"], saved_attch["id"], saved_attch.get("access_key")))
+						elif attch_type in ["Video", "VideoNote"]:
+							attachment_str_list.append(VKAPI.get_attachment_string("video", attachment["owner_id"], attachment["video_id"], attachment.get("access_key")))
+						elif attch_type == "Sticker":
+							saved_attch = (await self.vkAPI.docs_save(file=attachment["file"], title="Sticker"))["graffiti"]
+
+							attachment_str = VKAPI.get_attachment_string("doc", saved_attch["owner_id"], saved_attch["id"], saved_attch.get("access_key"))
+							attachment_str_list.append(attachment_str)
+
+							# Стикеры нам нужно кэшировать, если пользователь это разрешил.
+							if await self.user.get_setting("Security.MediaCache"):
+								await TelehooperAPI.save_attachment(
+									"VK",
+									f"sticker{attachments[0].file_unique_id}static",
+									attachment_str
+								)
 
 				# Теперь нам нужно заменить вложения в сообщении на те, что мы получили от ВК.
 				for index, attch in enumerate(attachments_vk):
 					if attch.__class__.__name__ != attch_type:
 						continue
 
-					attachments_vk[index] = attachment_str.pop(0) # type: ignore
+					attachments_vk[index] = attachment_str_list.pop(0) # type: ignore
 
 			# Мы закончили работать с вложениями! Проверяем, что мы обработали все вложения.
 			assert all(isinstance(attch, str) for attch in attachments_vk), "Не все вложения были обработаны"

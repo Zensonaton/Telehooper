@@ -875,7 +875,7 @@ class TelehooperAPI:
 
 		:param service_name: Название сервиса, через который было отправлено сообщение.
 		:param key: Уникальный ключ вложения. Данный ключ не должен быть хэширован.
-		:param value: ID вложения в Telegram (поле `file_id` у сообщения). Данное значение не должно быть зашифрованым.
+		:param value: Строка для получения вложения (например, поле `file_id` у Telegram-сообщения, либо attachment у ВК). Данное значение не должно быть зашифрованым.
 		"""
 
 		attachment = TelehooperCachedAttachment(
@@ -886,6 +886,7 @@ class TelehooperAPI:
 
 		_cached_attachments.append(attachment)
 
+		# TODO: Проверка на существование перед добавлением.
 		# TODO: Сохранить в БД.
 
 	@staticmethod

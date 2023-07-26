@@ -352,7 +352,7 @@ class VKAPI:
 			"hash": hash
 		})
 
-	async def docs_getMessagesUploadServer(self, peer_id: int, type: Literal["doc", "audio_message"] = "doc") -> dict:
+	async def docs_getMessagesUploadServer(self, peer_id: int, type: Literal["doc", "audio_message", "graffiti"] = "doc") -> dict:
 		"""
 		Возвращает ссылку для загрузки документов. API: `docs.getMessagesUploadServer`.
 
