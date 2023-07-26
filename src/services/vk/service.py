@@ -671,6 +671,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 				for attachment in attachments_results:
 					if attch_type == "PhotoSize":
+						assert attachment["photo"], "Объект photo является пустым"
 						resp = await self.vkAPI.photos_saveMessagesPhoto(photo=attachment["photo"], server=attachment["server"], hash=attachment["hash"])
 
 						for saved_attch in resp:
