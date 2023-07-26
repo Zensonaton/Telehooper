@@ -628,21 +628,35 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 					async with aiohttp.ClientSession() as client:
 						form_data = aiohttp.FormData()
 
-						for index, attach in enumerate(attchs_of_same_type_part):
-							attach = cast(PhotoSize | Audio | Document | Video | Voice, attach)
-							logger.debug(f"Загружаю вложение #{index} из Telegram с FileID {attach.file_unique_id}")
+						async def _download(index, file_id: str) -> tuple[int, bytes]:
+							logger.debug(f"Загружаю вложение #{index} из Telegram с FileID {file_id}")
 
-							file = await subgroup.parent.bot.download(attach.file_id)
+							file = await subgroup.parent.bot.download(file_id)
 							assert file, "Не удалось загрузить вложение из Telegram"
 
+							return index, file.read()
+
+						# Подготавливаем список задач на загрузку вложений.
+						tasks = []
+						for index, attach in enumerate(attchs_of_same_type_part):
+							attach = cast(PhotoSize | Audio | Document | Video | Voice, attach)
+
+							tasks.append(_download(index, attach.file_id))
+
+						# Ожидаем загрузки, восстанавливаем преждний порядок.
+						downloaded_results = await asyncio.gather(*tasks)
+						downloaded_results.sort(key=lambda x: x[0])
+
+						for index, file_bytes in downloaded_results:
 							# ВКонтакте отправляет незадокументированную ошибку "no_file", если при отправке
 							# документов (в т.ч. и голосовых сообщений) в FormData используется поле "file1" вместо "file".
 							field_name = "file"
 							if len(attchs_of_same_type_part) > 1:
 								field_name = f"file{index}"
 
-							form_data.add_field(name=field_name, value=file.read(), filename=f"file{index}.{ext}")
+							form_data.add_field(name=field_name, value=file_bytes, filename=f"file{index}.{ext}")
 
+						# Отправляем загруженные вложения на сервера ВК.
 						async with client.post(upload_url, data=form_data) as response:
 							assert response.status == 200, f"Не удалось загрузить вложение типа {attch_type}"
 							response = VKAPI._parse_response(await response.json(content_type=None))
