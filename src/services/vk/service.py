@@ -7,7 +7,7 @@ import aiohttp
 from aiogram.types import (Audio, BufferedInputFile, Document, InputMediaAudio,
                            InputMediaDocument, InputMediaPhoto,
                            InputMediaVideo, Message, PhotoSize, Sticker, Video,
-                           Voice)
+                           VideoNote, Voice)
 from aiogram.utils.chat_action import ChatActionSender
 from loguru import logger
 from pydantic import SecretStr
@@ -161,7 +161,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 					# Проходимся по всем вложениям.
 					if message_extended:
-						for attachment in message_extended["attachments"]:
+						for attch_index, attachment in enumerate(message_extended["attachments"]):
 							attachment_type = attachment["type"]
 							attachment = attachment[attachment["type"]]
 
@@ -174,6 +174,9 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 								# Так как ВК не выдают прямую ссылку на видео, необходимо её извлечь из API.
 								# Что важно, передать ссылку напрямую не получается, поскольку ВК проверяет
 								# UserAgent и IP адрес, с которого был сделан запрос.
+
+								# Проверяем, видеосообщение (кружочек) ли это?
+								is_video_note = attachments.get(f"attach{attch_index + 1}_kind") == "video_message"
 
 								async with ChatActionSender(chat_id=subgroup.parent.chat.id, action="upload_video", bot=subgroup.parent.bot):
 									video = (await self.vkAPI.video_get(videos=f"{attachment['owner_id']}_{attachment['id']}_{attachment['access_key']}"))["items"][0]["files"]
@@ -214,6 +217,30 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 														logger.debug(f"Файл размером {quality} оказался слишком большой ({len(audio_bytes)} байт).")
 
 														continue
+
+										# Если мы получили видеосообщение (кружочек), то нужно отправить его как сообщение.
+										if is_video_note:
+											# Отправляем видеосообщение.
+											msg = await subgroup.send_video_note(
+												input=BufferedInputFile(
+													audio_bytes,
+													filename=f"VK video note {attachment['id']}.mp4"
+												),
+												silent=sent_by_account_owner,
+												reply_to=reply_to
+											)
+
+											# Сохраняем в память.
+											await TelehooperAPI.save_message(
+												"VK",
+												msg[0].message_id,
+												event.message_id,
+												False
+											)
+
+											assert msg[0].video_note, "Видеосообщение не было отправлено"
+
+											return
 
 										# Прикрепляем видео.
 										attachment_media.append(InputMediaVideo(
@@ -581,7 +608,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 	async def send_message(self, chat_id: int, text: str, reply_to_message: int | None = None, attachments: list[str] | str | None = None) -> int:
 		return await self.vkAPI.messages_send(peer_id=chat_id, message=text, reply_to=reply_to_message, attachment=attachments)
 
-	async def handle_inner_message(self, msg: Message, subgroup: "TelehooperSubGroup", attachments: list[PhotoSize | Video | Audio | Document | Voice | Sticker]) -> None:
+	async def handle_inner_message(self, msg: Message, subgroup: "TelehooperSubGroup", attachments: list[PhotoSize | Video | Audio | Document | Voice | Sticker | VideoNote]) -> None:
 		from api import TelehooperAPI
 
 
@@ -595,9 +622,9 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 		attachments_to_send: str | None = None
 		if attachments:
-			attachments_vk = cast(PhotoSize | Video | Audio | Document | Voice | Sticker | str, attachments.copy())
+			attachments_vk = cast(PhotoSize | Video | Audio | Document | Voice | Sticker | VideoNote | str, attachments.copy())
 
-			for attch_type in ["PhotoSize", "Video", "Audio", "Document", "Voice", "Sticker"]:
+			for attch_type in ["PhotoSize", "Video", "Audio", "Document", "Voice", "Sticker", "VideoNote"]:
 				attchs_of_same_type = [attch for attch in attachments_vk if attch.__class__.__name__ == attch_type]
 
 				if not attchs_of_same_type:
@@ -616,7 +643,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 					elif attch_type == "Voice":
 						upload_url = (await self.vkAPI.docs_getMessagesUploadServer(type="audio_message", peer_id=subgroup.service_chat_id))["upload_url"]
 						ext = "ogg"
-					elif attch_type == "Video":
+					elif attch_type in ["Video", "VideoNote"]:
 						upload_url = (await self.vkAPI.video_save(name="Video message", is_private=True, wallpost=False))["upload_url"]
 						ext = "mp4"
 					else:
@@ -680,7 +707,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 						saved_attch = (await self.vkAPI.docs_save(file=attachment["file"], title="Voice message"))["audio_message"]
 
 						attachment_str.append(VKAPI.get_attachment_string("doc", saved_attch["owner_id"], saved_attch["id"], saved_attch.get("access_key")))
-					elif attch_type == "Video":
+					elif attch_type in ["Video", "VideoNote"]:
 						attachment_str.append(VKAPI.get_attachment_string("video", attachment["owner_id"], attachment["video_id"], attachment.get("access_key")))
 
 				# Теперь нам нужно заменить вложения в сообщении на те, что мы получили от ВК.

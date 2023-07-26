@@ -15,7 +15,7 @@ from aiogram.types import (ForceReply, InlineKeyboardMarkup, InputFile,
                            InputMediaAudio, InputMediaDocument,
                            InputMediaPhoto, InputMediaVideo, Message,
                            PhotoSize, ReplyKeyboardMarkup, ReplyKeyboardRemove,
-                           User, Video, Voice, Sticker)
+                           Sticker, User, Video, VideoNote, Voice)
 from magic_filter import MagicFilter
 
 import utils
@@ -388,6 +388,25 @@ class TelehooperGroup:
 			allow_sending_without_reply=True
 		)]
 
+	async def send_video_note(self, video_note: BufferedInputFile | InputFile | str, reply_to: int | None = None, topic: int = 0, silent: bool = False) -> list[Message]:
+		"""
+		Отправляет видео-сообщение (кружочек) в Telegram-группу.
+
+		:param video_note: Видео-сообщение.
+		:param reply_to: ID сообщения, на которое нужно ответить.
+		:param topic: ID диалога в сервисе, в который нужно отправить сообщение. Если не указано, то сообщение будет отправлено в главный диалог группы.
+		:param silent: Отправить ли сообщение без уведомления.
+		"""
+
+		return [await self.bot.send_video_note(
+			chat_id=self.chat.id,
+			video_note=video_note,
+			message_thread_id=topic,
+			reply_to_message_id=reply_to,
+			disable_notification=silent,
+			allow_sending_without_reply=True
+		)]
+
 	async def send_message(self, text: str, attachments: list[InputMediaAudio | InputMediaDocument | InputMediaPhoto | InputMediaVideo] | None = None, reply_to: int | None = None, topic: int = 0, silent: bool = False) -> list[int]:
 		"""
 		Отправляет сообщение в группу. Возвращает ID отправленного(-ых) сообщений.
@@ -543,6 +562,17 @@ class TelehooperSubGroup:
 		"""
 
 		return await self.parent.send_geo(latitude, longitude, reply_to=reply_to, topic=self.id, silent=silent)
+
+	async def send_video_note(self, input: BufferedInputFile | InputFile | str, reply_to: int | None = None, silent: bool = False) -> list[Message]:
+		"""
+		Отправляет видео-сообщение (кружочек) в Telegram-группу.
+
+		:param video_note: Видео-сообщение.
+		:param reply_to: ID сообщения, на которое нужно ответить.
+		:param silent: Отправить ли сообщение без уведомления.
+		"""
+
+		return await self.parent.send_video_note(input, reply_to=reply_to, topic=self.id, silent=silent)
 
 	async def send_message_in(self, text: str, attachments: list[InputMediaAudio | InputMediaDocument | InputMediaPhoto | InputMediaVideo] | None = None, reply_to: int | None = None, silent: bool = False) -> list[int]:
 		"""
@@ -964,7 +994,7 @@ async def get_mediagroup(msg: Message) -> dict | None:
 	:param msg: Объект сообщения в Telegram.
 	"""
 
-	def get_content(msg: Message) -> PhotoSize | Video | Audio | TelegramDocument | Voice | Sticker | None:
+	def get_content(msg: Message) -> PhotoSize | Video | Audio | TelegramDocument | Voice | Sticker | VideoNote | None:
 		"""
 		Извлекает медиа-контент из сообщения.
 
@@ -988,6 +1018,9 @@ async def get_mediagroup(msg: Message) -> dict | None:
 
 		if msg.sticker:
 			return msg.sticker
+
+		if msg.video_note:
+			return msg.video_note
 
 		return None
 
