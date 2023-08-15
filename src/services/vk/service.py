@@ -3,14 +3,15 @@
 from __future__ import annotations
 
 import asyncio
-from typing import TYPE_CHECKING, Optional, Self, cast
+from typing import TYPE_CHECKING, Optional, cast
 
 import aiohttp
 from aiocouch import Document
 from aiogram import Bot
 from aiogram.types import Audio, BufferedInputFile
 from aiogram.types import Document as TelegramDocument
-from aiogram.types import (InputMediaAudio, InputMediaDocument,
+from aiogram.types import (InlineKeyboardButton, InlineKeyboardMarkup,
+                           InputMediaAudio, InputMediaDocument,
                            InputMediaPhoto, InputMediaVideo, Message,
                            PhotoSize, Sticker, Video, VideoNote, Voice)
 from aiogram.utils.chat_action import ChatActionSender
@@ -27,8 +28,13 @@ from services.service_api_base import (BaseTelehooperServiceAPI,
 from services.vk.exceptions import AccessDeniedException, TokenRevokedException
 from services.vk.utils import create_message_link
 from services.vk.vk_api.api import VKAPI
-from services.vk.vk_api.longpoll import (BaseVKLongpollEvent, LongpollMessageEditEvent, LongpollMessageFlagsEdit,
-                                         LongpollNewMessageEvent, LongpollTypingEvent, LongpollTypingEventMultiple, LongpollVoiceMessageEvent,
+from services.vk.vk_api.longpoll import (BaseVKLongpollEvent,
+                                         LongpollMessageEditEvent,
+                                         LongpollMessageFlagsEdit,
+                                         LongpollNewMessageEvent,
+                                         LongpollTypingEvent,
+                                         LongpollTypingEventMultiple,
+                                         LongpollVoiceMessageEvent,
                                          VKAPILongpoll)
 
 if TYPE_CHECKING:
@@ -94,6 +100,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 			# Обновляем объект пользователя.
 			await self.user.refresh_document()
 
+			message_url = None
 			try:
 				attachment_media: list[InputMediaAudio | InputMediaDocument | InputMediaPhoto | InputMediaVideo] = []
 				sent_by_account_owner = event.flags.outbox
@@ -446,9 +453,29 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 				else:
 					await _send_and_save()
 			except Exception as e:
-				# TODO: Отправлять сообщение об ошибке пользователю, делая при этом логирование самого текста ошибки.
-
 				logger.error(f"Ошибка отправки сообщения Telegram-пользователю {utils.get_telegram_logging_info(self.user.telegramUser)}: {e}")
+
+				try:
+					await subgroup.send_message_in(
+						(
+							"<b>⚠️ У бота произошла ошибка</b>.\n"
+							"\n"
+							"<i><b>Упс!</b></i> Что-то пошло не так, и бот столкнулся с ошибкой при попытке переслать сообщение из ВКонтакте. 😓\n"
+							f"Вы можете прочитать сообщение во ВКонтакте, перейдя <a href=\"{message_url}\">по ссылке</a>.\n"
+							"\n"
+							"<b>Текст ошибки, если Вас попросили его отправить</b>:\n"
+							f"<code>{e.__class__.__name__}: {e}</code>.\n"
+							"\n"
+							"ℹ️ Если ошибка повторится, то обратитесь к разработчику бота: <code>/faq 6</code>."
+						),
+						silent=True,
+						keyboard=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(
+							text="Прочитать во ВКонтакте",
+							url=message_url
+						)]])
+					)
+				except:
+					pass
 		elif type(event) is LongpollTypingEvent or type(event) is LongpollTypingEventMultiple or type(event) is LongpollVoiceMessageEvent:
 			subgroup = TelehooperAPI.get_subgroup_by_service_dialogue(self.user, ServiceDialogue(service_name=self.service_name, id=event.peer_id))
 

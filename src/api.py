@@ -408,7 +408,7 @@ class TelehooperGroup:
 			allow_sending_without_reply=True
 		)]
 
-	async def send_message(self, text: str, attachments: list[InputMediaAudio | InputMediaDocument | InputMediaPhoto | InputMediaVideo] | None = None, reply_to: int | None = None, topic: int = 0, silent: bool = False) -> list[int]:
+	async def send_message(self, text: str, attachments: list[InputMediaAudio | InputMediaDocument | InputMediaPhoto | InputMediaVideo] | None = None, reply_to: int | None = None, topic: int = 0, silent: bool = False, keyboard: InlineKeyboardMarkup | None = None) -> list[int]:
 		"""
 		Отправляет сообщение в группу. Возвращает ID отправленного(-ых) сообщений.
 
@@ -417,6 +417,7 @@ class TelehooperGroup:
 		:param reply_to: ID сообщения, на которое нужно ответить.
 		:param topic: ID диалога в сервисе, в который нужно отправить сообщение. Если не указано, то сообщение будет отправлено в главный диалог группы.
 		:param silent: Отправить ли сообщение без уведомления.
+		:param keyboard: Клавиатура, которую нужно прикрепить к сообщению.
 		"""
 
 		if not attachments:
@@ -449,7 +450,8 @@ class TelehooperGroup:
 				reply_to_message_id=reply_to,
 				text=text,
 				disable_notification=silent,
-				allow_sending_without_reply=True
+				allow_sending_without_reply=True,
+				reply_markup=keyboard
 			)).message_id]
 
 		return message_ids
@@ -628,7 +630,7 @@ class TelehooperSubGroup:
 
 		return await self.parent.send_video_note(input, reply_to=reply_to, topic=self.id, silent=silent)
 
-	async def send_message_in(self, text: str, attachments: list[InputMediaAudio | InputMediaDocument | InputMediaPhoto | InputMediaVideo] | None = None, reply_to: int | None = None, silent: bool = False) -> list[int]:
+	async def send_message_in(self, text: str, attachments: list[InputMediaAudio | InputMediaDocument | InputMediaPhoto | InputMediaVideo] | None = None, reply_to: int | None = None, silent: bool = False, keyboard: InlineKeyboardMarkup | None = None) -> list[int]:
 		"""
 		Отправляет сообщение в Telegram-группу.
 
@@ -636,9 +638,10 @@ class TelehooperSubGroup:
 		:param attachments: URL-адреса вложений.
 		:param reply_to: ID сообщения, на которое нужно ответить.
 		:param silent: Отправить ли сообщение без уведомления.
+		:param keyboard: Клавиатура, которую нужно прикрепить к сообщению.
 		"""
 
-		return await self.parent.send_message(text, attachments=attachments, topic=self.id, silent=silent, reply_to=reply_to)
+		return await self.parent.send_message(text, attachments=attachments, topic=self.id, silent=silent, reply_to=reply_to, keyboard=keyboard)
 
 	async def start_activity(self, type: Literal["typing", "upload_photo", "record_video", "upload_video", "record_audio", "upload_audio", "upload_document", "find_location", "record_video_note", "upload_video_note"] = "typing") -> None:
 		"""
