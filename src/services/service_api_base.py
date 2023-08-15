@@ -1,8 +1,11 @@
 # coding: utf-8
 
+from __future__ import annotations
+
 import enum
 from typing import TYPE_CHECKING, Optional
 
+from aiogram import Bot
 from aiogram.types import Audio, Document, Message, PhotoSize, Video, VideoNote
 
 if TYPE_CHECKING:
@@ -237,6 +240,17 @@ class BaseTelehooperServiceAPI:
 
 		:param message_id: ID сообщения в сервисе.
 		:param bypass_cache: Игнорировать ли кэш. Если да, то бот будет искать сообщение только в БД.
+		"""
+
+		raise NotImplementedError
+
+	@staticmethod
+	async def reconnect_on_restart(user: "TelehooperUser", db_user: Document, bot: Bot) -> "BaseTelehooperServiceAPI" | None:
+		"""
+		Выполняет переподключение сервиса после перезагрузки бота. Если переподключение успешно, возвращает класс сервиса, иначе - None.
+
+		:param user: Telegram-пользователь, которому принадлежит сервис.
+		:param db_user: Документ с данными пользователя из БД.
 		"""
 
 		raise NotImplementedError

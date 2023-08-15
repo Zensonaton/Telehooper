@@ -5,6 +5,7 @@ import importlib
 import os
 import pkgutil
 from types import ModuleType
+from aiocouch import Document
 
 from aiogram import Bot, Dispatcher
 from aiogram.types import (BotCommand, BotCommandScopeAllGroupChats,
@@ -121,142 +122,56 @@ async def set_commands(use_async: bool = True) -> None:
 	else:
 		await _set_commands()
 
-async def reconnect_services(use_async: bool = True) -> None:
+async def reconnect_services() -> None:
 	"""
-	Переподключает сервисы.
-
-	:param use_async: Асинхронное переподключение.
+	Переподключает сервисы у пользователей бота.
 	"""
 
-	async def _reconnect_services() -> None:
-		db = await get_db()
+	db = await get_db()
+	tasks = []
 
-		async for user in db.docs(prefix="user_"):
-			telegram_user = (await bot.get_chat_member(user["ID"], user["ID"])).user
-			telehooper_user = TelehooperUser(user, telegram_user)
-			service_apis = {}
+	async def _reconnect(user: Document) -> None:
+		"""
+		Функция для `asyncio.Task`, которая переподключает пользователя.
+		"""
 
-			logger.debug(f"Переподключаю сервисы и диалоги Telegram-пользователя {utils.get_telegram_logging_info(telegram_user)}...")
+		telegram_user = (await bot.get_chat_member(user["ID"], user["ID"])).user
+		telehooper_user = TelehooperUser(user, telegram_user)
+		service_apis = {}
 
-			# Переподключаем сервисы.
-			try:
-				if "VK" in user["Connections"]:
-					vkServiceAPI = None
+		logger.debug(f"Переподключаю сервисы и диалоги Telegram-пользователя {utils.get_telegram_logging_info(telegram_user)}...")
 
-					# Проверка, что токен установлен.
-					# Токен может отсутствовать, если настройка Security.
-					if not user["Connections"]["VK"]["Token"]:
-						# Удаляем сервис из БД.
-						user["Connections"].pop("VK")
-						await user.save()
+		# Переподключаем сервисы у пользователя.
+		try:
+			if "VK" in user["Connections"]:
+				service_apis["VK"] = await VKServiceAPI.reconnect_on_restart(telehooper_user, user, bot)
+		except Exception as error:
+			logger.exception(f"Не удалось переподключить сервисы для пользователя {user['ID']}:", error)
 
-						# Отправляем сообщение.
-						await bot.send_message(
-							chat_id=user["ID"],
-							text=utils.replace_placeholders(
-								"<b>⚠️ Потеряно соединение с ВКонтакте</b>.\n"
-								"\n"
-								"Telehooper потерял соединение со страницей «ВКонтакте», поскольку настройка {{Security.StoreTokens}} была выставлена в значение «выключено».\n"
-								"\n"
-								"ℹ️ Вы можете повторно подключиться к «ВКонтакте», используя команду /connect.\n"
-							)
-						)
+			return
 
-						continue
+		# Все сервисы переподключены, возвращаем диалоги.
+		async for group in db.docs([f"group_{i}" for i in user["Groups"]]):
+			telegram_group = await bot.get_chat(group["ID"])
+			telehooper_group = TelehooperGroup(telehooper_user, group, telegram_group, bot)
 
-					# Создаём Longpoll.
-					try:
-						vkServiceAPI = VKServiceAPI(
-							token=SecretStr(
-								utils.decrypt_with_env_key(
-									user["Connections"]["VK"]["Token"]
-								)
-							),
-							vk_user_id=user["Connections"]["VK"]["ID"],
-							user=telehooper_user
-						)
-						telehooper_user.save_connection(vkServiceAPI)
+			for chat in group["Chats"].values():
+				serviceAPI = service_apis.get(chat["Service"])
 
-						# Проверяем токен.
-						await vkServiceAPI.vkAPI.get_self_info()
+				if not serviceAPI:
+					continue
 
-						# Запускаем Longpoll.
-						await vkServiceAPI.start_listening()
-
-						# Сохраняем ServiceAPI.
-						service_apis["VK"] = vkServiceAPI
-					except TokenRevokedException as error:
-						assert vkServiceAPI
-
-						# Совершаем отключение.
-						await vkServiceAPI.disconnect_service(ServiceDisconnectReason.ERRORED)
-
-						# Отправляем сообщение.
-						await bot.send_message(
-							chat_id=user["ID"],
-							text=(
-								"<b>⚠️ Потеряно соединение с ВКонтакте</b>.\n"
-								"\n"
-								"Telehooper потерял соединение со страницей «ВКонтакте», поскольку владелец страницы отозвал доступ к ней через настройки «Приватности» страницы.\n"
-								"\n"
-								"ℹ️ Вы можете повторно подключиться к «ВКонтакте», используя команду /connect.\n"
-							)
-						)
-					except Exception as error:
-						logger.exception(f"Не удалось запустить LongPoll для пользователя {user['ID']}:", error)
-
-						# В некоторых случаях, сам объект VKServiceAPI может быть None,
-						# например, если не удалось расшифровать токен.
-						# В таких случаях нам необходимо сделать отключение, при помощи
-						# фейкового объекта VKServiceAPI.
-						if vkServiceAPI is None:
-							vkServiceAPI = VKServiceAPI(
-								token=None, # type: ignore
-								vk_user_id=user["Connections"]["VK"]["ID"],
-								user=telehooper_user
-							)
-
-						# Совершаем отключение.
-						await vkServiceAPI.disconnect_service(ServiceDisconnectReason.ERRORED)
-
-						# Отправляем сообщение.
-						await bot.send_message(
-							chat_id=user["ID"],
-							text=(
-								"<b>⚠️ Произошла ошибка при работе с ВКонтакте</b>.\n"
-								"\n"
-								"К сожалению, ввиду ошибки бота, у Telehooper не удалось востановить соединение с Вашей страницей «ВКонтакте».\n"
-								"Вы не сможете отправлять или получать сообщения из этого сервиса до тех пор, пока Вы не переподключитесь к нему.\n"
-								"\n"
-								"ℹ️ Вы можете повторно подключиться к сервису «ВКонтакте», используя команду /connect.\n"
-							)
-						)
-			except Exception as error:
-				logger.exception(f"Не удалось переподключить сервисы для пользователя {user['ID']}:", error)
-
-				continue
-
-			# Все сервисы переподключены, возвращаем диалоги.
-			async for group in db.docs([f"group_{i}" for i in user["Groups"]]):
-				telegram_group = await bot.get_chat(group["ID"])
-				telehooper_group = TelehooperGroup(telehooper_user, group, telegram_group, bot)
-
-				for chat in group["Chats"].values():
-					serviceAPI = service_apis.get(chat["Service"])
-
-					if not serviceAPI:
-						continue
-
-					TelehooperAPI.save_subgroup(
-						TelehooperSubGroup(
-							id=chat["ID"],
-							dialogue_name=chat["Name"],
-							service=serviceAPI,
-							parent=telehooper_group,
-							service_chat_id=chat["DialogueID"]
-						)
+				TelehooperAPI.save_subgroup(
+					TelehooperSubGroup(
+						id=chat["ID"],
+						dialogue_name=chat["Name"],
+						service=serviceAPI,
+						parent=telehooper_group,
+						service_chat_id=chat["DialogueID"]
 					)
-	if use_async:
-		asyncio.create_task(_reconnect_services())
-	else:
-		await _reconnect_services()
+				)
+
+	async for user in db.docs(prefix="user_"):
+		tasks.append(asyncio.create_task(_reconnect(user)))
+
+	await asyncio.gather(*tasks)

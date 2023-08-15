@@ -1,13 +1,18 @@
 # coding: utf-8
 
+from __future__ import annotations
+
 import asyncio
-from typing import TYPE_CHECKING, Optional, cast
+from typing import TYPE_CHECKING, Optional, Self, cast
 
 import aiohttp
-from aiogram.types import (Audio, BufferedInputFile, Document, InputMediaAudio,
-                           InputMediaDocument, InputMediaPhoto,
-                           InputMediaVideo, Message, PhotoSize, Sticker, Video,
-                           VideoNote, Voice)
+from aiocouch import Document
+from aiogram import Bot
+from aiogram.types import Audio, BufferedInputFile
+from aiogram.types import Document as TelegramDocument
+from aiogram.types import (InputMediaAudio, InputMediaDocument,
+                           InputMediaPhoto, InputMediaVideo, Message,
+                           PhotoSize, Sticker, Video, VideoNote, Voice)
 from aiogram.utils.chat_action import ChatActionSender
 from loguru import logger
 from pydantic import SecretStr
@@ -19,7 +24,7 @@ from services.service_api_base import (BaseTelehooperServiceAPI,
                                        ServiceDialogue,
                                        ServiceDisconnectReason,
                                        TelehooperServiceUserInfo)
-from services.vk.exceptions import AccessDeniedException
+from services.vk.exceptions import AccessDeniedException, TokenRevokedException
 from services.vk.utils import create_message_link
 from services.vk.vk_api.api import VKAPI
 from services.vk.vk_api.longpoll import (BaseVKLongpollEvent,
@@ -613,7 +618,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 	async def send_message(self, chat_id: int, text: str, reply_to_message: int | None = None, attachments: list[str] | str | None = None) -> int:
 		return await self.vkAPI.messages_send(peer_id=chat_id, message=text, reply_to=reply_to_message, attachment=attachments)
 
-	async def handle_inner_message(self, msg: Message, subgroup: "TelehooperSubGroup", attachments: list[PhotoSize | Video | Audio | Document | Voice | Sticker | VideoNote]) -> None:
+	async def handle_inner_message(self, msg: Message, subgroup: "TelehooperSubGroup", attachments: list[PhotoSize | Video | Audio | TelegramDocument | Voice | Sticker | VideoNote]) -> None:
 		from api import TelehooperAPI
 
 
@@ -627,7 +632,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 		attachments_to_send: str | None = None
 		if attachments:
-			attachments_vk = cast(PhotoSize | Video | Audio | Document | Voice | Sticker | VideoNote | str, attachments.copy())
+			attachments_vk = cast(PhotoSize | Video | Audio | TelegramDocument | Voice | Sticker | VideoNote | str, attachments.copy())
 
 			for attch_type in ["PhotoSize", "Video", "Audio", "Document", "Voice", "Sticker", "VideoNote"]:
 				attchs_of_same_type = [attch for attch in attachments_vk if attch.__class__.__name__ == attch_type]
@@ -691,7 +696,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 							# Подготавливаем список задач на загрузку вложений.
 							tasks = []
 							for index, attach in enumerate(attchs_of_same_type_part):
-								attach = cast(PhotoSize | Audio | Document | Video | Voice, attach)
+								attach = cast(PhotoSize | Audio | TelegramDocument | Video | Voice, attach)
 
 								tasks.append(_download(index, attach.file_id))
 
@@ -860,3 +865,92 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 		from api import TelehooperAPI
 
 		return await TelehooperAPI.get_message_by_service_id("VK", message_id, bypass_cache=bypass_cache)
+
+	@staticmethod
+	async def reconnect_on_restart(user: "TelehooperUser", db_user: Document, bot: Bot) -> "VKServiceAPI" | None:
+		vkServiceAPI = None
+
+		# Проверка, что токен установлен.
+		# Токен может отсутствовать, если настройка Security.StoreTokens была выставлена в значение «выключено».
+		if not db_user["Connections"]["VK"]["Token"]:
+			# Удаляем сервис из БД.
+			db_user["Connections"].pop("VK")
+			await db_user.save()
+
+			# Отправляем сообщение.
+			await bot.send_message(
+				chat_id=db_user["ID"],
+				text=utils.replace_placeholders(
+					"<b>⚠️ Потеряно соединение с ВКонтакте</b>.\n"
+					"\n"
+					"Telehooper потерял соединение со страницей «ВКонтакте», поскольку настройка {{Security.StoreTokens}} была выставлена в значение «выключено».\n"
+					"\n"
+					"ℹ️ Вы можете повторно подключиться к «ВКонтакте», используя команду /connect.\n"
+				)
+			)
+
+			return
+
+		# Создаём Longpoll.
+		try:
+			vkServiceAPI = VKServiceAPI(
+				token=SecretStr(utils.decrypt_with_env_key(db_user["Connections"]["VK"]["Token"])),
+				vk_user_id=db_user["Connections"]["VK"]["ID"],
+				user=user
+			)
+			user.save_connection(vkServiceAPI)
+
+			# Проверяем токен.
+			await vkServiceAPI.vkAPI.get_self_info()
+
+			# Запускаем Longpoll.
+			await vkServiceAPI.start_listening()
+
+			# Возвращаем ServiceAPI.
+			return vkServiceAPI
+		except TokenRevokedException as error:
+			assert vkServiceAPI
+
+			# Совершаем отключение.
+			await vkServiceAPI.disconnect_service(ServiceDisconnectReason.ERRORED)
+
+			# Отправляем сообщение.
+			await bot.send_message(
+				chat_id=user.telegramUser.id,
+				text=(
+					"<b>⚠️ Потеряно соединение с ВКонтакте</b>.\n"
+					"\n"
+					"Telehooper потерял соединение со страницей «ВКонтакте», поскольку владелец страницы отозвал доступ к ней через настройки «Приватности» страницы.\n"
+					"\n"
+					"ℹ️ Вы можете повторно подключиться к «ВКонтакте», используя команду /connect.\n"
+				)
+			)
+		except Exception as error:
+			logger.exception(f"Не удалось запустить LongPoll для пользователя {utils.get_telegram_logging_info(user.telegramUser)}:", error)
+
+			# В некоторых случаях, сам объект VKServiceAPI может быть None,
+			# например, если не удалось расшифровать токен.
+			# В таких случаях нам необходимо сделать отключение, при помощи
+			# фейкового объекта VKServiceAPI.
+			if vkServiceAPI is None:
+				vkServiceAPI = VKServiceAPI(
+					token=None, # type: ignore
+					vk_user_id=db_user["Connections"]["VK"]["ID"],
+					user=user
+				)
+
+			# Совершаем отключение.
+			await vkServiceAPI.disconnect_service(ServiceDisconnectReason.ERRORED)
+
+			# Отправляем сообщение.
+			await bot.send_message(
+				chat_id=db_user["ID"],
+				text=(
+					"<b>⚠️ Произошла ошибка при работе с ВКонтакте</b>.\n"
+					"\n"
+					"К сожалению, ввиду ошибки бота, у Telehooper не удалось востановить соединение с Вашей страницей «ВКонтакте».\n"
+					"Вы не сможете отправлять или получать сообщения из этого сервиса до тех пор, пока Вы не переподключитесь к нему.\n"
+					"\n"
+					"ℹ️ Вы можете повторно подключиться к сервису «ВКонтакте», используя команду /connect.\n"
+				)
+			)
