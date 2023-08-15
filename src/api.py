@@ -2,7 +2,7 @@
 
 import asyncio
 import base64
-from typing import Any, Sequence, cast
+from typing import Any, Literal, Sequence, cast
 
 import aiohttp
 from aiocouch import Document, NotFoundError
@@ -453,6 +453,20 @@ class TelehooperGroup:
 
 		return message_ids
 
+	async def start_activity(self, type: Literal["typing", "upload_photo", "record_video", "upload_video", "record_audio", "upload_audio", "upload_document", "find_location", "record_video_note", "upload_video_note"] = "typing", topic: int = 0) -> None:
+		"""
+		Начинает событие в Telegram-группе по типу печати, записи голосового сообщения и подобных.
+
+		:param type: Тип события.
+		:param topic: ID диалога в сервисе, в который нужно отправить сообщение. Если не указано, то сообщение будет отправлено в главный диалог группы.
+		"""
+
+		await self.bot.send_chat_action(
+			chat_id=self.chat.id,
+			action=type,
+			message_thread_id=topic
+		)
+
 class TelehooperMessage:
 	"""
 	Класс, описывающий сообщение отправленного через Telehooper. Данный класс предоставляет доступ к ID сообщения в сервисе и в Telegram, а так же прочую информацию.
@@ -585,6 +599,15 @@ class TelehooperSubGroup:
 		"""
 
 		return await self.parent.send_message(text, attachments=attachments, topic=self.id, silent=silent, reply_to=reply_to)
+
+	async def start_activity(self, type: Literal["typing", "upload_photo", "record_video", "upload_video", "record_audio", "upload_audio", "upload_document", "find_location", "record_video_note", "upload_video_note"] = "typing") -> None:
+		"""
+		Начинает событие в Telegram-группе по типу печати, записи голосового сообщения и подобных.
+
+		:param type: Тип события.
+		"""
+
+		return await self.parent.start_activity(type, topic=self.id)
 
 	async def send_message_out(self, text: str) -> None:
 		"""

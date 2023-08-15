@@ -28,7 +28,7 @@ from services.vk.exceptions import AccessDeniedException, TokenRevokedException
 from services.vk.utils import create_message_link
 from services.vk.vk_api.api import VKAPI
 from services.vk.vk_api.longpoll import (BaseVKLongpollEvent,
-                                         LongpollNewMessageEvent,
+                                         LongpollNewMessageEvent, LongpollTypingEvent, LongpollTypingEventMultiple, LongpollVoiceMessageEvent,
                                          VKAPILongpoll)
 
 if TYPE_CHECKING:
@@ -83,15 +83,9 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 		logger.debug(f"[VK] Новое событие {event.__class__.__name__}: {event.event_data}")
 
 		if type(event) is LongpollNewMessageEvent:
-			subgroup = TelehooperAPI.get_subgroup_by_service_dialogue(
-				self.user,
-				ServiceDialogue(
-					service_name=self.service_name,
-					id=event.peer_id
-				)
-			)
+			subgroup = TelehooperAPI.get_subgroup_by_service_dialogue(self.user, ServiceDialogue(service_name=self.service_name, id=event.peer_id))
 
-			# Проверяем, что у пользователя есть подгруппа в которую можно отправить текст сообщения.
+			# Проверяем, что у пользователя есть подгруппа, в которую можно отправить сообщение.
 			if not subgroup:
 				return
 
@@ -105,11 +99,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 				sent_by_account_owner = event.flags.outbox
 				ignore_self_debug = config.debug and await self.user.get_setting("Debug.SentViaBotInform")
 				attachment_items: list[str] = []
-				message_url = create_message_link(
-					event.peer_id,
-					event.message_id,
-					use_mobile=await self.user.get_setting("Services.VK.MobileVKURLs")
-				)
+				message_url = create_message_link(event.peer_id, event.message_id, use_mobile=await self.user.get_setting("Services.VK.MobileVKURLs"))
 
 				# Проверяем, стоит ли боту обрабатывать исходящие сообщения.
 				if sent_by_account_owner and not (await self.user.get_setting("Services.VK.ViaServiceMessages") or ignore_self_debug):
@@ -459,6 +449,18 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 				# TODO: Отправлять сообщение об ошибке пользователю, делая при этом логирование самого текста ошибки.
 
 				logger.error(f"Ошибка отправки сообщения Telegram-пользователю {utils.get_telegram_logging_info(self.user.telegramUser)}: {e}")
+		elif type(event) is LongpollTypingEvent or type(event) is LongpollTypingEventMultiple or type(event) is LongpollVoiceMessageEvent:
+			subgroup = TelehooperAPI.get_subgroup_by_service_dialogue(self.user, ServiceDialogue(service_name=self.service_name, id=event.peer_id))
+
+			# Проверяем, что у пользователя есть подгруппа, в которую можно отправить сообщение.
+			if not subgroup:
+				return
+
+			logger.debug(f"[VK] Событие печати для подгруппы \"{subgroup.service_dialogue_name}\"")
+
+			await subgroup.start_activity("record_audio" if type(event) is LongpollVoiceMessageEvent else "typing")
+
+			# TODO: Если пользователей несколько, и в группе несколько Telehooper-ботов, то начать событие печати от имени разных ботов.
 
 	async def get_list_of_dialogues(self, force_update: bool = False, max_amount: int = 800, skip_ids: list[int] = []) -> list[ServiceDialogue]:
 		if not force_update and self._cachedDialogues:

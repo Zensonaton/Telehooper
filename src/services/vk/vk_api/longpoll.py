@@ -2,6 +2,7 @@
 
 import asyncio
 from asyncio import TimeoutError
+from turtle import up
 from typing import AsyncGenerator, Optional
 
 import aiohttp
@@ -43,6 +44,12 @@ class BaseVKLongpollEvent:
 
 		if event_type == 4:
 			return LongpollNewMessageEvent(event)
+		elif event_type in (61, 62):
+			return LongpollTypingEvent(event)
+		elif event_type == 63:
+			return LongpollTypingEventMultiple(event)
+		elif event_type == 64:
+			return LongpollVoiceMessageEvent(event)
 
 		if raise_error:
 			raise ValueError(f"Неизвестный тип события: {event_type}")
@@ -61,7 +68,7 @@ class LongpollNewMessageEvent(BaseVKLongpollEvent):
 	date: int
 	"""UNIX-время отправки сообщения."""
 	peer_id: int
-	"""ID отправителя сообщения."""
+	"""Чат, в котором было отправлено сообщение."""
 	text: str
 	"""Текст сообщения."""
 	flags: VKLongpollMessageFlags
@@ -78,6 +85,68 @@ class LongpollNewMessageEvent(BaseVKLongpollEvent):
 		self.date = self.event_data[3]
 		self.text = self.event_data[5]
 		self.attachments = self.event_data[6]
+
+class LongpollTypingEvent(BaseVKLongpollEvent):
+	"""
+	Longpoll-событие, вызываемое когда какой-то из пользователей ВКонтакте начинает печатать. Вызывается каждые 5~ секунд.
+
+	ID событий:
+	- `61` для обычного диалога.
+	- `62` для группового чата.
+	"""
+
+	user_id: int
+	"""ID пользователя, который печатает сообщение."""
+	peer_id: int
+	"""Чат, в котором начали печатать сообщение."""
+
+	def __init__(self, event: list) -> None:
+		super().__init__(event)
+
+		self.user_id = self.event_data[0]
+		self.peer_id = self.user_id if self.event_type == 61 else self.event_data[1]
+
+class LongpollTypingEventMultiple(BaseVKLongpollEvent):
+	"""
+	Longpoll-событие, вызываемое когда в беседе начинает печатать сразу несколько пользователей.
+
+	ID события: `63`.
+	"""
+
+	user_ids: list[int]
+	"""ID пользователей, которые печатают сообщение. Максимальное количество в данном объекте - 5 пользователей."""
+	peer_id: int
+	"""Чат, в котором начали печатать сообщение."""
+	total_count: int
+	"""Количество пользователей, которые печатают сообщение."""
+	timestamp: int
+	"""Время создания данного события."""
+
+	def __init__(self, event: list) -> None:
+		super().__init__(event)
+
+		self.user_ids = self.event_data[0]
+		self.peer_id = self.event_data[1]
+		self.total_count = self.event_data[2]
+		self.timestamp = self.event_data[3]
+
+class LongpollVoiceMessageEvent(BaseVKLongpollEvent):
+	"""
+	Longpoll-событие, вызываемое когда какой-то из пользователей ВКонтакте записывает голосовое сообщение. Вызывается каждые 5~ секунд.
+
+	ID события: `64`.
+	"""
+
+	user_ids: int
+	"""ID пользователей, которые записывают голосовое сообщение. Может быть несколько, если данное событие произошло в беседе, где записывают голосовые сообщения сразу несколько людей."""
+	peer_id: int
+	"""Чат, в котором пользователи записывают голосовое сообщение."""
+
+	def __init__(self, event: list) -> None:
+		super().__init__(event)
+
+		self.peer_id = self.event_data[0]
+		self.user_ids = self.event_data[1]
 
 class VKAPILongpoll:
 	"""
@@ -188,6 +257,8 @@ class VKAPILongpoll:
 					event = BaseVKLongpollEvent.get_event_type(update, raise_error=False)
 
 					if not event:
+						logger.debug(f"[VK] Неизвестный тип события: {update[0]}: {update[1:]}")
+
 						continue
 
 					yield event
