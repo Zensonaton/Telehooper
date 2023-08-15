@@ -706,6 +706,9 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 			attachments_vk = cast(PhotoSize | Video | Audio | TelegramDocument | Voice | Sticker | VideoNote | str, attachments.copy())
 
 			for attch_type in ["PhotoSize", "Video", "Audio", "Document", "Voice", "Sticker", "VideoNote"]:
+				allow_multiple_uploads = attch_type != "Document"
+				multiple_uploads_amount = 5 if allow_multiple_uploads else 1
+
 				attchs_of_same_type = [attch for attch in attachments_vk if attch.__class__.__name__ == attch_type]
 
 				if not attchs_of_same_type:
@@ -716,8 +719,9 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 				# По 5 элементов.
 				attachments_results: list[dict] = []
-				for index in range(0, len(attchs_of_same_type), 5):
-					attchs_of_same_type_part = attchs_of_same_type[index:index + 5]
+				filenames: list[str] = []
+				for index in range(0, len(attchs_of_same_type), multiple_uploads_amount):
+					attchs_of_same_type_part = attchs_of_same_type[index:index + multiple_uploads_amount]
 
 					upload_url: str | None = None
 					ext: str | None = None
@@ -744,6 +748,11 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 							ext = "png"
 
 						# TODO: Изменение размера стикера что бы он не был слишком большим для ВК.
+					elif attch_type == "Document":
+						upload_url = (await self.vkAPI.docs_getMessagesUploadServer(type="doc", peer_id=subgroup.service_chat_id))["upload_url"]
+
+						for file_same_type in attchs_of_same_type_part:
+							filenames.append(cast(TelegramDocument, file_same_type).file_name or "unknown-filename.txt")
 					else:
 						raise TypeError(f"Неизвестный тип вложения {attch_type}")
 
@@ -751,7 +760,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 					# Выгружаем вложения на сервера ВК.
 					if upload_url:
-						assert ext, f"Не дано расширение для вложения типа {attch_type}"
+						assert ext or attch_type == "Document", f"Не дано расширение для вложения типа {attch_type}"
 
 						async with aiohttp.ClientSession() as client:
 							form_data = aiohttp.FormData()
@@ -782,14 +791,12 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 								if len(attchs_of_same_type_part) > 1:
 									field_name = f"file{index}"
 
-								form_data.add_field(name=field_name, value=file_bytes, filename=f"file{index}.{ext}")
+								form_data.add_field(name=field_name, value=file_bytes, filename=f"file{index}.{ext}" if ext else filenames.pop(0))
 
 							# Отправляем загруженные вложения на сервера ВК.
 							async with client.post(upload_url, data=form_data) as response:
 								assert response.status == 200, f"Не удалось загрузить вложение типа {attch_type}"
 								response = VKAPI._parse_response(await response.json(content_type=None))
-
-								logger.debug(f"Вложения успешно отправлены во ВКонтакте.")
 
 								attachments_results.append(response)
 
@@ -822,11 +829,12 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 							# Стикеры нам нужно кэшировать, если пользователь это разрешил.
 							if await self.user.get_setting("Security.MediaCache"):
-								await TelehooperAPI.save_attachment(
-									"VK",
-									f"sticker{attachments[0].file_unique_id}static",
-									attachment_str
-								)
+								await TelehooperAPI.save_attachment("VK", f"sticker{attachments[0].file_unique_id}static", attachment_str)
+						elif attch_type == "Document":
+							# filename = filenames.pop(0)
+							saved_attch = (await self.vkAPI.docs_save(file=attachment["file"]))["doc"]
+
+							attachment_str_list.append(VKAPI.get_attachment_string("doc", saved_attch["owner_id"], saved_attch["id"], saved_attch.get("access_key")))
 
 				# Теперь нам нужно заменить вложения в сообщении на те, что мы получили от ВК.
 				for index, attch in enumerate(attachments_vk):
