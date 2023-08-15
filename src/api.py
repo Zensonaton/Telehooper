@@ -491,6 +491,22 @@ class TelehooperGroup:
 				message_id=id
 			)
 
+	async def delete_message(self, id: list[int] | int) -> None:
+		"""
+		Удаляет одно или несколько сообщений в Telegram-группе.
+
+		:param id: ID сообщения(-ий), которое нужно удалить.
+		"""
+
+		if isinstance(id, int):
+			id = [id]
+
+		for i in id:
+			await self.bot.delete_message(
+				chat_id=self.chat.id,
+				message_id=i
+			)
+
 class TelehooperMessage:
 	"""
 	Класс, описывающий сообщение отправленного через Telehooper. Данный класс предоставляет доступ к ID сообщения в сервисе и в Telegram, а так же прочую информацию.
@@ -641,6 +657,15 @@ class TelehooperSubGroup:
 		"""
 
 		return await self.parent.edit_message(new_text, id)
+
+	async def delete_message(self, id: list[int] | int) -> None:
+		"""
+		Удаляет одно или несколько сообщений сервиса.
+
+		:param id: ID сообщения(-ий).
+		"""
+
+		await self.parent.delete_message(id)
 
 	async def send_message_out(self, text: str) -> None:
 		"""

@@ -27,7 +27,7 @@ from services.service_api_base import (BaseTelehooperServiceAPI,
 from services.vk.exceptions import AccessDeniedException, TokenRevokedException
 from services.vk.utils import create_message_link
 from services.vk.vk_api.api import VKAPI
-from services.vk.vk_api.longpoll import (BaseVKLongpollEvent, LongpollMessageEditEvent,
+from services.vk.vk_api.longpoll import (BaseVKLongpollEvent, LongpollMessageEditEvent, LongpollMessageFlagsEdit,
                                          LongpollNewMessageEvent, LongpollTypingEvent, LongpollTypingEventMultiple, LongpollVoiceMessageEvent,
                                          VKAPILongpoll)
 
@@ -480,6 +480,29 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 			await subgroup.edit_message(f"{event.new_text}   <i>(ред.)</i>", telegram_message.telegram_message_ids[0])
 
 			# TODO: При редактировании сообщения теряются префиксы и суфиксы от Telehooper.
+		elif type(event) is LongpollMessageFlagsEdit:
+			if not event.new_flags.outbox:
+				return
+
+			if not event.new_flags.delete_for_all:
+				return
+
+			subgroup = TelehooperAPI.get_subgroup_by_service_dialogue(self.user, ServiceDialogue(service_name=self.service_name, id=event.peer_id))
+
+			# Проверяем, что у пользователя есть подгруппа, в которую можно отправить сообщение.
+			if not subgroup:
+				return
+
+			logger.debug(f"[VK] Событие удаления сообщения для подгруппы \"{subgroup.service_dialogue_name}\"")
+
+			# Пытаемся получить ID сообщения в Telegram, которое нужно отредактировать.
+			telegram_message = await subgroup.service.get_message_by_service_id(event.message_id)
+
+			if not telegram_message:
+				return
+
+			# Удаляем сообщение.
+			await subgroup.delete_message(telegram_message.telegram_message_ids)
 
 	async def get_list_of_dialogues(self, force_update: bool = False, max_amount: int = 800, skip_ids: list[int] = []) -> list[ServiceDialogue]:
 		if not force_update and self._cachedDialogues:

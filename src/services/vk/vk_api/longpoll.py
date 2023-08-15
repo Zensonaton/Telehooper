@@ -52,6 +52,8 @@ class BaseVKLongpollEvent:
 			return LongpollVoiceMessageEvent(event)
 		elif event_type == 5:
 			return LongpollMessageEditEvent(event)
+		elif event_type == 2:
+			return LongpollMessageFlagsEdit(event)
 
 		if raise_error:
 			raise ValueError(f"Неизвестный тип события: {event_type}")
@@ -179,6 +181,27 @@ class LongpollMessageEditEvent(BaseVKLongpollEvent):
 		self.timestamp = self.event_data[3]
 		self.new_text = self.event_data[5]
 		self.attachments = self.event_data[6]
+
+class LongpollMessageFlagsEdit(BaseVKLongpollEvent):
+	"""
+	Longpoll-событие, вызываемое при редактировании флагов сообщения.
+
+	ID события: `2`.
+	"""
+
+	message_id: int
+	"""ID сообщения."""
+	new_flags: VKLongpollMessageFlags
+	"""Новые флаги сообщения."""
+	peer_id: int
+	"""Чат, в котором было изменены флаги сообщения."""
+
+	def __init__(self, event: list) -> None:
+		super().__init__(event)
+
+		self.message_id = self.event_data[0]
+		self.new_flags = VKLongpollMessageFlags(self.event_data[1])
+		self.peer_id = self.event_data[2]
 
 class VKAPILongpoll:
 	"""
