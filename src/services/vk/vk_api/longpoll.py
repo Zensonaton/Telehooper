@@ -50,6 +50,8 @@ class BaseVKLongpollEvent:
 			return LongpollTypingEventMultiple(event)
 		elif event_type == 64:
 			return LongpollVoiceMessageEvent(event)
+		elif event_type == 5:
+			return LongpollMessageEditEvent(event)
 
 		if raise_error:
 			raise ValueError(f"Неизвестный тип события: {event_type}")
@@ -147,6 +149,36 @@ class LongpollVoiceMessageEvent(BaseVKLongpollEvent):
 
 		self.peer_id = self.event_data[0]
 		self.user_ids = self.event_data[1]
+
+class LongpollMessageEditEvent(BaseVKLongpollEvent):
+	"""
+	Longpoll-событие, вызываемое при редактировании сообщения.
+
+	ID события: `5`.
+	"""
+
+	message_id: int
+	"""ID сообщения."""
+	mask: int
+	"""Маска сообщения."""
+	peer_id: int
+	"""Чат, в котором было отправлено сообщение."""
+	timestamp: int
+	"""UNIX-время отправки сообщения."""
+	new_text: str
+	"""Новый текст сообщения."""
+	attachments: list[str]
+	"""Новые вложения сообщения."""
+
+	def __init__(self, event: list) -> None:
+		super().__init__(event)
+
+		self.message_id = self.event_data[0]
+		self.mask = self.event_data[1]
+		self.peer_id = self.event_data[2]
+		self.timestamp = self.event_data[3]
+		self.new_text = self.event_data[5]
+		self.attachments = self.event_data[6]
 
 class VKAPILongpoll:
 	"""

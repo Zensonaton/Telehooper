@@ -27,7 +27,7 @@ from services.service_api_base import (BaseTelehooperServiceAPI,
 from services.vk.exceptions import AccessDeniedException, TokenRevokedException
 from services.vk.utils import create_message_link
 from services.vk.vk_api.api import VKAPI
-from services.vk.vk_api.longpoll import (BaseVKLongpollEvent,
+from services.vk.vk_api.longpoll import (BaseVKLongpollEvent, LongpollMessageEditEvent,
                                          LongpollNewMessageEvent, LongpollTypingEvent, LongpollTypingEventMultiple, LongpollVoiceMessageEvent,
                                          VKAPILongpoll)
 
@@ -129,11 +129,11 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 						real_message_id = cast(int, message_extended["reply_message"]["id"])
 
 						# Настоящий ID сообщения получен. Получаем информацию о сообщении с БД бота.
-						reply_message_info = await subgroup.service.get_message_by_service_id(real_message_id)
+						telegram_message = await subgroup.service.get_message_by_service_id(real_message_id)
 
 						# Если информация о данном сообщении есть, то мы можем получить ID сообщения в Telegram.
-						if reply_message_info:
-							reply_to = reply_message_info.telegram_message_ids[0]
+						if telegram_message:
+							reply_to = telegram_message.telegram_message_ids[0]
 
 					# Обрабатываем гео-вложения.
 					if "geo" in attachments:
@@ -452,7 +452,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 		elif type(event) is LongpollTypingEvent or type(event) is LongpollTypingEventMultiple or type(event) is LongpollVoiceMessageEvent:
 			subgroup = TelehooperAPI.get_subgroup_by_service_dialogue(self.user, ServiceDialogue(service_name=self.service_name, id=event.peer_id))
 
-			# Проверяем, что у пользователя есть подгруппа, в которую можно отправить сообщение.
+			# Проверяем, что у пользователя есть подгруппа, в которой нужно начать событие печати.
 			if not subgroup:
 				return
 
@@ -461,6 +461,25 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 			await subgroup.start_activity("record_audio" if type(event) is LongpollVoiceMessageEvent else "typing")
 
 			# TODO: Если пользователей несколько, и в группе несколько Telehooper-ботов, то начать событие печати от имени разных ботов.
+		elif type(event) is LongpollMessageEditEvent:
+			subgroup = TelehooperAPI.get_subgroup_by_service_dialogue(self.user, ServiceDialogue(service_name=self.service_name, id=event.peer_id))
+
+			# Проверяем, что у пользователя есть подгруппа, в которую можно отправить сообщение.
+			if not subgroup:
+				return
+
+			logger.debug(f"[VK] Событие редактирования сообщения для подгруппы \"{subgroup.service_dialogue_name}\"")
+
+			# Пытаемся получить ID сообщения в Telegram, которое нужно отредактировать.
+			telegram_message = await subgroup.service.get_message_by_service_id(event.message_id)
+
+			if not telegram_message:
+				return
+
+			# Редактируем сообщение.
+			await subgroup.edit_message(f"{event.new_text}   <i>(ред.)</i>", telegram_message.telegram_message_ids[0])
+
+			# TODO: При редактировании сообщения теряются префиксы и суфиксы от Telehooper.
 
 	async def get_list_of_dialogues(self, force_update: bool = False, max_amount: int = 800, skip_ids: list[int] = []) -> list[ServiceDialogue]:
 		if not force_update and self._cachedDialogues:

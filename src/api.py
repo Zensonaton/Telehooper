@@ -7,6 +7,7 @@ from typing import Any, Literal, Sequence, cast
 import aiohttp
 from aiocouch import Document, NotFoundError
 from aiogram import Bot
+from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import Command
 from aiogram.filters.command import CommandPatternType
 from aiogram.types import Audio, BufferedInputFile, Chat
@@ -467,6 +468,29 @@ class TelehooperGroup:
 			message_thread_id=topic
 		)
 
+	async def edit_message(self, new_text: str, id: int) -> None:
+		"""
+		Редактирует сообщение в Telegram-группе.
+
+		:param new_text: Новый текст сообщения.
+		:param id: ID сообщения, которое нужно отредактировать.
+		"""
+
+		try:
+			await self.bot.edit_message_text(
+				text=new_text,
+				chat_id=self.chat.id,
+				message_id=id
+			)
+		except TelegramBadRequest:
+			# Если мы пытаемся отредачить сообщение с медиа (к примеру, фото), то нужно использовать метод `edit_message_caption`.
+
+			await self.bot.edit_message_caption(
+				caption=new_text,
+				chat_id=self.chat.id,
+				message_id=id
+			)
+
 class TelehooperMessage:
 	"""
 	Класс, описывающий сообщение отправленного через Telehooper. Данный класс предоставляет доступ к ID сообщения в сервисе и в Telegram, а так же прочую информацию.
@@ -608,6 +632,15 @@ class TelehooperSubGroup:
 		"""
 
 		return await self.parent.start_activity(type, topic=self.id)
+
+	async def edit_message(self, new_text: str, id: int) -> None:
+		"""
+		Начинает событие в Telegram-группе по типу печати, записи голосового сообщения и подобных.
+
+		:param type: Тип события.
+		"""
+
+		return await self.parent.edit_message(new_text, id)
 
 	async def send_message_out(self, text: str) -> None:
 		"""
