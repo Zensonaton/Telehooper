@@ -12,7 +12,7 @@ from aiogram.types import Audio, BufferedInputFile
 from aiogram.types import Document as TelegramDocument
 from aiogram.types import (InlineKeyboardButton, InlineKeyboardMarkup,
                            InputMediaAudio, InputMediaDocument,
-                           InputMediaPhoto, InputMediaVideo, Message,
+                           InputMediaPhoto, InputMediaVideo, Location, Message,
                            PhotoSize, Sticker, Video, VideoNote, Voice)
 from aiogram.utils.chat_action import ChatActionSender
 from loguru import logger
@@ -686,8 +686,8 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 		raise TypeError(f"Диалог с ID {chat_id} не найден")
 
-	async def send_message(self, chat_id: int, text: str, reply_to_message: int | None = None, attachments: list[str] | str | None = None) -> int:
-		return await self.vkAPI.messages_send(peer_id=chat_id, message=text, reply_to=reply_to_message, attachment=attachments)
+	async def send_message(self, chat_id: int, text: str, reply_to_message: int | None = None, attachments: list[str] | str | None = None, latitude: float | None = None, longitude: float | None = None) -> int:
+		return await self.vkAPI.messages_send(peer_id=chat_id, message=text, reply_to=reply_to_message, attachment=attachments, lat=latitude, long=longitude)
 
 	async def handle_inner_message(self, msg: Message, subgroup: "TelehooperSubGroup", attachments: list[PhotoSize | Video | Audio | TelegramDocument | Voice | Sticker | VideoNote]) -> None:
 		from api import TelehooperAPI
@@ -831,7 +831,6 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 							if await self.user.get_setting("Security.MediaCache"):
 								await TelehooperAPI.save_attachment("VK", f"sticker{attachments[0].file_unique_id}static", attachment_str)
 						elif attch_type == "Document":
-							# filename = filenames.pop(0)
 							saved_attch = (await self.vkAPI.docs_save(file=attachment["file"]))["doc"]
 
 							attachment_str_list.append(VKAPI.get_attachment_string("doc", saved_attch["owner_id"], saved_attch["id"], saved_attch.get("access_key")))
@@ -854,7 +853,9 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 			chat_id=subgroup.service_chat_id,
 			text=msg.text or msg.caption or "",
 			reply_to_message=reply_message_id,
-			attachments=attachments_to_send
+			attachments=attachments_to_send,
+			latitude=msg.location.latitude if msg.location else None,
+			longitude=msg.location.longitude if msg.location else None
 		)
 		await TelehooperAPI.save_message("VK", msg.message_id, service_message_id, True)
 

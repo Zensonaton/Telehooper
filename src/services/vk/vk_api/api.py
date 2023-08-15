@@ -93,7 +93,7 @@ class VKAPI:
 
 		return f"{type}{owner_id}_{id}"
 
-	async def _get_(self, method: str, params: dict[str, str | int | bool | None] | None = None) -> dict:
+	async def _get_(self, method: str, params: dict[str, str | int | bool | float | None] | None = None) -> dict:
 		"""
 		Выполняет GET-запрос к API ВКонтакте.
 
@@ -111,7 +111,7 @@ class VKAPI:
 			async with session.get(f"https://api.vk.com/method/{method}", headers={"User-Agent": ""}, params=self._cleanup_none(params)) as response:
 				return self._parse_response(await response.json())
 
-	async def _post_(self, method: str, params: dict[str, str | int | bool | None] | None = None) -> dict:
+	async def _post_(self, method: str, params: dict[str, str | int | bool | float | None] | None = None) -> dict:
 		"""
 		Выполняет POST-запрос к API ВКонтакте.
 
@@ -159,7 +159,7 @@ class VKAPI:
 
 		return (await self.users_get([user_id] if user_id else []))[0]
 
-	async def messages_send(self, peer_id: int, message: str, reply_to: int | None = None, attachment: list[str] | str | None = None) -> int:
+	async def messages_send(self, peer_id: int, message: str, reply_to: int | None = None, attachment: list[str] | str | None = None, lat: float | None = None, long: float | None = None) -> int:
 		"""
 		Отправляет сообщение пользователю. API: `messages.send`.
 
@@ -167,6 +167,8 @@ class VKAPI:
 		:param message: Текст сообщения.
 		:param reply_to: ID сообщения, на которое будет дан ответ.
 		:param attachment: Вложения к сообщению.
+		:param lat: Широта местоположения.
+		:param long: Долгота местоположения.
 		"""
 
 		if not isinstance(attachment, str):
@@ -177,7 +179,9 @@ class VKAPI:
 			"message": message,
 			"random_id": random_id(),
 			"reply_to": reply_to,
-			"attachment": attachment
+			"attachment": attachment,
+			"lat": lat,
+			"long": long
 		}))
 
 	async def messages_getLongPollServer(self) -> dict:

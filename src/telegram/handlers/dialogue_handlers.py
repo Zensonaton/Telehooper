@@ -1,7 +1,6 @@
 # coding: utf-8
 
 import asyncio
-from typing import cast
 
 from aiogram import F, Router
 from aiogram.filters import Command
