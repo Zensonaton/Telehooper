@@ -72,7 +72,7 @@ class LongpollNewMessageEvent(BaseVKLongpollEvent):
 	date: int
 	"""UNIX-время отправки сообщения."""
 	peer_id: int
-	"""Чат, в котором было отправлено сообщение."""
+	"""Чат, в котором было отправлено сообщение. Для пользователя: id пользователя. Для групповой беседы: `2000000000 + id` беседы. Для сообщества: `-id` сообщества либо `id + 1000000000`."""
 	text: str
 	"""Текст сообщения."""
 	flags: VKLongpollMessageFlags
@@ -87,7 +87,7 @@ class LongpollNewMessageEvent(BaseVKLongpollEvent):
 		self.flags = VKLongpollMessageFlags(self.event_data[1])
 		self.peer_id = self.event_data[2]
 		self.date = self.event_data[3]
-		self.text = self.event_data[5]
+		self.text = self.event_data[4]
 		self.attachments = self.event_data[6]
 
 class LongpollTypingEvent(BaseVKLongpollEvent):
@@ -218,13 +218,16 @@ class VKAPILongpoll:
 	"""ID пользователя, для которого будет работать longpoll. Если не указано, то будет использован ID текущего пользователя."""
 	is_stopped: bool = False
 	"""Остановлен ли longpoll. Если данное значение установить на True, то longpoll будет остановлен."""
+	version: int
+	"""Версия Longpoll."""
 
-	def __init__(self, api: VKAPI, wait: int = 50, mode: int = 682, user_id: int | None = None):
+	def __init__(self, api: VKAPI, wait: int = 50, mode: int = 682, version: int = 3, user_id: int | None = None):
 		self.api = api
 
 		self.wait = wait
 		self.mode = mode
 		self.user_id = user_id
+		self.version = version
 
 	def stop(self) -> None:
 		"""
@@ -242,7 +245,7 @@ class VKAPILongpoll:
 		"""
 
 		async with aiohttp.ClientSession() as session:
-			async with session.post(f"https://{server['server']}?act=a_check&key={server['key']}&ts={server['ts']}&wait={self.wait}&mode={self.mode}") as response:
+			async with session.post(f"https://{server['server']}?act=a_check&key={server['key']}&ts={server['ts']}&wait={self.wait}&mode={self.mode}&version={self.version}") as response:
 				return await response.json()
 
 	async def get_longpoll_server(self) -> dict:

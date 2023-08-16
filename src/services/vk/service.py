@@ -101,6 +101,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 			await self.user.refresh_document()
 
 			message_url = None
+			keyboard = None
 			try:
 				attachment_media: list[InputMediaAudio | InputMediaDocument | InputMediaPhoto | InputMediaVideo] = []
 				sent_by_account_owner = event.flags.outbox
@@ -124,7 +125,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 				reply_to = None
 
 				# Парсим вложения.
-				if event.attachments:
+				if event.attachments or event.peer_id < 0:
 					attachments = event.attachments.copy()
 
 					# Добываем полную информацию о сообщении.
@@ -141,6 +142,28 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 						# Если информация о данном сообщении есть, то мы можем получить ID сообщения в Telegram.
 						if telegram_message:
 							reply_to = telegram_message.telegram_message_ids[0]
+
+					# Обрабатываем клавиатуру.
+					if "keyboard" in message_extended:
+						buttons = []
+
+						for row in message_extended["keyboard"]["buttons"]:
+							current_row = []
+
+							for button in row:
+								button_type = button["action"]["type"]
+
+								if button_type == "text":
+									current_row.append(InlineKeyboardButton(text=button["action"]["label"], callback_data=button["action"]["payload"] or "do-nothing"))
+								else:
+									logger.warning(f"[VK] Неизвестный тип action для кнопки: \"{button_type}\"")
+
+									current_row.append(InlineKeyboardButton(text=f"❔ Кнопка типа {button_type}", callback_data=button["action"]["payload"] or "do-nothing"))
+
+							buttons.append(current_row)
+
+						keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
+
 
 					# Обрабатываем гео-вложения.
 					if "geo" in attachments:
@@ -162,7 +185,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 						return
 
 					# Проходимся по всем вложениям.
-					if message_extended:
+					if message_extended and "attachments" in message_extended:
 						for attch_index, attachment in enumerate(message_extended["attachments"]):
 							attachment_type = attachment["type"]
 							attachment = attachment[attachment["type"]]
@@ -233,25 +256,14 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 											)
 
 											# Сохраняем в память.
-											await TelehooperAPI.save_message(
-												"VK",
-												msg[0].message_id,
-												event.message_id,
-												False
-											)
+											await TelehooperAPI.save_message("VK", msg[0].message_id, event.message_id, False)
 
 											assert msg[0].video_note, "Видеосообщение не было отправлено"
 
 											return
 
 										# Прикрепляем видео.
-										attachment_media.append(InputMediaVideo(
-											type="video",
-											media=BufferedInputFile(
-												audio_bytes,
-												filename=f"{attachment['title'].strip()} {quality[4:]}p.mp4"
-											)
-										))
+										attachment_media.append(InputMediaVideo(type="video", media=BufferedInputFile(audio_bytes, filename=f"{attachment['title'].strip()} {quality[4:]}p.mp4")))
 
 										break
 									else:
@@ -302,22 +314,13 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 								)
 
 								# Сохраняем в память.
-								await TelehooperAPI.save_message(
-									"VK",
-									msg[0].message_id,
-									event.message_id,
-									False
-								)
+								await TelehooperAPI.save_message("VK", msg[0].message_id, event.message_id, False)
 
 								assert msg[0].sticker, "Стикер не был отправлен"
 
 								# Кэшируем стикер, если настройка у пользователя это позволяет.
 								if await self.user.get_setting("Security.MediaCache"):
-									await TelehooperAPI.save_attachment(
-										"VK",
-										attachment_cache_name,
-										msg[0].sticker.file_id
-									)
+									await TelehooperAPI.save_attachment("VK", attachment_cache_name, msg[0].sticker.file_id)
 
 								return
 							elif attachment_type == "doc":
@@ -327,7 +330,6 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 											assert response.status == 200, f"Не удалось загрузить документ с ID {attachment['id']}"
 
 											file_bytes = b""
-
 											while True:
 												chunk = await response.content.read(1024)
 												if not chunk:
@@ -341,13 +343,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 													raise Exception("Размер файла слишком большой")
 
 									# Прикрепляем документ.
-									attachment_media.append(InputMediaDocument(
-										type="document",
-										media=BufferedInputFile(
-											file=file_bytes,
-											filename=attachment["title"]
-										)
-									))
+									attachment_media.append(InputMediaDocument(type="document", media=BufferedInputFile(file=file_bytes, filename=attachment["title"])))
 							elif attachment_type == "audio":
 								# Загружаем аудио.
 								async with ChatActionSender(chat_id=subgroup.parent.chat.id, action="upload_audio", bot=subgroup.parent.bot):
@@ -379,10 +375,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 										performer=attachment["artist"]
 									))
 							elif attachment_type == "graffiti":
-								attachment_media.append(InputMediaPhoto(
-									type="photo",
-									media=attachment["url"]
-								))
+								attachment_media.append(InputMediaPhoto(type="photo", media=attachment["url"]))
 							elif attachment_type == "wall":
 								# TODO: Имя группы/юзера откуда был пост.
 								#   В данный момент почти нереализуемо из-за того, что ВК не передаёт такую информацию, и нужно делать отдельный запрос.
@@ -396,10 +389,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 							elif attachment_type == "poll":
 								attachment_items.append(f"<a href=\"{message_url}\">📊 Опрос: «{attachment['question']}»</a>")
 							elif attachment_type == "gift":
-								attachment_media.append(InputMediaPhoto(
-									type="photo",
-									media=attachment["thumb_256"]
-								))
+								attachment_media.append(InputMediaPhoto(type="photo", media=attachment["thumb_256"]))
 
 								attachment_items.append(f"<a href=\"{message_url}\">🎁 Подарок</a>")
 							elif attachment_type == "market":
@@ -440,7 +430,8 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 							new_message_text,
 							attachments=attachment_media,
 							silent=sent_by_account_owner,
-							reply_to=reply_to
+							reply_to=reply_to,
+							keyboard=keyboard
 						),
 						event.message_id,
 						False
@@ -453,7 +444,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 				else:
 					await _send_and_save()
 			except Exception as e:
-				logger.error(f"Ошибка отправки сообщения Telegram-пользователю {utils.get_telegram_logging_info(self.user.telegramUser)}: {e}")
+				logger.exception(f"Ошибка отправки сообщения Telegram-пользователю {utils.get_telegram_logging_info(self.user.telegramUser)}:", e)
 
 				try:
 					await subgroup.send_message_in(
