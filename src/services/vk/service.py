@@ -132,12 +132,11 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 					message_extended = (await self.vkAPI.messages_getById(event.message_id))["items"][0]
 
 					# Обрабатываем ответы (reply).
-					if "reply" in attachments:
-						# Извлекаем ID сообщения, на которое был дан ответ.
-						real_message_id = cast(int, message_extended["reply_message"]["id"])
+					if "reply" in attachments or ("fwd_messages" in message_extended and len(message_extended["fwd_messages"]) == 1 and await self.user.get_setting("Services.VK.FWDAsReply")):
+						reply_vk_message_id = message_extended["reply_message"]["id"] if "reply" in attachments else message_extended["fwd_messages"][0]["id"]
 
-						# Настоящий ID сообщения получен. Получаем информацию о сообщении с БД бота.
-						telegram_message = await subgroup.service.get_message_by_service_id(real_message_id)
+						# Настоящий ID сообщения, на которое был дан ответ, получен. Получаем информацию о сообщении с БД бота.
+						telegram_message = await subgroup.service.get_message_by_service_id(reply_vk_message_id)
 
 						# Если информация о данном сообщении есть, то мы можем получить ID сообщения в Telegram.
 						if telegram_message:
@@ -164,6 +163,11 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 						keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
 
+					# Обрабатываем пересланные.
+					if "fwd_messages" in message_extended and not reply_to:
+						fwd_messages = message_extended["fwd_messages"]
+
+						attachment_items.append(f"<a href=\"{message_url}\">🔁 {'Пересланное сообщение' if len(fwd_messages) == 1 else str(len(fwd_messages)) + ' пересланных сообщений'}</a>")
 
 					# Обрабатываем гео-вложения.
 					if "geo" in attachments:
