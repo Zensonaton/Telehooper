@@ -51,14 +51,28 @@ async def group_convert_message(chat_id: int, user: User, message_to_edit: Messa
 
 	# Проверяем на то, что данная группа уже является диалогом.
 	if telehooper_group.chats:
+		dialogs = ""
+		buttons = []
+
+		for chat in telehooper_group.chats.values():
+			if chat["Service"] == "VK":
+				url = f"https://m.vk.com/mail?act=show&peer={chat['DialogueID']}" if await telehooper_user.get_setting("Services.VK.MobileVKURLs") else f"https://vk.com/im?sel=c{chat['DialogueID']}"
+
+				dialogs += f" • ВК — <a href=\"{url}\">{chat['Name']}</a>.\n"
+				buttons.append([InlineKeyboardButton(text=chat["Name"], callback_data=f"/this vk group {chat['ID']}")])
+
+		dialogs = dialogs[:-1]
+
 		await TelehooperAPI.send_or_edit_message(
 			text=(
 				"<b>🫂 Группа-диалог</b>.\n"
 				"\n"
-				f"Данная группа уже является диалогом(-и). Настройка такого диалога будет добавлена в будущих обновлениях бота. 👀"
+				f"Данная группа связана со {'следующим диалогом' if len(telehooper_group.chats) == 1 else 'следующими диалогами'}:\n"
+				f"{dialogs}\n"
 			),
 			chat_id=chat_id,
-			message_to_edit=message_to_edit
+			message_to_edit=message_to_edit,
+			reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons)
 		)
 
 		return
