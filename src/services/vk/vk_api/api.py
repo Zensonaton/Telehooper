@@ -129,6 +129,13 @@ class VKAPI:
 			async with session.post(f"https://api.vk.com/method/{method}", headers={"User-Agent": ""}, params=self._cleanup_none(params)) as response:
 				return self._parse_response(await response.json())
 
+	async def account_setOnline(self) -> dict:
+		"""
+		Включает режим "онлайн" в текущем аккаунте на 5 минут. API: `account.setOnline`.
+		"""
+
+		return await self._post_("account.setOnline")
+
 	async def account_getProfileInfo(self) -> dict:
 		"""
 		Получает информацию об аккаунте. API: `account.getProfileInfo`.
@@ -312,6 +319,19 @@ class VKAPI:
 			"message": message,
 			"keep_forward_messages": 1 if keep_forward_messages else 0,
 			"keep_snippets": 1 if keep_snippets else 0
+		})
+
+	async def messages_setActivity(self, peer_id: int, type: Literal["typing", "audiomessage"] = "typing") -> dict:
+		"""
+		Начинает действие печати либо записи голосового сообщения в указанном диалоге. API: `messages.setActivity`.
+
+		:param peer_id: ID пользователя/группы/беседы, в котором будет начато действие.
+		:param type: Тип действия. Может быть либо `typing`, либо `audiomessage`.
+		"""
+
+		return await self._post_("messages.setActivity", {
+			"peer_id": peer_id,
+			"type": type
 		})
 
 	async def messages_markAsRead(self, peer_id: int, start_message_id: int | None = None, mark_conversation_as_read: bool = True) -> dict:

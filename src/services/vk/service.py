@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from typing import TYPE_CHECKING, Optional, cast
+from typing import TYPE_CHECKING, Literal, Optional, cast
 
 import aiohttp
 from aiocouch import Document
@@ -195,10 +195,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 							attachment = attachment[attachment["type"]]
 
 							if attachment_type == "photo":
-								attachment_media.append(InputMediaPhoto(
-									type="photo",
-									media=attachment["sizes"][-1]["url"]
-								))
+								attachment_media.append(InputMediaPhoto(type="photo", media=attachment["sizes"][-1]["url"]))
 							elif attachment_type == "video":
 								# Так как ВК не выдают прямую ссылку на видео, необходимо её извлечь из API.
 								# Что важно, передать ссылку напрямую не получается, поскольку ВК проверяет
@@ -681,6 +678,15 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 		raise TypeError(f"Диалог с ID {chat_id} не найден")
 
+	async def set_online(self) -> None:
+		await self.vkAPI.account_setOnline()
+
+	async def start_activity(self, peer_id: int, type: Literal["typing", "audiomessage"] = "typing") -> None:
+		await self.vkAPI.messages_setActivity(peer_id=peer_id, type=type)
+
+	async def mark_as_read(self, peer_id: int) -> None:
+		await self.vkAPI.messages_markAsRead(peer_id=peer_id)
+
 	async def send_message(self, chat_id: int, text: str, reply_to_message: int | None = None, attachments: list[str] | str | None = None, latitude: float | None = None, longitude: float | None = None) -> int:
 		return await self.vkAPI.messages_send(peer_id=chat_id, message=text, reply_to=reply_to_message, attachment=attachments, lat=latitude, long=longitude)
 
@@ -844,15 +850,19 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 			logger.debug(f"Вложения для отправки: {attachments_to_send}")
 
-		service_message_id = await self.send_message(
+		if await self.user.get_setting("Services.VK.WaitToType"):
+			await asyncio.gather(self.mark_as_read(subgroup.service_chat_id), self.start_activity(subgroup.service_chat_id))
+
+			await asyncio.sleep(0.6 if len(msg.text or msg.caption or "") <= 15 else 1)
+
+		await TelehooperAPI.save_message("VK", msg.message_id, await self.send_message(
 			chat_id=subgroup.service_chat_id,
 			text=msg.text or msg.caption or "",
 			reply_to_message=reply_message_id,
 			attachments=attachments_to_send,
 			latitude=msg.location.latitude if msg.location else None,
 			longitude=msg.location.longitude if msg.location else None
-		)
-		await TelehooperAPI.save_message("VK", msg.message_id, service_message_id, True)
+		), True)
 
 	async def handle_message_delete(self, msg: Message, subgroup: "TelehooperSubGroup") -> None:
 		from api import TelehooperAPI
@@ -929,7 +939,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 	async def handle_message_read(self, subgroup: "TelehooperSubGroup") -> None:
 		logger.debug(f"[TG] Обработка прочтения сообщения в Telegram в \"{subgroup}\"")
 
-		await self.vkAPI.messages_markAsRead(subgroup.service_chat_id)
+		await self.mark_as_read(subgroup.service_chat_id)
 
 	async def get_message_by_telegram_id(self, message_id: int, bypass_cache: bool = False) -> Optional["TelehooperMessage"]:
 		from api import TelehooperAPI

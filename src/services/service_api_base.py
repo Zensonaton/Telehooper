@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import enum
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Literal, Optional
 
 from aiogram import Bot
 from aiogram.types import Audio, Document, Message, PhotoSize, Video, VideoNote
@@ -159,6 +159,32 @@ class BaseTelehooperServiceAPI:
 
 		:param chat_id: ID диалога.
 		:param force_update: Нужно ли обновить данные о диалоге, если они уже были получены ранее.
+		"""
+
+		raise NotImplementedError
+
+	async def set_online(self) -> None:
+		"""
+		Устанавливает режим "онлайн" текущего пользователя.
+		"""
+
+		raise NotImplementedError
+
+	async def start_activity(self, peer_id: int, type: Literal["typing", "audiomessage"]) -> None:
+		"""
+		Вызывает событие "печатает" текущего пользователя в указанном диалоге.
+
+		:param peer_id: ID диалога.
+		:param type: Тип активности. Может быть либо `typing`, либо `audiomessage`.
+		"""
+
+		raise NotImplementedError
+
+	async def mark_as_read(self, peer_id: int) -> None:
+		"""
+		Помечает сообщения в указанном диалоге как прочитанные.
+
+		:param peer_id: ID диалога.
 		"""
 
 		raise NotImplementedError
