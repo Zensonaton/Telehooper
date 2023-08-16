@@ -43,7 +43,7 @@ if TYPE_CHECKING:
 
 class VKServiceAPI(BaseTelehooperServiceAPI):
 	"""
-	Service-API для ВКонтакте.
+	Service API для ВКонтакте. Данный Service API привязан к одному пользователю, и может работать только с его аккаунтом.
 	"""
 
 	token: SecretStr
@@ -55,6 +55,8 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 	"""Кэшированный список диалогов."""
 	_longPollTask: asyncio.Task | None = None
 	"""Задача, выполняющая longpoll."""
+	_lastOnlineStatus: int = 0
+	"""UNIX-timestamp последнего обновления статуса онлайна через бота. Используется для настройки ."""
 
 	def __init__(self, token: SecretStr, vk_user_id: int, user: "TelehooperUser") -> None:
 		super().__init__("VK", vk_user_id, user)
@@ -850,11 +852,19 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 			logger.debug(f"Вложения для отправки: {attachments_to_send}")
 
+		# Делаем статус "онлайн", если он не был обновлён в течении минуты.
+		if utils.get_timestamp() - self._lastOnlineStatus > 60 and await self.user.get_setting("Services.VK.SetOnline"):
+			self._lastOnlineStatus = utils.get_timestamp()
+
+			asyncio.create_task(self.set_online())
+
+		# Делаем статус "печати" и прочитываем сообщение.
 		if await self.user.get_setting("Services.VK.WaitToType"):
 			await asyncio.gather(self.mark_as_read(subgroup.service_chat_id), self.start_activity(subgroup.service_chat_id))
 
 			await asyncio.sleep(0.6 if len(msg.text or msg.caption or "") <= 15 else 1)
 
+		# Отправляем сообщение.
 		await TelehooperAPI.save_message("VK", msg.message_id, await self.send_message(
 			chat_id=subgroup.service_chat_id,
 			text=msg.text or msg.caption or "",

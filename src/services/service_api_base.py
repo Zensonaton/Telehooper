@@ -87,7 +87,7 @@ class TelehooperServiceUserInfo:
 
 class BaseTelehooperServiceAPI:
 	"""
-	Базовый API для сервисов Telehooper.
+	Базовый API для сервисов Telehooper. Service API всегда привязан к одному пользователю, и может работать только с его аккаунтом.
 	"""
 
 	user: "TelehooperUser"
