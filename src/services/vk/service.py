@@ -105,274 +105,165 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 		:param event: Событие, полученное с longpoll-сервера.
 		"""
 
-		from api import TelehooperAPI
-
-
 		logger.debug(f"[VK] Новое событие {event.__class__.__name__}: {event.event_data}")
 
 		if type(event) is LongpollNewMessageEvent:
-			subgroup = TelehooperAPI.get_subgroup_by_service_dialogue(self.user, ServiceDialogue(service_name=self.service_name, id=event.peer_id))
+			await self.handle_new_message(event)
+		elif type(event) is LongpollTypingEvent or type(event) is LongpollTypingEventMultiple or type(event) is LongpollVoiceMessageEvent:
+			await self.handle_typing(event)
+		elif type(event) is LongpollMessageEditEvent:
+			await self.handle_edit(event)
+		elif type(event) is LongpollMessageFlagsEdit:
+			await self.handle_message_flags_change(event)
+		else:
+			logger.warning(f"[VK] Метод handle_update столкнулся с неизвестным событием {event.__class__.__name__}: {event.event_data}")
 
-			# Проверяем, что у пользователя есть подгруппа, в которую можно отправить сообщение.
-			if not subgroup:
+	async def handle_new_message(self, event: LongpollNewMessageEvent) -> None:
+		"""
+		Обработчик полученных новых сообщений во ВКонтакте.
+
+		:param event: Событие типа `LongpollNewMessageEvent`, полученное с longpoll-сервера.
+		"""
+
+		from api import TelehooperAPI
+
+
+		subgroup = TelehooperAPI.get_subgroup_by_service_dialogue(self.user, ServiceDialogue(service_name=self.service_name, id=event.peer_id))
+
+		# Проверяем, что у пользователя есть подгруппа, в которую можно отправить сообщение.
+		if not subgroup:
+			return
+
+		logger.debug(f"[VK] Сообщение с текстом \"{event.text}\", для подгруппы \"{subgroup.service_dialogue_name}\"")
+
+		# Обновляем объект пользователя.
+		await self.user.refresh_document()
+
+		message_url = None
+		keyboard = None
+		try:
+			attachment_media: list[InputMediaAudio | InputMediaDocument | InputMediaPhoto | InputMediaVideo] = []
+			sent_by_account_owner = event.flags.outbox
+			ignore_self_debug = config.debug and await self.user.get_setting("Debug.SentViaBotInform")
+			attachment_items: list[str] = []
+			message_url = create_message_link(event.peer_id, event.message_id, use_mobile=await self.user.get_setting("Services.VK.MobileVKURLs"))
+
+			# Проверяем, стоит ли боту обрабатывать исходящие сообщения.
+			if sent_by_account_owner and not (await self.user.get_setting("Services.VK.ViaServiceMessages") or ignore_self_debug):
 				return
 
-			logger.debug(f"[VK] Сообщение с текстом \"{event.text}\", для подгруппы \"{subgroup.service_dialogue_name}\"")
+			# Получаем информацию о отправленном сообщении.
+			msg_saved = await subgroup.service.get_message_by_service_id(event.message_id)
 
-			# Обновляем объект пользователя.
-			await self.user.refresh_document()
+			# Проверяем, не было ли отправлено сообщение самим ботом.
+			from_bot = msg_saved and msg_saved.sent_via_bot
+			if from_bot and not ignore_self_debug:
+				return
 
-			message_url = None
-			keyboard = None
-			try:
-				attachment_media: list[InputMediaAudio | InputMediaDocument | InputMediaPhoto | InputMediaVideo] = []
-				sent_by_account_owner = event.flags.outbox
-				ignore_self_debug = config.debug and await self.user.get_setting("Debug.SentViaBotInform")
-				attachment_items: list[str] = []
-				message_url = create_message_link(event.peer_id, event.message_id, use_mobile=await self.user.get_setting("Services.VK.MobileVKURLs"))
+			# Получаем ID сообщения с ответом, а так же парсим вложения сообщения.
+			reply_to = None
 
-				# Проверяем, стоит ли боту обрабатывать исходящие сообщения.
-				if sent_by_account_owner and not (await self.user.get_setting("Services.VK.ViaServiceMessages") or ignore_self_debug):
+			# Парсим вложения.
+			if event.attachments or event.peer_id < 0:
+				attachments = event.attachments.copy()
+
+				# Добываем полную информацию о сообщении.
+				message_extended = (await self.vkAPI.messages_getById(event.message_id))["items"][0]
+
+				# Обрабатываем ответы (reply).
+				if "reply" in attachments or ("fwd_messages" in message_extended and len(message_extended["fwd_messages"]) == 1 and await self.user.get_setting("Services.VK.FWDAsReply")):
+					reply_vk_message_id = message_extended["reply_message"]["id"] if "reply" in attachments else message_extended["fwd_messages"][0]["id"]
+
+					# Настоящий ID сообщения, на которое был дан ответ, получен. Получаем информацию о сообщении с БД бота.
+					telegram_message = await subgroup.service.get_message_by_service_id(reply_vk_message_id)
+
+					# Если информация о данном сообщении есть, то мы можем получить ID сообщения в Telegram.
+					if telegram_message:
+						reply_to = telegram_message.telegram_message_ids[0]
+
+				# Обрабатываем клавиатуру.
+				if "keyboard" in message_extended:
+					buttons = []
+
+					for row in message_extended["keyboard"]["buttons"]:
+						current_row = []
+
+						for button in row:
+							button_type = button["action"]["type"]
+
+							if button_type == "text":
+								current_row.append(InlineKeyboardButton(text=button["action"]["label"], callback_data=button["action"]["payload"] or "do-nothing"))
+							else:
+								logger.warning(f"[VK] Неизвестный тип action для кнопки: \"{button_type}\"")
+
+								current_row.append(InlineKeyboardButton(text=f"❔ Кнопка типа {button_type}", callback_data=button["action"]["payload"] or "do-nothing"))
+
+						buttons.append(current_row)
+
+					keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
+
+				# Обрабатываем пересланные.
+				if "fwd_messages" in message_extended and not reply_to:
+					fwd_messages = message_extended["fwd_messages"]
+
+					attachment_items.append(f"<a href=\"{message_url}\">🔁 {'Пересланное сообщение' if len(fwd_messages) == 1 else str(len(fwd_messages)) + ' пересланных сообщений'}</a>")
+
+				# Обрабатываем гео-вложения.
+				if "geo" in attachments:
+					attachment = message_extended["geo"]
+
+					# Высылаем сообщение.
+					await TelehooperAPI.save_message(
+						"VK",
+						(await subgroup.send_geo(
+							latitude=attachment["coordinates"]["latitude"],
+							longitude=attachment["coordinates"]["longitude"],
+							silent=sent_by_account_owner,
+							reply_to=reply_to
+						))[0].message_id,
+						event.message_id,
+						False
+					)
+
 					return
 
-				# Получаем информацию о отправленном сообщении.
-				msg_saved = await subgroup.service.get_message_by_service_id(event.message_id)
+				# Проходимся по всем вложениям.
+				if message_extended and "attachments" in message_extended:
+					for attch_index, attachment in enumerate(message_extended["attachments"]):
+						attachment_type = attachment["type"]
+						attachment = attachment[attachment["type"]]
 
-				# Проверяем, не было ли отправлено сообщение самим ботом.
-				from_bot = msg_saved and msg_saved.sent_via_bot
-				if from_bot and not ignore_self_debug:
-					return
+						if attachment_type == "photo":
+							attachment_media.append(InputMediaPhoto(type="photo", media=attachment["sizes"][-1]["url"]))
+						elif attachment_type == "video":
+							# Так как ВК не выдают прямую ссылку на видео, необходимо её извлечь из API.
+							# Что важно, передать ссылку напрямую не получается, поскольку ВК проверяет
+							# UserAgent и IP адрес, с которого был сделан запрос.
 
-				# Получаем ID сообщения с ответом, а так же парсим вложения сообщения.
-				reply_to = None
+							# Проверяем, видеосообщение (кружочек) ли это?
+							is_video_note = attachments.get(f"attach{attch_index + 1}_kind") == "video_message"
 
-				# Парсим вложения.
-				if event.attachments or event.peer_id < 0:
-					attachments = event.attachments.copy()
+							async with ChatActionSender(chat_id=subgroup.parent.chat.id, action="upload_video", bot=subgroup.parent.bot):
+								video = (await self.vkAPI.video_get(videos=f"{attachment['owner_id']}_{attachment['id']}_{attachment['access_key']}"))["items"][0]["files"]
 
-					# Добываем полную информацию о сообщении.
-					message_extended = (await self.vkAPI.messages_getById(event.message_id))["items"][0]
+								video_quality_list = ["mp4_720", "mp4_480", "mp4_360", "mp4_240", "mp4_144"]
 
-					# Обрабатываем ответы (reply).
-					if "reply" in attachments or ("fwd_messages" in message_extended and len(message_extended["fwd_messages"]) == 1 and await self.user.get_setting("Services.VK.FWDAsReply")):
-						reply_vk_message_id = message_extended["reply_message"]["id"] if "reply" in attachments else message_extended["fwd_messages"][0]["id"]
+								# Если пользователь разрешил использование видео в 1080p, то добавляем его в список.
+								if await self.user.get_setting("Services.VK.HDVideo"):
+									video_quality_list.insert(0, "mp4_1080")
 
-						# Настоящий ID сообщения, на которое был дан ответ, получен. Получаем информацию о сообщении с БД бота.
-						telegram_message = await subgroup.service.get_message_by_service_id(reply_vk_message_id)
+								for quality in video_quality_list:
+									is_last = quality == "mp4_144"
 
-						# Если информация о данном сообщении есть, то мы можем получить ID сообщения в Telegram.
-						if telegram_message:
-							reply_to = telegram_message.telegram_message_ids[0]
+									if quality not in video:
+										continue
 
-					# Обрабатываем клавиатуру.
-					if "keyboard" in message_extended:
-						buttons = []
+									logger.debug(f"Найдено видео с качеством {quality}: {video[quality]}")
 
-						for row in message_extended["keyboard"]["buttons"]:
-							current_row = []
-
-							for button in row:
-								button_type = button["action"]["type"]
-
-								if button_type == "text":
-									current_row.append(InlineKeyboardButton(text=button["action"]["label"], callback_data=button["action"]["payload"] or "do-nothing"))
-								else:
-									logger.warning(f"[VK] Неизвестный тип action для кнопки: \"{button_type}\"")
-
-									current_row.append(InlineKeyboardButton(text=f"❔ Кнопка типа {button_type}", callback_data=button["action"]["payload"] or "do-nothing"))
-
-							buttons.append(current_row)
-
-						keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
-
-					# Обрабатываем пересланные.
-					if "fwd_messages" in message_extended and not reply_to:
-						fwd_messages = message_extended["fwd_messages"]
-
-						attachment_items.append(f"<a href=\"{message_url}\">🔁 {'Пересланное сообщение' if len(fwd_messages) == 1 else str(len(fwd_messages)) + ' пересланных сообщений'}</a>")
-
-					# Обрабатываем гео-вложения.
-					if "geo" in attachments:
-						attachment = message_extended["geo"]
-
-						# Высылаем сообщение.
-						await TelehooperAPI.save_message(
-							"VK",
-							(await subgroup.send_geo(
-								latitude=attachment["coordinates"]["latitude"],
-								longitude=attachment["coordinates"]["longitude"],
-								silent=sent_by_account_owner,
-								reply_to=reply_to
-							))[0].message_id,
-							event.message_id,
-							False
-						)
-
-						return
-
-					# Проходимся по всем вложениям.
-					if message_extended and "attachments" in message_extended:
-						for attch_index, attachment in enumerate(message_extended["attachments"]):
-							attachment_type = attachment["type"]
-							attachment = attachment[attachment["type"]]
-
-							if attachment_type == "photo":
-								attachment_media.append(InputMediaPhoto(type="photo", media=attachment["sizes"][-1]["url"]))
-							elif attachment_type == "video":
-								# Так как ВК не выдают прямую ссылку на видео, необходимо её извлечь из API.
-								# Что важно, передать ссылку напрямую не получается, поскольку ВК проверяет
-								# UserAgent и IP адрес, с которого был сделан запрос.
-
-								# Проверяем, видеосообщение (кружочек) ли это?
-								is_video_note = attachments.get(f"attach{attch_index + 1}_kind") == "video_message"
-
-								async with ChatActionSender(chat_id=subgroup.parent.chat.id, action="upload_video", bot=subgroup.parent.bot):
-									video = (await self.vkAPI.video_get(videos=f"{attachment['owner_id']}_{attachment['id']}_{attachment['access_key']}"))["items"][0]["files"]
-
-									video_quality_list = ["mp4_720", "mp4_480", "mp4_360", "mp4_240", "mp4_144"]
-
-									# Если пользователь разрешил использование видео в 1080p, то добавляем его в список.
-									if await self.user.get_setting("Services.VK.HDVideo"):
-										video_quality_list.insert(0, "mp4_1080")
-
-									for quality in video_quality_list:
-										is_last = quality == "mp4_144"
-
-										if quality not in video:
-											continue
-
-										logger.debug(f"Найдено видео с качеством {quality}: {video[quality]}")
-
-										# Загружаем видео.
-										async with aiohttp.ClientSession() as client:
-											async with client.get(video[quality]) as response:
-												assert response.status == 200, f"Не удалось загрузить видео с качеством {quality}"
-
-												audio_bytes = b""
-
-												while True:
-													chunk = await response.content.read(1024)
-													if not chunk:
-														break
-
-													audio_bytes += chunk
-
-													# Пытаемся найти самое большое видео, которое не превышает 50 МБ.
-													if len(audio_bytes) > 50 * 1024 * 1024:
-														if is_last:
-															raise Exception("Размер видео слишком большой")
-
-														logger.debug(f"Файл размером {quality} оказался слишком большой ({len(audio_bytes)} байт).")
-
-														continue
-
-										# Если мы получили видеосообщение (кружочек), то нужно отправить его как сообщение.
-										if is_video_note:
-											# Отправляем видеосообщение.
-											msg = await subgroup.send_video_note(
-												input=BufferedInputFile(
-													audio_bytes,
-													filename=f"VK video note {attachment['id']}.mp4"
-												),
-												silent=sent_by_account_owner,
-												reply_to=reply_to
-											)
-
-											# Сохраняем в память.
-											await TelehooperAPI.save_message("VK", msg[0].message_id, event.message_id, False)
-
-											assert msg[0].video_note, "Видеосообщение не было отправлено"
-
-											return
-
-										# Прикрепляем видео.
-										attachment_media.append(InputMediaVideo(type="video", media=BufferedInputFile(audio_bytes, filename=f"{attachment['title'].strip()} {quality[4:]}p.mp4")))
-
-										break
-									else:
-										raise Exception("Не удалось получить ссылку на видео")
-							elif attachment_type == "audio_message":
-								attachment_media.append(InputMediaAudio(
-									type="audio",
-									media=attachment["link_ogg"]
-								))
-							elif attachment_type == "sticker":
-								# В данный момент, поддержка анимированных стикеров отсутствует из-за возможного бага в библиотеке gzip.
-
-								is_animated = "animation_url" in attachment and False # TODO: Настройка для отключения анимированных стикеров.
-								attachment_cache_name = f"sticker{attachment['sticker_id']}{'anim' if is_animated else 'static'}"
-
-								# Пытаемся получить информацию о данном стикере из кэша вложений.
-								sticker_bytes = None
-								cached_sticker = await TelehooperAPI.get_attachment("VK", attachment_cache_name)
-
-								# Если стикер был найден в кэше, то скачиваем его.
-								if not cached_sticker:
-									logger.debug(f"Не был найден кэш для стикера с ID {attachment_cache_name}")
-
-									# Достаём URL анимации стикера, либо статичное изображение-"превью" этого стикера.
-									sticker_url = attachment.get("animation_url") if is_animated else attachment["images"][-1]["url"]
-
-									# Загружаем стикер.
+									# Загружаем видео.
 									async with aiohttp.ClientSession() as client:
-										async with client.get(sticker_url) as response:
-											assert response.status == 200, f"Не удалось загрузить стикер с ID {attachment_cache_name}"
-
-											sticker_bytes = await response.read()
-
-									# Делаем манипуляции над стикером, если он анимированный.
-									if is_animated:
-										# Этот кусок кода не используется.
-
-										sticker_bytes = await utils.convert_to_tgs_sticker(sticker_bytes)
-
-								# Отправляем стикер.
-								msg = await subgroup.send_sticker(
-									sticker=cached_sticker if cached_sticker else BufferedInputFile(
-										file=cast(bytes, sticker_bytes),
-										filename="sticker.tgs" if is_animated else f"VK sticker {attachment['sticker_id']}.png"
-									),
-									silent=sent_by_account_owner,
-									reply_to=reply_to
-								)
-
-								# Сохраняем в память.
-								await TelehooperAPI.save_message("VK", msg[0].message_id, event.message_id, False)
-
-								assert msg[0].sticker, "Стикер не был отправлен"
-
-								# Кэшируем стикер, если настройка у пользователя это позволяет.
-								if await self.user.get_setting("Security.MediaCache"):
-									await TelehooperAPI.save_attachment("VK", attachment_cache_name, msg[0].sticker.file_id)
-
-								return
-							elif attachment_type == "doc":
-								async with ChatActionSender(chat_id=subgroup.parent.chat.id, action="upload_document", bot=subgroup.parent.bot):
-									async with aiohttp.ClientSession() as client:
-										async with client.get(attachment["url"]) as response:
-											assert response.status == 200, f"Не удалось загрузить документ с ID {attachment['id']}"
-
-											file_bytes = b""
-											while True:
-												chunk = await response.content.read(1024)
-												if not chunk:
-													break
-
-												file_bytes += chunk
-
-												if len(file_bytes) > 50 * 1024 * 1024:
-													logger.debug(f"Файл оказался слишком большой ({len(file_bytes)} байт).")
-
-													raise Exception("Размер файла слишком большой")
-
-									# Прикрепляем документ.
-									attachment_media.append(InputMediaDocument(type="document", media=BufferedInputFile(file=file_bytes, filename=attachment["title"])))
-							elif attachment_type == "audio":
-								# Загружаем аудио.
-								async with ChatActionSender(chat_id=subgroup.parent.chat.id, action="upload_audio", bot=subgroup.parent.bot):
-									async with aiohttp.ClientSession() as client:
-										async with client.get(attachment["url"]) as response:
-											assert response.status == 200, f"Не удалось загрузить аудио с ID {attachment['id']}"
+										async with client.get(video[quality]) as response:
+											assert response.status == 200, f"Не удалось загрузить видео с качеством {quality}"
 
 											audio_bytes = b""
 
@@ -383,167 +274,323 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 												audio_bytes += chunk
 
+												# Пытаемся найти самое большое видео, которое не превышает 50 МБ.
 												if len(audio_bytes) > 50 * 1024 * 1024:
-													logger.debug(f"Файл оказался слишком большой ({len(audio_bytes)} байт).")
+													if is_last:
+														raise Exception("Размер видео слишком большой")
 
-													raise Exception("Размер файла слишком большой")
+													logger.debug(f"Файл размером {quality} оказался слишком большой ({len(audio_bytes)} байт).")
 
-									attachment_media.append(InputMediaAudio(
-										type="audio",
-										media=BufferedInputFile(
-											file=audio_bytes,
-											filename=f"{attachment['artist']} - {attachment['title']}.mp3"
-										),
-										title=attachment["title"],
-										performer=attachment["artist"]
-									))
-							elif attachment_type == "graffiti":
-								attachment_media.append(InputMediaPhoto(type="photo", media=attachment["url"]))
-							elif attachment_type == "wall":
-								# TODO: Имя группы/юзера откуда был пост.
-								#   В данный момент почти нереализуемо из-за того, что ВК не передаёт такую информацию, и нужно делать отдельный запрос.
-								# TODO: Настройка, что бы показывать содержимое поста, а не ссылку на него.
+													continue
 
-								attachment_items.append(f"<a href=\"vk.com/wall{attachment['owner_id']}_{attachment['id']}\">🔄 Запись от {'пользователя' if attachment['owner_id'] > 0 else 'группы'}</a>")
-							elif attachment_type == "link":
-								# TODO: Проверить, какая первая ссылка есть в сообщении, и если она не совпадает с этой - сделать невидимую ссылку в самом начале.
+									# Если мы получили видеосообщение (кружочек), то нужно отправить его как сообщение.
+									if is_video_note:
+										# Отправляем видеосообщение.
+										msg = await subgroup.send_video_note(
+											input=BufferedInputFile(
+												audio_bytes,
+												filename=f"VK video note {attachment['id']}.mp4"
+											),
+											silent=sent_by_account_owner,
+											reply_to=reply_to
+										)
 
-								pass
-							elif attachment_type == "poll":
-								attachment_items.append(f"<a href=\"{message_url}\">📊 Опрос: «{attachment['question']}»</a>")
-							elif attachment_type == "gift":
-								attachment_media.append(InputMediaPhoto(type="photo", media=attachment["thumb_256"]))
+										# Сохраняем в память.
+										await TelehooperAPI.save_message("VK", msg[0].message_id, event.message_id, False)
 
-								attachment_items.append(f"<a href=\"{message_url}\">🎁 Подарок</a>")
-							elif attachment_type == "market":
-								attachment_items.append(f"<a href=\"{message_url}\">🛒 Товар: «{attachment['title']}»</a>")
-							elif attachment_type == "market_album":
-								pass
-							elif attachment_type == "wall_reply":
-								attachment_items.append(f"<a href=\"{message_url}\">📝 Комментарий к записи</a>")
-							else:
-								raise TypeError(f"Неизвестный тип вложения \"{attachment_type}\"")
+										assert msg[0].video_note, "Видеосообщение не было отправлено"
 
-				# Подготавливаем текст сообщения.
-				new_message_text = ""
+										return
 
-				if sent_by_account_owner:
-					new_message_text = f"[<b>Вы</b>"
+									# Прикрепляем видео.
+									attachment_media.append(InputMediaVideo(type="video", media=BufferedInputFile(audio_bytes, filename=f"{attachment['title'].strip()} {quality[4:]}p.mp4")))
 
-					if ignore_self_debug and from_bot:
-						new_message_text += " <i>debug-пересылка</i>"
+									break
+								else:
+									raise Exception("Не удалось получить ссылку на видео")
+						elif attachment_type == "audio_message":
+							attachment_media.append(InputMediaAudio(
+								type="audio",
+								media=attachment["link_ogg"]
+							))
+						elif attachment_type == "sticker":
+							# В данный момент, поддержка анимированных стикеров отсутствует из-за возможного бага в библиотеке gzip.
 
-					new_message_text += "]"
+							is_animated = "animation_url" in attachment and False # TODO: Настройка для отключения анимированных стикеров.
+							attachment_cache_name = f"sticker{attachment['sticker_id']}{'anim' if is_animated else 'static'}"
 
-					if event.text:
-						new_message_text += ": "
+							# Пытаемся получить информацию о данном стикере из кэша вложений.
+							sticker_bytes = None
+							cached_sticker = await TelehooperAPI.get_attachment("VK", attachment_cache_name)
 
-				new_message_text += utils.telegram_safe_str(event.text)
+							# Если стикер был найден в кэше, то скачиваем его.
+							if not cached_sticker:
+								logger.debug(f"Не был найден кэш для стикера с ID {attachment_cache_name}")
 
-				if attachment_items:
-					new_message_text += "\n\n————————\n"
+								# Достаём URL анимации стикера, либо статичное изображение-"превью" этого стикера.
+								sticker_url = attachment.get("animation_url") if is_animated else attachment["images"][-1]["url"]
 
-					new_message_text += "  |  ".join(attachment_items) + "."
+								# Загружаем стикер.
+								async with aiohttp.ClientSession() as client:
+									async with client.get(sticker_url) as response:
+										assert response.status == 200, f"Не удалось загрузить стикер с ID {attachment_cache_name}"
 
-				# Отправляем готовое сообщение, и сохраняем его ID в БД бота.
-				async def _send_and_save() -> None:
-					await TelehooperAPI.save_message(
-						"VK",
-						await subgroup.send_message_in(
-							new_message_text,
-							attachments=attachment_media,
-							silent=sent_by_account_owner,
-							reply_to=reply_to,
-							keyboard=keyboard
-						),
-						event.message_id,
-						False
-					)
+										sticker_bytes = await response.read()
 
-				# Если у нас были вложения, то мы должны отправить сообщение с ними.
-				if attachment_media:
-					async with ChatActionSender.upload_document(chat_id=subgroup.parent.chat.id, bot=subgroup.parent.bot, initial_sleep=1):
-						await _send_and_save()
-				else:
-					await _send_and_save()
-			except Exception as e:
-				logger.exception(f"Ошибка отправки сообщения Telegram-пользователю {utils.get_telegram_logging_info(self.user.telegramUser)}:", e)
+								# Делаем манипуляции над стикером, если он анимированный.
+								if is_animated:
+									# Этот кусок кода не используется.
 
-				try:
+									sticker_bytes = await utils.convert_to_tgs_sticker(sticker_bytes)
+
+							# Отправляем стикер.
+							msg = await subgroup.send_sticker(
+								sticker=cached_sticker if cached_sticker else BufferedInputFile(
+									file=cast(bytes, sticker_bytes),
+									filename="sticker.tgs" if is_animated else f"VK sticker {attachment['sticker_id']}.png"
+								),
+								silent=sent_by_account_owner,
+								reply_to=reply_to
+							)
+
+							# Сохраняем в память.
+							await TelehooperAPI.save_message("VK", msg[0].message_id, event.message_id, False)
+
+							assert msg[0].sticker, "Стикер не был отправлен"
+
+							# Кэшируем стикер, если настройка у пользователя это позволяет.
+							if await self.user.get_setting("Security.MediaCache"):
+								await TelehooperAPI.save_attachment("VK", attachment_cache_name, msg[0].sticker.file_id)
+
+							return
+						elif attachment_type == "doc":
+							async with ChatActionSender(chat_id=subgroup.parent.chat.id, action="upload_document", bot=subgroup.parent.bot):
+								async with aiohttp.ClientSession() as client:
+									async with client.get(attachment["url"]) as response:
+										assert response.status == 200, f"Не удалось загрузить документ с ID {attachment['id']}"
+
+										file_bytes = b""
+										while True:
+											chunk = await response.content.read(1024)
+											if not chunk:
+												break
+
+											file_bytes += chunk
+
+											if len(file_bytes) > 50 * 1024 * 1024:
+												logger.debug(f"Файл оказался слишком большой ({len(file_bytes)} байт).")
+
+												raise Exception("Размер файла слишком большой")
+
+								# Прикрепляем документ.
+								attachment_media.append(InputMediaDocument(type="document", media=BufferedInputFile(file=file_bytes, filename=attachment["title"])))
+						elif attachment_type == "audio":
+							# Загружаем аудио.
+							async with ChatActionSender(chat_id=subgroup.parent.chat.id, action="upload_audio", bot=subgroup.parent.bot):
+								async with aiohttp.ClientSession() as client:
+									async with client.get(attachment["url"]) as response:
+										assert response.status == 200, f"Не удалось загрузить аудио с ID {attachment['id']}"
+
+										audio_bytes = b""
+
+										while True:
+											chunk = await response.content.read(1024)
+											if not chunk:
+												break
+
+											audio_bytes += chunk
+
+											if len(audio_bytes) > 50 * 1024 * 1024:
+												logger.debug(f"Файл оказался слишком большой ({len(audio_bytes)} байт).")
+
+												raise Exception("Размер файла слишком большой")
+
+								attachment_media.append(InputMediaAudio(
+									type="audio",
+									media=BufferedInputFile(
+										file=audio_bytes,
+										filename=f"{attachment['artist']} - {attachment['title']}.mp3"
+									),
+									title=attachment["title"],
+									performer=attachment["artist"]
+								))
+						elif attachment_type == "graffiti":
+							attachment_media.append(InputMediaPhoto(type="photo", media=attachment["url"]))
+						elif attachment_type == "wall":
+							# TODO: Имя группы/юзера откуда был пост.
+							#   В данный момент почти нереализуемо из-за того, что ВК не передаёт такую информацию, и нужно делать отдельный запрос.
+							# TODO: Настройка, что бы показывать содержимое поста, а не ссылку на него.
+
+							attachment_items.append(f"<a href=\"vk.com/wall{attachment['owner_id']}_{attachment['id']}\">🔄 Запись от {'пользователя' if attachment['owner_id'] > 0 else 'группы'}</a>")
+						elif attachment_type == "link":
+							# TODO: Проверить, какая первая ссылка есть в сообщении, и если она не совпадает с этой - сделать невидимую ссылку в самом начале.
+
+							pass
+						elif attachment_type == "poll":
+							attachment_items.append(f"<a href=\"{message_url}\">📊 Опрос: «{attachment['question']}»</a>")
+						elif attachment_type == "gift":
+							attachment_media.append(InputMediaPhoto(type="photo", media=attachment["thumb_256"]))
+
+							attachment_items.append(f"<a href=\"{message_url}\">🎁 Подарок</a>")
+						elif attachment_type == "market":
+							attachment_items.append(f"<a href=\"{message_url}\">🛒 Товар: «{attachment['title']}»</a>")
+						elif attachment_type == "market_album":
+							pass
+						elif attachment_type == "wall_reply":
+							attachment_items.append(f"<a href=\"{message_url}\">📝 Комментарий к записи</a>")
+						else:
+							raise TypeError(f"Неизвестный тип вложения \"{attachment_type}\"")
+
+			# Подготавливаем текст сообщения.
+			new_message_text = ""
+
+			if sent_by_account_owner:
+				new_message_text = f"[<b>Вы</b>"
+
+				if ignore_self_debug and from_bot:
+					new_message_text += " <i>debug-пересылка</i>"
+
+				new_message_text += "]"
+
+				if event.text:
+					new_message_text += ": "
+
+			new_message_text += utils.telegram_safe_str(event.text)
+
+			if attachment_items:
+				new_message_text += "\n\n————————\n"
+
+				new_message_text += "  |  ".join(attachment_items) + "."
+
+			# Отправляем готовое сообщение, и сохраняем его ID в БД бота.
+			async def _send_and_save() -> None:
+				await TelehooperAPI.save_message(
+					"VK",
 					await subgroup.send_message_in(
-						(
-							"<b>⚠️ У бота произошла ошибка</b>.\n"
-							"\n"
-							"<i><b>Упс!</b></i> Что-то пошло не так, и бот столкнулся с ошибкой при попытке переслать сообщение из ВКонтакте. 😓\n"
-							f"Вы можете прочитать сообщение во ВКонтакте, перейдя <a href=\"{message_url}\">по ссылке</a>.\n"
-							"\n"
-							"<b>Текст ошибки, если Вас попросили его отправить</b>:\n"
-							f"<code>{e.__class__.__name__}: {e}</code>.\n"
-							"\n"
-							"ℹ️ Если ошибка повторится, то обратитесь к разработчику бота: <code>/faq 6</code>."
-						),
-						silent=True,
-						keyboard=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(
-							text="Прочитать во ВКонтакте",
-							url=message_url
-						)]])
-					)
-				except:
-					pass
-		elif type(event) is LongpollTypingEvent or type(event) is LongpollTypingEventMultiple or type(event) is LongpollVoiceMessageEvent:
-			subgroup = TelehooperAPI.get_subgroup_by_service_dialogue(self.user, ServiceDialogue(service_name=self.service_name, id=event.peer_id))
+						new_message_text,
+						attachments=attachment_media,
+						silent=sent_by_account_owner,
+						reply_to=reply_to,
+						keyboard=keyboard
+					),
+					event.message_id,
+					False
+				)
 
-			# Проверяем, что у пользователя есть подгруппа, в которой нужно начать событие печати.
-			if not subgroup:
-				return
+			# Если у нас были вложения, то мы должны отправить сообщение с ними.
+			if attachment_media:
+				async with ChatActionSender.upload_document(chat_id=subgroup.parent.chat.id, bot=subgroup.parent.bot, initial_sleep=1):
+					await _send_and_save()
+			else:
+				await _send_and_save()
+		except Exception as e:
+			logger.exception(f"Ошибка отправки сообщения Telegram-пользователю {utils.get_telegram_logging_info(self.user.telegramUser)}:", e)
 
-			logger.debug(f"[VK] Событие печати для подгруппы \"{subgroup.service_dialogue_name}\"")
+			try:
+				await subgroup.send_message_in(
+					(
+						"<b>⚠️ У бота произошла ошибка</b>.\n"
+						"\n"
+						"<i><b>Упс!</b></i> Что-то пошло не так, и бот столкнулся с ошибкой при попытке переслать сообщение из ВКонтакте. 😓\n"
+						f"Вы можете прочитать сообщение во ВКонтакте, перейдя <a href=\"{message_url}\">по ссылке</a>.\n"
+						"\n"
+						"<b>Текст ошибки, если Вас попросили его отправить</b>:\n"
+						f"<code>{e.__class__.__name__}: {e}</code>.\n"
+						"\n"
+						"ℹ️ Если ошибка повторится, то обратитесь к разработчику бота: <code>/faq 6</code>."
+					),
+					silent=True,
+					keyboard=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(
+						text="Прочитать во ВКонтакте",
+						url=message_url
+					)]])
+				)
+			except:
+				pass
 
-			await subgroup.start_activity("record_audio" if type(event) is LongpollVoiceMessageEvent else "typing")
+	async def handle_typing(self, event: LongpollTypingEvent | LongpollTypingEventMultiple | LongpollVoiceMessageEvent) -> None:
+		"""
+		Обработчик события начала "печати" либо записи голосового сообщения во ВКонтакте.
 
-			# TODO: Если пользователей несколько, и в группе несколько Telehooper-ботов, то начать событие печати от имени разных ботов.
-		elif type(event) is LongpollMessageEditEvent:
-			subgroup = TelehooperAPI.get_subgroup_by_service_dialogue(self.user, ServiceDialogue(service_name=self.service_name, id=event.peer_id))
+		:param event: Событие типа `LongpollTypingEvent`, `LongpollTypingEventMultiple` или `LongpollVoiceMessageEvent`, полученное с longpoll-сервера.
+		"""
 
-			# Проверяем, что у пользователя есть подгруппа, в которую можно отправить сообщение.
-			if not subgroup:
-				return
+		from api import TelehooperAPI
 
-			logger.debug(f"[VK] Событие редактирования сообщения для подгруппы \"{subgroup.service_dialogue_name}\"")
 
-			# Пытаемся получить ID сообщения в Telegram, которое нужно отредактировать.
-			telegram_message = await subgroup.service.get_message_by_service_id(event.message_id)
+		subgroup = TelehooperAPI.get_subgroup_by_service_dialogue(self.user, ServiceDialogue(service_name=self.service_name, id=event.peer_id))
 
-			if not telegram_message:
-				return
+		# Проверяем, что у пользователя есть подгруппа, в которой нужно начать событие печати.
+		if not subgroup:
+			return
 
-			# Редактируем сообщение.
-			await subgroup.edit_message(f"{event.new_text}   <i>(ред.)</i>", telegram_message.telegram_message_ids[0])
+		logger.debug(f"[VK] Событие печати для подгруппы \"{subgroup.service_dialogue_name}\"")
 
-			# TODO: При редактировании сообщения теряются префиксы и суфиксы от Telehooper.
-		elif type(event) is LongpollMessageFlagsEdit:
-			if not event.new_flags.outbox:
-				return
+		await subgroup.start_activity("record_audio" if type(event) is LongpollVoiceMessageEvent else "typing")
 
-			if not event.new_flags.delete_for_all:
-				return
+		# TODO: Если пользователей несколько, и в группе несколько Telehooper-ботов, то начать событие печати от имени разных ботов.
 
-			subgroup = TelehooperAPI.get_subgroup_by_service_dialogue(self.user, ServiceDialogue(service_name=self.service_name, id=event.peer_id))
+	async def handle_edit(self, event: LongpollMessageEditEvent) -> None:
+		"""
+		Обработчик события редактирования сообщения во ВКонтакте.
 
-			# Проверяем, что у пользователя есть подгруппа, в которую можно отправить сообщение.
-			if not subgroup:
-				return
+		:param event: Событие типа `LongpollMessageEditEvent`, полученное с longpoll-сервера.
+		"""
 
-			logger.debug(f"[VK] Событие удаления сообщения для подгруппы \"{subgroup.service_dialogue_name}\"")
+		from api import TelehooperAPI
 
-			# Пытаемся получить ID сообщения в Telegram, которое нужно отредактировать.
-			telegram_message = await subgroup.service.get_message_by_service_id(event.message_id)
 
-			if not telegram_message:
-				return
+		subgroup = TelehooperAPI.get_subgroup_by_service_dialogue(self.user, ServiceDialogue(service_name=self.service_name, id=event.peer_id))
 
-			# Удаляем сообщение.
-			await subgroup.delete_message(telegram_message.telegram_message_ids)
+		# Проверяем, что у пользователя есть подгруппа, в которую можно отправить сообщение.
+		if not subgroup:
+			return
+
+		logger.debug(f"[VK] Событие редактирования сообщения для подгруппы \"{subgroup.service_dialogue_name}\"")
+
+		# Пытаемся получить ID сообщения в Telegram, которое нужно отредактировать.
+		telegram_message = await subgroup.service.get_message_by_service_id(event.message_id)
+
+		if not telegram_message:
+			return
+
+		# Редактируем сообщение.
+		await subgroup.edit_message(f"{event.new_text}   <i>(ред.)</i>", telegram_message.telegram_message_ids[0])
+
+		# TODO: При редактировании сообщения теряются префиксы и суфиксы от Telehooper.
+
+	async def handle_message_flags_change(self, event: LongpollMessageFlagsEdit) -> None:
+		"""
+		Обработчик события изменения флагов у уже существующего сообщения во ВКонтакте.
+
+		:param event: Событие типа `LongpollMessageFlagsEdit`, полученное с longpoll-сервера.
+		"""
+
+		from api import TelehooperAPI
+
+
+		if not event.new_flags.outbox:
+			return
+
+		if not event.new_flags.delete_for_all:
+			return
+
+		subgroup = TelehooperAPI.get_subgroup_by_service_dialogue(self.user, ServiceDialogue(service_name=self.service_name, id=event.peer_id))
+
+		# Проверяем, что у пользователя есть подгруппа, в которую можно отправить сообщение.
+		if not subgroup:
+			return
+
+		logger.debug(f"[VK] Событие удаления сообщения для подгруппы \"{subgroup.service_dialogue_name}\"")
+
+		# Пытаемся получить ID сообщения в Telegram, которое нужно отредактировать.
+		telegram_message = await subgroup.service.get_message_by_service_id(event.message_id)
+
+		if not telegram_message:
+			return
+
+		# Удаляем сообщение.
+		await subgroup.delete_message(telegram_message.telegram_message_ids)
 
 	async def get_list_of_dialogues(self, force_update: bool = False, max_amount: int = 800, skip_ids: list[int] = []) -> list[ServiceDialogue]:
 		if not force_update and self._cachedDialogues:
