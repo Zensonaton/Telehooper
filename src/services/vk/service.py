@@ -66,16 +66,36 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 		self.vkAPI = VKAPI(self.token)
 
-	async def start_listening(self) -> asyncio.Task:
-		# TODO: Обработка ошибок этой функции. (asyncio.Task)
+	async def start_listening(self, bot: Bot | None = None) -> asyncio.Task:
+		async def handle_updates() -> None:
+			try:
+				longpoll = VKAPILongpoll(self.vkAPI, user_id=self.service_user_id)
 
-		async def _handle_updates() -> None:
-			longpoll = VKAPILongpoll(self.vkAPI)
+				async for event in longpoll.listen_for_updates():
+					await self.handle_update(event)
+			except TokenRevokedException as e:
+				# Отправляем сообщение, если у нас есть объект бота.
+				if bot:
+					try:
+						await bot.send_message(
+							chat_id=self.user.telegramUser.id,
+							text=(
+								"<b>⚠️ Потеряно соединение с ВКонтакте</b>.\n"
+								"\n"
+								f"Telehooper потерял соединение со страницей «ВКонтакте», поскольку владелец страницы отозвал доступ к ней через настройки «Приватности» страницы.\n"
+								"\n"
+								"ℹ️ Вы можете повторно подключиться к «ВКонтакте», используя команду /connect.\n"
+							)
+						)
+					except:
+						pass
 
-			async for event in longpoll.listen_for_updates():
-				await self.handle_update(event)
+				# Совершаем отключение.
+				await self.disconnect_service(ServiceDisconnectReason.ERRORED)
+			except Exception as e:
+				logger.exception(f"Глобальная ошибка (start_listening) обновления ВКонтакте, со связанным Telegram-пользователем {utils.get_telegram_logging_info(self.user.telegramUser)}:", e)
 
-		self._longPollTask = asyncio.create_task(_handle_updates())
+		self._longPollTask = asyncio.create_task(handle_updates())
 		return self._longPollTask
 
 	async def handle_update(self, event: BaseVKLongpollEvent) -> None:
@@ -799,7 +819,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 							# Отправляем загруженные вложения на сервера ВК.
 							async with client.post(upload_url, data=form_data) as response:
 								assert response.status == 200, f"Не удалось загрузить вложение типа {attch_type}"
-								response = VKAPI._parse_response(await response.json(content_type=None))
+								response = VKAPI._parse_response(await response.json(content_type=None), "_get.server_")
 
 								attachments_results.append(response)
 
@@ -995,31 +1015,11 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 			)
 			user.save_connection(vkServiceAPI)
 
-			# Проверяем токен.
-			await vkServiceAPI.vkAPI.get_self_info()
-
 			# Запускаем Longpoll.
-			await vkServiceAPI.start_listening()
+			await vkServiceAPI.start_listening(bot)
 
 			# Возвращаем ServiceAPI.
 			return vkServiceAPI
-		except TokenRevokedException as error:
-			assert vkServiceAPI
-
-			# Совершаем отключение.
-			await vkServiceAPI.disconnect_service(ServiceDisconnectReason.ERRORED)
-
-			# Отправляем сообщение.
-			await bot.send_message(
-				chat_id=user.telegramUser.id,
-				text=(
-					"<b>⚠️ Потеряно соединение с ВКонтакте</b>.\n"
-					"\n"
-					"Telehooper потерял соединение со страницей «ВКонтакте», поскольку владелец страницы отозвал доступ к ней через настройки «Приватности» страницы.\n"
-					"\n"
-					"ℹ️ Вы можете повторно подключиться к «ВКонтакте», используя команду /connect.\n"
-				)
-			)
 		except Exception as error:
 			logger.exception(f"Не удалось запустить LongPoll для пользователя {utils.get_telegram_logging_info(user.telegramUser)}:", error)
 

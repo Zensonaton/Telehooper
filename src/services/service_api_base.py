@@ -110,11 +110,13 @@ class BaseTelehooperServiceAPI:
 		self.service_user_id = service_id
 		self.user = user
 
-	async def start_listening(self) -> None:
+	async def start_listening(self, bot: Bot | None = None) -> None:
 		"""
 		Запускает прослушивание событий с сервиса, т.е., получение сообщений.
 
 		Данный метод обязан создавать и возвращать `asyncio.Task`, не останавливая обработку основного loop'а.
+
+		:param bot: Объект бота, который используется для рассылки сообщений о ошибке подключения к сервису. Можно не указывать, и в таком случае рассылки не будет.
 		"""
 
 		raise NotImplementedError

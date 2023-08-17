@@ -1,6 +1,6 @@
 # coding: utf-8
 
-from aiogram import F, Router
+from aiogram import Bot, F, Router
 from aiogram.filters import Text
 from aiogram.types import (CallbackQuery, InlineKeyboardButton,
                            InlineKeyboardMarkup, Message, User)
@@ -53,7 +53,7 @@ async def connect_vk_inline_handler(query: CallbackQuery, msg: Message) -> None:
 	)
 
 @router.message(Text(startswith="https://oauth.vk.com/blank.html#access_token="), F.from_user.as_("user"))
-async def connect_vk_token_handler(msg: Message, user: User) -> None:
+async def connect_vk_token_handler(msg: Message, user: User, bot: Bot) -> None:
 	"""
 	Handler для команды `/connect`.
 
@@ -180,7 +180,7 @@ async def connect_vk_token_handler(msg: Message, user: User) -> None:
 		)
 		telehooper_user.save_connection(vkServiceAPI)
 
-		await vkServiceAPI.start_listening()
+		await vkServiceAPI.start_listening(bot)
 
 @router.message(Text(startswith="https://oauth.vk.com/authorize"))
 async def connect_vk_wrong_url_handler(msg: Message) -> None:

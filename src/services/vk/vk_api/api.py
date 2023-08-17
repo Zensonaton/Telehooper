@@ -36,12 +36,12 @@ class VKAPI:
 		self.version = api_version
 
 	@staticmethod
-	def _parse_response(response: dict) -> dict:
+	def _parse_response(response: dict, method: str) -> dict:
 		"""
 		Парсит ответ от ВКонтакте.
 		"""
 
-		logger.debug(f"VK API response: {response}")
+		logger.debug(f"[VK] {method} response: {response}")
 
 		if response.get("error"):
 			error: dict | str = response["error"]
@@ -109,7 +109,7 @@ class VKAPI:
 
 		async with aiohttp.ClientSession() as session:
 			async with session.get(f"https://api.vk.com/method/{method}", headers={"User-Agent": ""}, params=self._cleanup_none(params)) as response:
-				return self._parse_response(await response.json())
+				return self._parse_response(await response.json(), method)
 
 	async def _post_(self, method: str, params: dict[str, str | int | bool | float | None] | None = None) -> dict:
 		"""
@@ -127,7 +127,7 @@ class VKAPI:
 
 		async with aiohttp.ClientSession() as session:
 			async with session.post(f"https://api.vk.com/method/{method}", headers={"User-Agent": ""}, params=self._cleanup_none(params)) as response:
-				return self._parse_response(await response.json())
+				return self._parse_response(await response.json(), method)
 
 	async def account_setOnline(self) -> dict:
 		"""
