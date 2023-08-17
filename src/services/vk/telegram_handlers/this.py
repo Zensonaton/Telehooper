@@ -260,6 +260,18 @@ async def this_vk_convert_inline_handler(_: CallbackQuery, msg: Message, user: U
 		)
 	)
 
+	# Сохраняем информацию о диалоге в БД пользователя.
+	telehooper_user.document["Connections"]["VK"]["OwnedDialogues"].update({
+		dialog.id: {
+			"ID": dialog.id,
+			"Name": dialog.name,
+			"IsMultiuser": dialog.is_multiuser,
+			"GroupID": telehooper_group.chat.id,
+			"TopicID": 0 if not msg.is_topic_message else msg.message_thread_id or 0,
+		}
+	})
+	await telehooper_user.document.save()
+
 	await asyncio.sleep(2)
 	await msg.answer(
 		"<b>✅ Группа-диалог — успех</b>.\n"
