@@ -9,6 +9,7 @@ from aiogram.filters import (ADMINISTRATOR, CREATOR, IS_MEMBER, IS_NOT_MEMBER,
 from aiogram.types import (CallbackQuery, ChatMemberUpdated,
                            InlineKeyboardButton, InlineKeyboardMarkup, Message)
 from loguru import logger
+from api import TelehooperAPI
 
 import utils
 from DB import get_db, get_default_group, get_group
@@ -151,8 +152,8 @@ async def show_platform_admin_steps_inline_handler(_: CallbackQuery, msg: Messag
 	Handler, вызываемый если пользователь в welcome-сообщении нажал на кнопку с инструкцией по выдаче прав администратора.
 	"""
 
-	await msg.edit_text(
-		text=(
+	await TelehooperAPI.edit_or_resend_message(
+		(
 			"<b>🫂 Группа-диалог</b>.\n"
 			"\n"
 			"Отлично! Добавив меня в группу, Вы сможете выбрать нужный Вам диалог из подключённого сервиса.\n"
@@ -173,7 +174,9 @@ async def show_platform_admin_steps_inline_handler(_: CallbackQuery, msg: Messag
 			" • Разрешите всё, кроме пункта «Анонимность».\n"
 			"\n"
 			"<i>⏳ Данное сообщение отредактируется после получения прав администратора в беседе...</i>"
-		)
+		),
+		message_to_edit=msg,
+		chat_id=msg.chat.id,
 	)
 
 @router.my_chat_member(ChatMemberUpdatedFilter(member_status_changed=(RESTRICTED | MEMBER) >> (ADMINISTRATOR | CREATOR)))

@@ -23,10 +23,11 @@ async def me_command_message(msg: Message, from_user: User, edit_message: bool =
 
 	user = await TelehooperAPI.get_user(from_user)
 
+	use_mobile_vk = await user.get_setting("Services.VK.MobileVKURLs")
 	has_any_connections = False
 	keyboard = []
 
-	vk_info = "<i>страница не подключена</i>"
+	vk_info = None
 	if user.get_vk_connection():
 		has_any_connections = True
 
@@ -34,20 +35,27 @@ async def me_command_message(msg: Message, from_user: User, edit_message: bool =
 		full_name = user.connections["VK"]["FullName"]
 		domain = user.connections["VK"]["Username"]
 
-		vk_info = f"{full_name} (<a href=\"vk.com/{domain}\">@{domain}</a>, ID {id})"
-		keyboard.append(
-			InlineKeyboardButton(text="ВКонтакте", callback_data="/me vk")
+		vk_info = f"{full_name} (<a href=\"{'m.' if use_mobile_vk else ''}vk.com/{domain}\">@{domain}</a>, ID {id})"
+
+	keyboard.append(InlineKeyboardButton(text="ВКонтакте", callback_data="/me vk"))
+
+	connections_info = ""
+	if has_any_connections:
+		connections_info = (
+			"Подключения:\n"
+			f" • <b>ВКонтакте</b>: {vk_info or '<i>страница не подключена</i>'}.\n"
+			"\n"
 		)
 
-	await TelehooperAPI.send_or_edit_message(
+	await TelehooperAPI.edit_or_resend_message(
 		text=(
-			"<b>👤 Ваш профиль</b>.\n"
+			"<b>👤 Профиль</b>.\n"
 			"\n"
-			"Базовая информация о Вашем профиле:\n"
+			"Информация о Вашем профиле:\n"
 			f" • <b>Telegram</b>: {utils.get_telegram_logging_info(msg.from_user)}.\n"
-			f" • <b>ВКонтакте</b>: {vk_info}.\n"
 			"\n"
-			f"ℹ️ {'Вы можете управлять подключёнными сервисами нажимая на кнопки снизу. ' if has_any_connections else ''}Для подключения {'нового' if has_any_connections else 'Вашего первого'} сервиса воспользуйтесь командой /connect."
+			f"{connections_info}"
+			f"ℹ️ {'Для подключения, либо управления сервисами, нажмите на кнопку снизу.' if has_any_connections else 'Выберите нужный сервис снизу, что бы сделать Ваше первое подключение.'}"
 		),
 		disable_web_page_preview=True,
 		chat_id=msg.chat.id,
@@ -56,7 +64,7 @@ async def me_command_message(msg: Message, from_user: User, edit_message: bool =
 	)
 
 
-@router.message(Command("me"))
+@router.message(Command("me", "profile", "connect", "connections"))
 @router.message(Text(CommandButtons.ME))
 async def me_command_handler(msg: Message) -> None:
 	"""

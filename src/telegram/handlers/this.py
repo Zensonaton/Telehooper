@@ -7,6 +7,7 @@ from aiogram.filters import Command, Text
 from aiogram.types import (CallbackQuery, InlineKeyboardButton,
                            InlineKeyboardMarkup, Message, User)
 
+import utils
 from api import TelehooperAPI, TelehooperGroup
 from consts import CommandButtons
 from services.vk.telegram_handlers.this import router as VKRouter
@@ -36,7 +37,7 @@ async def group_convert_message(chat_id: int, user: User, message_to_edit: Messa
 				"Что-то пошло не так, и данная группа не была сохранена в базе данных бота.\n"
 				"Пожалуйста, исключите бота Telehooper и снова добавьте его в группу, следуя последующим инструкциям.\n"
 				"\n"
-				"ℹ️ Если данная проблема повторяется, в таком случае создайте Github Issue у репозитория Telehooper, ссылку можно найти в команде <code>/faq 6</code>."
+				f"ℹ️ Пожалуйста, подождите, перед тем как попробовать снова. Не можете решить данную проблему? Попробуйте попросить помощи либо создать баг-репорт (Github Issue), по ссылке в команде <a href=\"{utils.create_command_url('/h 6')}\">/help</a>."
 			)
 		)
 
@@ -63,7 +64,7 @@ async def group_convert_message(chat_id: int, user: User, message_to_edit: Messa
 
 		dialogs = dialogs[:-1]
 
-		await TelehooperAPI.send_or_edit_message(
+		await TelehooperAPI.edit_or_resend_message(
 			text=(
 				"<b>🫂 Группа-диалог</b>.\n"
 				"\n"
@@ -79,7 +80,7 @@ async def group_convert_message(chat_id: int, user: User, message_to_edit: Messa
 
 	# Проверяем на наличие подключённых сервисов.
 	if not telehooper_user.document["Connections"]:
-		await TelehooperAPI.send_or_edit_message(
+		await TelehooperAPI.edit_or_resend_message(
 			text=(
 				"<b>🫂 Группа-диалог</b>.\n"
 				"\n"
@@ -103,7 +104,9 @@ async def group_convert_message(chat_id: int, user: User, message_to_edit: Messa
 		]
 	)
 
-	await TelehooperAPI.send_or_edit_message(
+	use_mobile_vk = await telehooper_user.get_setting("Services.VK.MobileVKURLs")
+
+	await TelehooperAPI.edit_or_resend_message(
 		text=(
 			"<b>🫂 Группа-диалог</b>.\n"
 			"\n"
@@ -111,7 +114,7 @@ async def group_convert_message(chat_id: int, user: User, message_to_edit: Messa
 			f"{'После подключения группы к сервису Вы сможете получать сообщения или другой контент с нужного Вам сервиса.' if called_from_command else 'Теперь Вы можете выбрать нужный сервис, а после указать, какой именно контент Вы хотите получать с сервиса.'}\n"
 			"\n"
 			"В данный момент, к боту подключено следующее:\n"
-			f" • <b>ВКонтакте</b>: <a href=\"vk.com/{telehooper_user.connections['VK']['Username']}\">{telehooper_user.connections['VK']['FullName']}</a>.\n"
+			f" • <b>ВКонтакте</b>: <a href=\"{'m.' if use_mobile_vk else ''}vk.com/{telehooper_user.connections['VK']['Username']}\">{telehooper_user.connections['VK']['FullName']}</a>.\n"
 			"\n"
 			f"ℹ️ {'Выберите нужный сервис из списка ниже.' if called_from_command else 'Если Вы потеряете данное сообщение, то Вы сможете вызвать его снова, прописав команду <code>/this</code>.'}"
 		),

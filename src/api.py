@@ -7,7 +7,7 @@ from typing import Any, Literal, Sequence, cast
 import aiohttp
 from aiocouch import Document, NotFoundError
 from aiogram import Bot
-from aiogram.exceptions import TelegramBadRequest
+from aiogram.exceptions import TelegramAPIError, TelegramBadRequest
 from aiogram.filters import Command
 from aiogram.filters.command import CommandPatternType
 from aiogram.types import Audio, BufferedInputFile, Chat
@@ -274,6 +274,8 @@ class TelehooperGroup:
 		async def _longSleep():
 			await asyncio.sleep(4)
 
+		thread_id = 0 if not pinned_message.is_topic_message else (pinned_message.message_thread_id or 0)
+
 		# Пытаемся изменить название группы.
 		if dialogue.name:
 			try:
@@ -320,7 +322,7 @@ class TelehooperGroup:
 		# Сохраняем в память.
 		TelehooperAPI.save_subgroup(
 			TelehooperSubGroup(
-				id=pinned_message.message_thread_id or 0,
+				id=thread_id,
 				dialogue_name=dialogue.name,
 				service=serviceAPI,
 				parent=self,
@@ -328,25 +330,37 @@ class TelehooperGroup:
 			)
 		)
 
+		# Обновляем значения из БД.
+		await user.refresh_document()
+
 		# Делаем изменения в БД.
 		# Сохраняем информацию о пользователе.
 		if not self.chat.id in user.document["Groups"]:
 			user.document["Groups"].append(self.chat.id)
 
-			await user.document.save()
-
-		# Сохраняем информацию в группе.
+		# Сохраняем информацию о группе.
 		self.document["LastActivityAt"] = utils.get_timestamp()
-		self.document["Chats"].update({
-			pinned_message.message_thread_id or 0: get_default_subgroup(
-				topic_id=pinned_message.message_thread_id or 0,
-				service_name=dialogue.service_name,
-				dialogue_id=dialogue.id,
-				dialogue_name=dialogue.name or "Без названия",
-				pinned_message=pinned_message.message_id
-			)
-		})
+		self.document["Chats"][thread_id] = get_default_subgroup(
+			topic_id=thread_id,
+			service_name=dialogue.service_name,
+			dialogue_id=dialogue.id,
+			dialogue_name=dialogue.name or "Без названия",
+			pinned_message=pinned_message.message_id
+		)
 
+		# Сохраняем информацию о диалоге пользователя.
+		if dialogue.id in user.document["Connections"]["VK"]:
+			del user.document["Connections"]["VK"][dialogue.id]
+
+		user.document["Connections"]["VK"]["OwnedGroups"][dialogue.id] = {
+			"ID": dialogue.id,
+			"Name": dialogue.name,
+			"IsMultiuser": dialogue.is_multiuser,
+			"GroupID": self.chat.id,
+			"TopicID": thread_id
+		}
+
+		await user.document.save()
 		await self.document.save()
 
 	async def send_sticker(self, sticker: BufferedInputFile | InputFile | str, reply_to: int | None = None, topic: int = 0, silent: bool = False) -> list[Message]:
@@ -997,7 +1011,7 @@ class TelehooperAPI:
 		return None
 
 	@staticmethod
-	async def send_or_edit_message(text: str, chat_id: int, message_to_edit: Message | int | None, thread_id: int | None = None, reply_markup: InlineKeyboardMarkup | ReplyKeyboardMarkup | ReplyKeyboardRemove | ForceReply | None = None, disable_web_page_preview: bool = False, allow_sending_without_reply: bool = False, bot: Bot | None = None) -> Message | int:
+	async def edit_or_resend_message(text: str, chat_id: int, message_to_edit: Message | int | None, thread_id: int | None = None, reply_markup: InlineKeyboardMarkup | ReplyKeyboardMarkup | ReplyKeyboardRemove | ForceReply | None = None, disable_web_page_preview: bool = False, allow_sending_without_reply: bool = False, bot: Bot | None = None, show_warning_message: bool = True) -> Message | int:
 		"""
 		Пытается отредактировать либо отправить сообщение в группу. Возвращает объект сообщения.
 		"""
@@ -1036,7 +1050,10 @@ class TelehooperAPI:
 			)
 
 			return message_id
-		except:
+		except TelegramAPIError as error:
+			if not utils.is_useful_exception(error):
+				return message_id
+
 			return await _send()
 
 async def get_subgroup(msg: Message) -> dict | None:

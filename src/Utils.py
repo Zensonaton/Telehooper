@@ -3,22 +3,20 @@
 import base64
 import gzip
 import hashlib
-import html
 import io
 import os
 import re
 import time
 from typing import Any
-from aiogram import Bot
 
+from aiogram import Bot
+from aiogram.exceptions import TelegramAPIError
 from aiogram.types import User as TelegramUser
 from cryptography.fernet import Fernet
 from loguru import logger
 
 from config import config
 
-
-DEBUG: bool = False
 
 def get_timestamp() -> int:
 	"""
@@ -307,3 +305,21 @@ def replace_placeholders(input: str) -> str:
 
 
 	return TelehooperAPI.get_settings().replace_placeholders(input)
+
+def is_useful_exception(exc: Exception) -> bool:
+	"""
+	Метод для проверки на 'полезность' исключения. Если это исключения типа "Message Not Modified" или подобное, то данный метод возвращает `False`, в ином случае возвращает `True`.
+	"""
+
+	ignore_errors = ["message is not modified"]
+
+	if isinstance(exc, TelegramAPIError):
+		message = exc.message.lower()
+
+		for error in ignore_errors:
+			if error not in message:
+				continue
+
+			return False
+
+	return True

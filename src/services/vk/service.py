@@ -146,7 +146,8 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 			sent_by_account_owner = event.flags.outbox
 			ignore_self_debug = config.debug and await self.user.get_setting("Debug.SentViaBotInform")
 			attachment_items: list[str] = []
-			message_url = create_message_link(event.peer_id, event.message_id, use_mobile=await self.user.get_setting("Services.VK.MobileVKURLs"))
+			use_mobile_vk = await self.user.get_setting("Services.VK.MobileVKURLs")
+			message_url = create_message_link(event.peer_id, event.message_id, use_mobile=use_mobile_vk)
 
 			# Проверяем, стоит ли боту обрабатывать исходящие сообщения.
 			if sent_by_account_owner and not (await self.user.get_setting("Services.VK.ViaServiceMessages") or ignore_self_debug):
@@ -203,7 +204,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 					keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
 
 				# Обрабатываем пересланные.
-				if "fwd_messages" in message_extended and not reply_to:
+				if message_extended.get("fwd_messages") and not reply_to:
 					fwd_messages = message_extended["fwd_messages"]
 
 					attachment_items.append(f"<a href=\"{message_url}\">🔁 {'Пересланное сообщение' if len(fwd_messages) == 1 else str(len(fwd_messages)) + ' пересланных сообщений'}</a>")
@@ -421,7 +422,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 							#   В данный момент почти нереализуемо из-за того, что ВК не передаёт такую информацию, и нужно делать отдельный запрос.
 							# TODO: Настройка, что бы показывать содержимое поста, а не ссылку на него.
 
-							attachment_items.append(f"<a href=\"vk.com/wall{attachment['owner_id']}_{attachment['id']}\">🔄 Запись от {'пользователя' if attachment['owner_id'] > 0 else 'группы'}</a>")
+							attachment_items.append(f"<a href=\"{'m.' if use_mobile_vk else ''}vk.com/wall{attachment['owner_id']}_{attachment['id']}\">🔄 Запись от {'пользователя' if attachment['owner_id'] > 0 else 'группы'}</a>")
 						elif attachment_type == "link":
 							# TODO: Проверить, какая первая ссылка есть в сообщении, и если она не совпадает с этой - сделать невидимую ссылку в самом начале.
 
@@ -497,7 +498,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 						"<b>Текст ошибки, если Вас попросили его отправить</b>:\n"
 						f"<code>{e.__class__.__name__}: {e}</code>.\n"
 						"\n"
-						"ℹ️ Если ошибка повторится, то обратитесь к разработчику бота: <code>/faq 6</code>."
+						f"ℹ️ Пожалуйста, подождите, перед тем как попробовать снова. Если проблема не проходит через время - попробуйте попросить помощи либо создать баг-репорт (Github Issue), по ссылке в команде <a href=\"{utils.create_command_url('/h 6')}\">/help</a>."
 					),
 					silent=True,
 					keyboard=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(
@@ -684,7 +685,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 				retrieved_dialogues += 1
 
-			if retrieved_dialogues >= total_dialogues or retrieved_dialogues >= max_amount:
+			if retrieved_dialogues + 200 >= total_dialogues or retrieved_dialogues + 200 >= max_amount:
 				break
 
 		self._cachedDialogues = result

@@ -179,7 +179,7 @@ class LongpollMessageEditEvent(BaseVKLongpollEvent):
 		self.mask = self.event_data[1]
 		self.peer_id = self.event_data[2]
 		self.timestamp = self.event_data[3]
-		self.new_text = self.event_data[5]
+		self.new_text = self.event_data[4]
 		self.attachments = self.event_data[6]
 
 class LongpollMessageFlagsEdit(BaseVKLongpollEvent):

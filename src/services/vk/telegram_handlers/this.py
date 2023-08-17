@@ -32,13 +32,15 @@ async def this_vk_inline_handler(query: CallbackQuery, msg: Message) -> None:
 		[InlineKeyboardButton(text="[wip] 🗞 Новости/посты из групп", callback_data="/this vk posts")],
 	])
 
-	await msg.edit_text(
+	await TelehooperAPI.edit_or_resend_message(
 		"<b>🫂 Группа-диалог — ВКонтакте</b>.\n"
 		"\n"
 		"В данный момент, Вы пытаетесь соединить данную группу Telegram с сообществом либо же диалогом ВКонтакте.\n"
 		"Ответив на вопросы бот определит, какую роль будет выполнять данная группа.\n"
 		"\n"
 		"<b>❓ Что Вы хотите получать из ВКонтакте</b>?",
+		message_to_edit=msg,
+		chat_id=msg.chat.id,
 		reply_markup=keyboard
 	)
 
@@ -57,7 +59,7 @@ async def this_vk_messages_inline_handler(query: CallbackQuery, msg: Message) ->
 		[InlineKeyboardButton(text="👤 Один чат ВК - одна Telegram-группа", callback_data="/this vk messages separated selection")],
 	])
 
-	await msg.edit_text(
+	await TelehooperAPI.edit_or_resend_message(
 		"<b>🫂 Группа-диалог — ВКонтакте — сообщения</b>.\n"
 		"\n"
 		"Вы пытаетесь получать <b>сообщения</b> из ВКонтакте. Если Вы ошиблись с выбором, то нажмите на кнопку «назад».\n"
@@ -66,6 +68,8 @@ async def this_vk_messages_inline_handler(query: CallbackQuery, msg: Message) ->
 		"<b>❓ Как Вам будет удобно получать сообщения</b>?\n"
 		"\n"
 		"ℹ️ Вы не создали «общую» группу в Telegram, рекомендуется выбрать «Telegram-группа для всех чатов». Без такой группы Telehooper не сможет отправлять сообщения от новых людей.", # TODO: Проверка на это.
+		message_to_edit=msg,
+		chat_id=msg.chat.id,
 		reply_markup=keyboard
 	)
 
@@ -84,13 +88,15 @@ async def this_vk_posts_inline_handler(query: CallbackQuery, msg: Message) -> No
 		# [InlineKeyboardButton(text="🫂 Одно сообщество ВК - одна Telegram-группа", callback_data="do-nothing")],
 	])
 
-	await msg.edit_text(
+	await TelehooperAPI.edit_or_resend_message(
 		"<b>🫂 Группа-диалог — ВКонтакте — посты/новости</b>.\n"
 		"\n"
 		"Вы пытаетесь получать <b>посты или новости</b> из ВКонтакте. Если Вы ошиблись с выбором, то нажмите на кнопку «назад».\n"
 		"Следующий вопрос:\n"
 		"\n"
 		"<b>❓ Как именно Вы хотите получать посты или новости</b>?",
+		message_to_edit=msg,
+		chat_id=msg.chat.id,
 		reply_markup=keyboard
 	)
 
@@ -125,12 +131,14 @@ async def this_vk_messages_separated_inline_handler(_: CallbackQuery, msg: Messa
 			[InlineKeyboardButton(text="ㅤ", callback_data="do-nothing")]
 		])
 
-		await msg.edit_text(
+		await TelehooperAPI.edit_or_resend_message(
 			"<b>🫂 Группа-диалог — ВКонтакте — сообщения</b>.\n"
 			"\n"
 			"Вы собираетесь создать отдельную группу для отдельного чата из ВКонтакте. После выбора чата, бот сделает данную группу похожей на выбранный диалог ВКонтакте.\n"
 			"\n"
 			"<i>⏳ Пожалуйста, дождитесь получения списка чатов...</i>",
+			message_to_edit=msg,
+			chat_id=msg.chat.id,
 			reply_markup=keyboard
 		)
 
@@ -140,9 +148,8 @@ async def this_vk_messages_separated_inline_handler(_: CallbackQuery, msg: Messa
 	start_time = asyncio.get_running_loop().time()
 	dialogues = await vkServiceAPI.get_list_of_dialogues(
 		force_update=is_forced_update,
-		skip_ids=[
-			vkServiceAPI.service_user_id
-		]
+		max_amount=200,
+		skip_ids=[vkServiceAPI.service_user_id]
 	)
 	if will_load_chats:
 		await asyncio.sleep(5 - (asyncio.get_running_loop().time() - start_time))
@@ -150,8 +157,8 @@ async def this_vk_messages_separated_inline_handler(_: CallbackQuery, msg: Messa
 	# Создаём кучку кнопок под диалоги.
 	dialogues_kbd = []
 
-	total_dialogues = len(dialogues)
-	last_page = total_dialogues // DIALOGUES_PER_PAGE + 1
+	dialogues_shown = len(dialogues)
+	last_page = dialogues_shown // DIALOGUES_PER_PAGE + 1
 
 	current_page = 1
 	if "page" in (query or ""):
@@ -188,16 +195,18 @@ async def this_vk_messages_separated_inline_handler(_: CallbackQuery, msg: Messa
 			InlineKeyboardButton(text=f"{current_page} / {last_page}", callback_data="do-nothing"),
 			InlineKeyboardButton(text="▶️", callback_data="do-nothing" if current_page == last_page else f"/this vk messages separated page {current_page + 1}"),
 			InlineKeyboardButton(text="⏩", callback_data="do-nothing" if current_page == last_page else f"/this vk messages separated page {last_page}"),
-		] if total_dialogues > DIALOGUES_PER_PAGE else [],
+		] if dialogues_shown > DIALOGUES_PER_PAGE else [],
 	])
 
-	await msg.edit_text(
+	await TelehooperAPI.edit_or_resend_message(
 		"<b>🫂 Группа-диалог — ВКонтакте — сообщения</b>.\n"
 		"\n"
 		"Вы собираетесь создать отдельную группу для отдельного чата из ВКонтакте. После выбора чата, бот сделает данную группу похожей на выбранный диалог ВКонтакте.\n"
-		f"Всего чатов ВКонтакте у Вас — {total_dialogues} штук.\n"
+		f"Чатов отображено — {dialogues_shown} штук.\n"
 		"\n"
 		"ℹ️ Нужно написать человеку с которым ещё ни разу не общались? Отправьте ссылку/никнейм человека из ВКонтакте сюда.",
+		message_to_edit=msg,
+		chat_id=msg.chat.id,
 		reply_markup=keyboard
 	)
 
@@ -231,61 +240,61 @@ async def this_vk_convert_inline_handler(_: CallbackQuery, msg: Message, user: U
 
 	assert dialog is not None, "Диалог не существует"
 
-	await msg.edit_text(
+	await TelehooperAPI.edit_or_resend_message(
 		"<b>🫂 Группа-диалог — ВКонтакте — сообщения</b>.\n"
 		"\n"
 		f"Отлично! Вы выбрали чат с «{dialog.name}».\n"
 		"Дождитесь, пока Telehooper сделает свою магию... 👀\n"
 		"\n"
-		"<i>⏳ Пожалуйста, подождите, пока Telehooper превращает данную Telegram-группу в похожий диалог из ВКонтакте...</i>"
+		"<i>⏳ Пожалуйста, подождите, пока Telehooper превращает данную Telegram-группу в похожий диалог из ВКонтакте...</i>",
+		message_to_edit=msg,
+		chat_id=msg.chat.id,
 	)
 
 	# TODO: Проверка на права админа у бота.
-	# TODO: Права на права админа у юзера?
+	# TODO: Проверка на права админа у юзера?
 	# TODO: Сделать настройку, а так же извлечение текста закрепа из диалога ВКонтакте, сделав его закрепом в Telegram.
+	# TODO: Сделать настройку, а так же пересылку последних сообщений в диалоге.
 
 	await telehooper_group.convert_to_dialogue_group(telehooper_user, dialog, msg, vkServiceAPI)
 
 	# Изменяем список команд.
 	await bot.set_my_commands(
-		commands=[
-			BotCommand(
-				command=command,
-				description=description
-			) for command, description in VK_GROUP_DIALOGUE_COMMANDS.items()
-		],
-		scope=BotCommandScopeChatAdministrators(
-			type="chat_administrators",
-			chat_id=msg.chat.id
-		)
+		commands=[BotCommand(command=command, description=description) for command, description in VK_GROUP_DIALOGUE_COMMANDS.items()],
+		scope=BotCommandScopeChatAdministrators(type="chat_administrators", chat_id=msg.chat.id)
 	)
 
-	# Сохраняем информацию о диалоге в БД пользователя.
-	telehooper_user.document["Connections"]["VK"]["OwnedDialogues"].update({
-		dialog.id: {
-			"ID": dialog.id,
-			"Name": dialog.name,
-			"IsMultiuser": dialog.is_multiuser,
-			"GroupID": telehooper_group.chat.id,
-			"TopicID": 0 if not msg.is_topic_message else msg.message_thread_id or 0,
-		}
-	})
-	await telehooper_user.document.save()
-
 	await asyncio.sleep(2)
-	await msg.answer(
+
+	docs_url = "https://github.com/Zensonaton/Telehooper/blob/rewrite/src/services/vk/README.md"
+
+	set_online_str = " • Вы никогда не появитесь «онлайн» ВКонтакте (см. {{Services.VK.SetOnline}})."
+	if await telehooper_user.get_setting("Services.VK.SetOnline"):
+		set_online_str = " • Вы будете «онлайн» после отправки сообщения (см. {{Services.VK.SetOnline}})."
+
+	wait_to_type_str = " • Собеседник не будет видеть Вашу печать (см. {{Services.VK.WaitToType}})."
+	if await telehooper_user.get_setting("Services.VK.WaitToType"):
+		wait_to_type_str = " • Бот будет «печатать» в ВК перед пересылкой Вашего сообщения (см. {{Services.VK.WaitToType}})."
+
+	mark_as_read_str = " • «Прочитать» сообщения можно через <code>/read</code> (см. {{Services.VK.MarkAsReadButton}})."
+	if await telehooper_user.get_setting("Services.VK.MarkAsReadButton"):
+		mark_as_read_str = " • «Прочитать» сообщения через кнопку «прочитать» или <code>/read</code> (см. {{Services.VK.MarkAsReadButton}})."
+
+	await msg.answer(utils.replace_placeholders(
 		"<b>✅ Группа-диалог — успех</b>.\n"
 		"\n"
-		"Telehooper успешно конвертировал данную Telegram-группу в диалог из ВКонтакте.\n"
-		f"Теперь, все сообщения, которые Вы отправляете сюда, будут отправляться в диалог «{dialog.name}» из ВКонтакте и наоборот.\n"
+		"Telehooper успешно подключил диалог ВКонтакте.\n"
+		f"Теперь, все сообщения, которые Вы отправляете сюда, будут пересылаться в диалог «{dialog.name}» ВКонтакте и наоборот.\n"
 		"\n"
-		"Однако, учтите что есть следующие ограничения:\n"
-		" • Отсутствует поддержка реакций.\n"
-		" • Ваш собеседник не видит как Вы печатаете.\n"
-		" • Помечать сообщения как «прочитанные» можно только через /read.\n"
+		"Учтите следующее:\n"
+		" • Реакции не поддерживаются.\n"
+		f"{set_online_str}\n"
+		f"{wait_to_type_str}\n"
+		f"{mark_as_read_str}\n"
 		" • Удалять сообщения можно только через /delete.\n"
-		"Подробная информация про ограничения: <a href=\"https://github.com/Zensonaton/Telehooper/blob/rewrite/src/services/vk/README.md\">🔗 ссылка</a>.\n"
+		f" • Другие ограничения можно прочитать <a href=\"{docs_url}\">здесь</a>.\n"
 		"\n"
-		"<b>Приятного общения! 😊</b>",
+		"<b>Приятного общения! 😊</b>"
+		),
 		disable_web_page_preview=True
 	)

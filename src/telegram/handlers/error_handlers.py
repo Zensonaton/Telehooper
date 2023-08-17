@@ -1,15 +1,23 @@
 # coding: utf-8
 
 from aiogram import F, Router
+from aiogram.exceptions import TelegramAPIError
 from aiogram.types import CallbackQuery, ErrorEvent, Message
 from loguru import logger
 
 import utils
 
 
+def exception_filter(event: ErrorEvent) -> bool:
+	"""
+	Фильтр для проверки на 'полезность' исключения. Если это исключения типа "Message Not Modified" или подобное, то данный метод возвращает `False`, в ином случае возвращает `True`.
+	"""
+
+	return utils.is_useful_exception(event.exception)
+
 router = Router()
 
-@router.errors(F.update.message.as_("msg"))
+@router.errors(F.update.message.as_("msg"), exception_filter)
 async def message_error_handler(event: ErrorEvent, msg: Message) -> None:
 	"""
 	Error Handler для случаев с сообщениями.
@@ -25,10 +33,10 @@ async def message_error_handler(event: ErrorEvent, msg: Message) -> None:
 		"<b>Текст ошибки, если Вас попросили его отправить</b>:\n"
 		f"<code>{event.exception.__class__.__name__}: {event.exception}</code>.\n"
 		"\n"
-		"ℹ️ Попробуйте ещё раз через некоторое время. Если ошибка повторится, то обратитесь к разработчику бота: <code>/faq 6</code>."
+		f"ℹ️ Пожалуйста, подождите, перед тем как попробовать снова. Если проблема не проходит через время - попробуйте попросить помощи либо создать баг-репорт (Github Issue), по ссылке в команде <a href=\"{utils.create_command_url('/h 6')}\">/help</a>."
 	)
 
-@router.errors(F.update.callback_query.as_("query"))
+@router.errors(F.update.callback_query.as_("query"), exception_filter)
 async def callback_query_error_handler(event: ErrorEvent, query: CallbackQuery) -> None:
 	"""
 	Error Handler для случаев с Inline Callback Query.

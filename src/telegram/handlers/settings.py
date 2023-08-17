@@ -3,12 +3,14 @@
 from typing import cast
 
 from aiogram import F, Router
-from aiogram.filters import Command, CommandObject, Text
+from aiogram.filters import CommandObject, Text
 from aiogram.types import CallbackQuery, Message, User
 
 from api import CommandWithDeepLink, TelehooperAPI, TelehooperUser, settings
+from config import config
 from consts import CommandButtons
 from exceptions import SettingNotFoundException
+import utils
 
 
 router = Router()
@@ -34,8 +36,16 @@ async def settings_command_message(msg: Message, user: TelehooperUser, edit_mess
 	settings_rendered = settings.get_keyboard(path, user.settingsOverriden)
 	tree_rendered = settings.render_tree(path)
 
+	debug_setting_paths = ""
+	if config.debug and await user.get_setting("Debug.ShowSettingPaths"):
+		debug_setting_paths = utils.replace_placeholders(
+			"\n"
+			"{{Debug.ShowSettingPaths}}: <code>" + path + "</code>.\n"
+		)
+
 	_text = (
 		"<b>⚙️ Настройки</b>.\n"
+		f"{debug_setting_paths}"
 		"\n"
 		"Нажимайте на кнопки ниже что бы перемещаться по разным разделам настроек.\n"
 		"\n"
@@ -53,6 +63,7 @@ async def settings_command_message(msg: Message, user: TelehooperUser, edit_mess
 
 		_text = (
 			f"<b>⚙️ Изменение настройки \"{setting['Name']}\"</b>.\n"
+			f"{debug_setting_paths}"
 			"\n"
 			f"📂 <b>Настройки</b>:\n"
 			f"{tree_rendered}"
@@ -64,11 +75,12 @@ async def settings_command_message(msg: Message, user: TelehooperUser, edit_mess
 			f"  • {'Состояние' if type(value) is bool else 'Значение'}: {value_str}."
 		)
 
-	await TelehooperAPI.send_or_edit_message(
+	await TelehooperAPI.edit_or_resend_message(
 		text=_text,
 		chat_id=msg.chat.id,
 		message_to_edit=msg if edit_message else None,
-		reply_markup=settings_rendered
+		reply_markup=settings_rendered,
+		disable_web_page_preview=True
 	)
 
 @router.message(CommandWithDeepLink("settings", "s", "setting"))
