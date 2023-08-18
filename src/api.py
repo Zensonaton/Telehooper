@@ -1039,7 +1039,7 @@ class TelehooperAPI:
 
 		# Пытаемся отредактировать сообщение, если не удаётся - отправляем новое.
 		try:
-			assert isinstance(reply_markup, InlineKeyboardMarkup)
+			assert not reply_markup or isinstance(reply_markup, InlineKeyboardMarkup)
 
 			await bot.edit_message_text(
 				chat_id=chat_id,
