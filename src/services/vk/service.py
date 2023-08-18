@@ -679,7 +679,8 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 						profile_url=image_url,
 						is_multiuser=conversation_type == "chat",
 						is_pinned=convo["sort_id"]["major_id"] > 0,
-						is_muted="push_settings" in convo and convo["push_settings"]["disabled_forever"]
+						is_muted="push_settings" in convo and convo["push_settings"]["disabled_forever"],
+						incoming_messages=convo.get("unread_count", 0)
 					)
 				)
 

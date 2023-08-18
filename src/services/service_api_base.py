@@ -35,8 +35,10 @@ class ServiceDialogue:
 	"""Заглушен ли диалог."""
 	service_name: str
 	"""Название сервиса, из которого получен диалог."""
+	incoming_messages: int | None
+	"""Количество входящих сообщений в диалоге. Может отсутствовать."""
 
-	def __init__(self, service_name: str, id: int, name: str | None = None, profile_url: str | None = None, profile_img: bytes | None = None, is_multiuser: bool = False, is_pinned: bool = False, is_muted: bool = False) -> None:
+	def __init__(self, service_name: str, id: int, name: str | None = None, profile_url: str | None = None, profile_img: bytes | None = None, is_multiuser: bool = False, is_pinned: bool = False, is_muted: bool = False, incoming_messages: int | None = None) -> None:
 		self.service_name = service_name
 		self.id = id
 		self.name = name
@@ -45,6 +47,7 @@ class ServiceDialogue:
 		self.is_multiuser = is_multiuser
 		self.is_pinned = is_pinned
 		self.is_muted = is_muted
+		self.incoming_messages = incoming_messages
 
 class ServiceDisconnectReason(enum.Enum):
 	"""

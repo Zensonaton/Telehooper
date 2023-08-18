@@ -146,11 +146,7 @@ async def this_vk_messages_separated_inline_handler(_: CallbackQuery, msg: Messa
 	# и пользователи не могли уж слишком часто перезагружать список диалогов,
 	# нагружая бота, а так же API ВКонтакте, повышая шанс на получение captcha.
 	start_time = asyncio.get_running_loop().time()
-	dialogues = await vkServiceAPI.get_list_of_dialogues(
-		force_update=is_forced_update,
-		max_amount=200,
-		skip_ids=[vkServiceAPI.service_user_id]
-	)
+	dialogues = await vkServiceAPI.get_list_of_dialogues(force_update=is_forced_update, max_amount=200, skip_ids=[vkServiceAPI.service_user_id])
 	if will_load_chats:
 		await asyncio.sleep(5 - (asyncio.get_running_loop().time() - start_time))
 
@@ -162,23 +158,14 @@ async def this_vk_messages_separated_inline_handler(_: CallbackQuery, msg: Messa
 
 	current_page = 1
 	if "page" in (query or ""):
-		current_page = utils.clamp(
-			int(query.split(" ")[-1]),
-			1,
-			last_page
-		)
-
+		current_page = utils.clamp(int(query.split(" ")[-1]), 1, last_page)
 
 	for dialogue in dialogues[(current_page - 1) * DIALOGUES_PER_PAGE : current_page * DIALOGUES_PER_PAGE]:
 		prefix = "👥" if dialogue.is_multiuser else ""
 		name = dialogue.name
-		postfix = f"{'📌' if dialogue.is_pinned else ''} {'🔕' if dialogue.is_muted else ''}"
+		postfix = f"{(str(dialogue.incoming_messages) + ' входящих ✉️') if dialogue.incoming_messages else ''}   {'📌' if dialogue.is_pinned else ''} {'🔕' if dialogue.is_muted else ''}".strip()
 
-		dialogues_kbd.append([
-			InlineKeyboardButton(
-				text=f"{prefix}  {name}  {postfix}", callback_data=f"/this vk convert {dialogue.id} messages separated"
-			)
-		])
+		dialogues_kbd.append([InlineKeyboardButton(text=f"{prefix}  {name}  {postfix}".strip(), callback_data=f"/this vk convert {dialogue.id} messages separated")])
 
 	# Создаём клавиатуру с диалогами.
 	keyboard = InlineKeyboardMarkup(inline_keyboard=[
