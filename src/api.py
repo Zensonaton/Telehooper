@@ -281,7 +281,12 @@ class TelehooperGroup:
 		# Пытаемся изменить название группы.
 		if dialogue.name:
 			try:
-				await self.chat.set_title(dialogue.name)
+
+				title = dialogue.name
+				if config.debug and user.get_setting("Debug.DebugTitleForDialogues"):
+					title = f"[DEBUG] {title}"
+
+				await self.chat.set_title(title)
 			except:
 				await _longSleep()
 			else:
