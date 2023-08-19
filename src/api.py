@@ -276,10 +276,10 @@ class TelehooperGroup:
 
 		thread_id = 0 if not pinned_message.is_topic_message else (pinned_message.message_thread_id or 0)
 
-		# TODO: Настройка, что бы отключить изменения параметров группы (имени, ...)
+		allow_group_params_copy = await user.get_setting("Services.VK.GroupInfoCopy")
 
 		# Пытаемся изменить название группы.
-		if dialogue.name:
+		if allow_group_params_copy and dialogue.name:
 			try:
 
 				title = dialogue.name
@@ -293,7 +293,7 @@ class TelehooperGroup:
 				await _sleep()
 
 		# Пытаемся изменить фотографию группы.
-		if dialogue.profile_img or dialogue.profile_url:
+		if allow_group_params_copy and (dialogue.profile_img or dialogue.profile_url):
 			picture_bytes = dialogue.profile_img
 			if dialogue.profile_url:
 				async with aiohttp.ClientSession() as session:
@@ -310,16 +310,17 @@ class TelehooperGroup:
 				await _sleep()
 
 		# Пытаемся поменять описание группы.
-		try:
-			await self.chat.set_description(
-				f"@{utils.get_bot_username()}: Группа для диалога «{dialogue.name}» из ВКонтакте.\n"
-				"\n"
-				"ℹ️ Для управления данной группой используйте команду /this."
-			)
-		except:
-			await _longSleep()
-		else:
-			await _sleep()
+		if allow_group_params_copy:
+			try:
+				await self.chat.set_description(
+					f"@{utils.get_bot_username()}: Группа для диалога «{dialogue.name}» из ВКонтакте.\n"
+					"\n"
+					"ℹ️ Для управления данной группой используйте команду /this."
+				)
+			except:
+				await _longSleep()
+			else:
+				await _sleep()
 
 		# Сохраняем в память.
 		TelehooperAPI.save_subgroup(
