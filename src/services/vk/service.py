@@ -155,7 +155,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 			is_group = event.peer_id < 0
 			is_convo = event.peer_id > 2e9
 			is_user = not is_group and not is_convo
-			from_self = event.from_id == self.service_user_id
+			from_self = (not is_convo and is_outbox) or (is_convo and event.from_id and event.from_id == self.service_user_id)
 
 			# Проверяем, стоит ли боту обрабатывать исходящие сообщения.
 			if is_outbox and not (await self.user.get_setting("Services.VK.ViaServiceMessages") or ignore_outbox_debug):
