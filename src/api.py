@@ -345,7 +345,8 @@ class TelehooperGroup:
 			service_name=dialogue.service_name,
 			dialogue_id=dialogue.id,
 			dialogue_name=dialogue.name or "Без названия",
-			pinned_message=pinned_message.message_id
+			pinned_message=pinned_message.message_id,
+			type="dialogue"
 		)
 
 		# Сохраняем информацию о диалоге пользователя.
@@ -354,7 +355,8 @@ class TelehooperGroup:
 			"Name": dialogue.name,
 			"IsMultiuser": dialogue.is_multiuser,
 			"GroupID": self.chat.id,
-			"TopicID": thread_id
+			"TopicID": thread_id,
+			"Type": "dialogue"
 		}
 
 		await user.document.save()

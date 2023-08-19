@@ -1,5 +1,6 @@
 # coding: utf-8
 
+from typing import Literal
 from aiocouch import CouchDB, Database, Document
 from aiocouch.exception import NotFoundError
 from aiogram.types import Chat, Message, User
@@ -172,7 +173,7 @@ def get_default_group(chat: Chat, creator: User, status_message: Message, admin_
 		}
 	}
 
-def get_default_subgroup(topic_id: int, service_name: str, dialogue_id: int, dialogue_name: str, pinned_message: int) -> dict:
+def get_default_subgroup(topic_id: int, service_name: str, dialogue_id: int, dialogue_name: str, pinned_message: int, type: Literal["dialogue", "group", "newsfeed"]) -> dict:
 	"""
 	Возвращает шаблон подгруппы (группы или топика группы) для сохранения в базу данных.
 	"""
@@ -183,5 +184,6 @@ def get_default_subgroup(topic_id: int, service_name: str, dialogue_id: int, dia
 		"CreatedAt": utils.get_timestamp(), # Дата создания диалога/группы.
 		"PinMessageID": pinned_message, # ID закреплённого сообщения.
 		"Service": service_name, # Сервис, к которому подключён данный диалог/группа.
-		"DialogueID": dialogue_id # ID диалога из сервиса.
+		"DialogueID": dialogue_id, # ID диалога из сервиса.
+		"Type": type # То, чем служит данная группа.
 	}
