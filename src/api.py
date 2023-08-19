@@ -276,6 +276,8 @@ class TelehooperGroup:
 
 		thread_id = 0 if not pinned_message.is_topic_message else (pinned_message.message_thread_id or 0)
 
+		# TODO: Настройка, что бы отключить изменения параметров группы (имени, ...)
+
 		# Пытаемся изменить название группы.
 		if dialogue.name:
 			try:
@@ -296,12 +298,7 @@ class TelehooperGroup:
 			assert picture_bytes
 
 			try:
-				await self.chat.set_photo(
-					photo=BufferedInputFile(
-						file=picture_bytes,
-						filename="photo.png"
-					)
-				)
+				await self.chat.set_photo(photo=BufferedInputFile(file=picture_bytes, filename="photo.png"))
 			except:
 				await _longSleep()
 			else:
