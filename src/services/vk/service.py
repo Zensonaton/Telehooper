@@ -852,7 +852,9 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 		from api import TelehooperAPI
 
 
-		logger.debug(f"[TG] Обработка сообщения в Telegram: \"{msg.text}\" в \"{subgroup}\" {'с вложениями' if attachments else ''}")
+		message_text = msg.text or msg.caption or ""
+
+		logger.debug(f"[TG] Обработка сообщения в Telegram: \"{message_text}\" в \"{subgroup}\" {'с вложениями' if attachments else ''}")
 
 		reply_message_id = None
 		if msg.reply_to_message:
@@ -1008,6 +1010,10 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 			logger.debug(f"Вложения для отправки: {attachments_to_send}")
 
+		# Если у нас нет вложений, а так же нет текста сообщения, то мы не можем отправить сообщение.
+		if not attachments_to_send and not message_text:
+			return
+
 		# Делаем статус "онлайн", если он не был обновлён в течении минуты.
 		if utils.get_timestamp() - self._lastOnlineStatus > 60 and await self.user.get_setting("Services.VK.SetOnline"):
 			self._lastOnlineStatus = utils.get_timestamp()
@@ -1018,12 +1024,12 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 		if await self.user.get_setting("Services.VK.WaitToType"):
 			await asyncio.gather(self.mark_as_read(subgroup.service_chat_id), self.start_activity(subgroup.service_chat_id))
 
-			await asyncio.sleep(0.6 if len(msg.text or msg.caption or "") <= 15 else 1)
+			await asyncio.sleep(0.6 if len(message_text) <= 15 else 1)
 
 		# Отправляем сообщение.
 		await TelehooperAPI.save_message("VK", msg.message_id, await self.send_message(
 			chat_id=subgroup.service_chat_id,
-			text=msg.text or msg.caption or "",
+			text=message_text,
 			reply_to_message=reply_message_id,
 			attachments=attachments_to_send,
 			latitude=msg.location.latitude if msg.location else None,
