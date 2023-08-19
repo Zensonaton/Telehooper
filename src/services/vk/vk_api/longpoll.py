@@ -2,14 +2,13 @@
 
 import asyncio
 from asyncio import TimeoutError
-from turtle import up
 from typing import AsyncGenerator, Optional
 
 import aiohttp
 from aiohttp import ClientConnectionError
 from loguru import logger
-from services.vk.utils import VKLongpollMessageFlags
 
+from services.vk.utils import VKLongpollMessageFlags
 from services.vk.vk_api.api import VKAPI
 
 

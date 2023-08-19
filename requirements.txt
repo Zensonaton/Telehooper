@@ -7,3 +7,4 @@ python-dotenv
 cryptography
 aiocouch
 case-insensitive-dictionary
+cachetools
