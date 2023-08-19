@@ -75,6 +75,8 @@ class LongpollNewMessageEvent(BaseVKLongpollEvent):
 	"""Чат, в котором было отправлено сообщение. Для пользователя: id пользователя. Для групповой беседы: `2000000000 + id` беседы. Для сообщества: `-id` сообщества либо `id + 1000000000`."""
 	text: str
 	"""Текст сообщения."""
+	from_id: int | None
+	"""ID пользователя, который отправил сообщение."""
 	flags: VKLongpollMessageFlags
 	"""Флаги сообщения."""
 	attachments: dict
@@ -88,6 +90,9 @@ class LongpollNewMessageEvent(BaseVKLongpollEvent):
 		self.peer_id = self.event_data[2]
 		self.date = self.event_data[3]
 		self.text = self.event_data[4]
+		self.from_id = self.event_data[5].get("from")
+		if self.from_id:
+			self.from_id = int(self.from_id)
 		self.attachments = self.event_data[6]
 
 class LongpollTypingEvent(BaseVKLongpollEvent):

@@ -349,9 +349,6 @@ class TelehooperGroup:
 		)
 
 		# Сохраняем информацию о диалоге пользователя.
-		if dialogue.id in user.document["Connections"]["VK"]:
-			del user.document["Connections"]["VK"][dialogue.id]
-
 		user.document["Connections"]["VK"]["OwnedGroups"][dialogue.id] = {
 			"ID": dialogue.id,
 			"Name": dialogue.name,

@@ -15,6 +15,7 @@ from aiogram.types import (InlineKeyboardButton, InlineKeyboardMarkup,
                            InputMediaPhoto, InputMediaVideo, Location, Message,
                            PhotoSize, Sticker, Video, VideoNote, Voice)
 from aiogram.utils.chat_action import ChatActionSender
+import cachetools
 from loguru import logger
 from pydantic import SecretStr
 
@@ -51,12 +52,14 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 	vkAPI: VKAPI
 	"""Объект для доступа к API ВКонтакте."""
 
-	_cachedDialogues = []
+	_cachedDialogues: list = []
 	"""Кэшированный список диалогов."""
 	_longPollTask: asyncio.Task | None = None
 	"""Задача, выполняющая longpoll."""
 	_lastOnlineStatus: int = 0
-	"""UNIX-timestamp последнего обновления статуса онлайна через бота. Используется для настройки ."""
+	"""UNIX-timestamp последнего обновления статуса онлайна через бота. Используется для настройки `Security.StoreTokens`."""
+	_cachedUsersInfo: cachetools.TLRUCache[int, TelehooperServiceUserInfo] = cachetools.TLRUCache(maxsize=80, ttu=lambda _, value, now: now + 5 * 60)  # 80 элементов, 5 минут хранения.
+	"""Кэшированные данные о пользователях ВКонтакте для быстрого повторного получения."""
 
 	def __init__(self, token: SecretStr, vk_user_id: int, user: "TelehooperUser") -> None:
 		super().__init__("VK", vk_user_id, user)
@@ -143,14 +146,18 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 		keyboard = None
 		try:
 			attachment_media: list[InputMediaAudio | InputMediaDocument | InputMediaPhoto | InputMediaVideo] = []
-			sent_by_account_owner = event.flags.outbox
-			ignore_self_debug = config.debug and await self.user.get_setting("Debug.SentViaBotInform")
 			attachment_items: list[str] = []
 			use_mobile_vk = await self.user.get_setting("Services.VK.MobileVKURLs")
 			message_url = create_message_link(event.peer_id, event.message_id, use_mobile=use_mobile_vk)
+			ignore_outbox_debug = config.debug and await self.user.get_setting("Debug.SentViaBotInform")
+			is_outbox = event.flags.outbox
+			is_group = event.peer_id < 0
+			is_convo = event.peer_id > 2e9
+			is_user = not is_group and not is_convo
+			from_self = event.from_id == self.service_user_id
 
 			# Проверяем, стоит ли боту обрабатывать исходящие сообщения.
-			if sent_by_account_owner and not (await self.user.get_setting("Services.VK.ViaServiceMessages") or ignore_self_debug):
+			if is_outbox and not (await self.user.get_setting("Services.VK.ViaServiceMessages") or ignore_outbox_debug):
 				return
 
 			# Получаем информацию о отправленном сообщении.
@@ -158,14 +165,14 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 			# Проверяем, не было ли отправлено сообщение самим ботом.
 			from_bot = msg_saved and msg_saved.sent_via_bot
-			if from_bot and not ignore_self_debug:
+			if from_bot and not ignore_outbox_debug:
 				return
 
 			# Получаем ID сообщения с ответом, а так же парсим вложения сообщения.
 			reply_to = None
 
 			# Парсим вложения.
-			if event.attachments or event.peer_id < 0:
+			if event.attachments or is_group:
 				attachments = event.attachments.copy()
 
 				# Добываем полную информацию о сообщении.
@@ -219,7 +226,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 						(await subgroup.send_geo(
 							latitude=attachment["coordinates"]["latitude"],
 							longitude=attachment["coordinates"]["longitude"],
-							silent=sent_by_account_owner,
+							silent=is_outbox,
 							reply_to=reply_to
 						))[0].message_id,
 						event.message_id,
@@ -292,7 +299,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 												audio_bytes,
 												filename=f"VK video note {attachment['id']}.mp4"
 											),
-											silent=sent_by_account_owner,
+											silent=is_outbox,
 											reply_to=reply_to
 										)
 
@@ -350,7 +357,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 									file=cast(bytes, sticker_bytes),
 									filename="sticker.tgs" if is_animated else f"VK sticker {attachment['sticker_id']}.png"
 								),
-								silent=sent_by_account_owner,
+								silent=is_outbox,
 								reply_to=reply_to
 							)
 
@@ -445,10 +452,24 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 			# Подготавливаем текст сообщения.
 			new_message_text = ""
 
-			if sent_by_account_owner:
-				new_message_text = f"[<b>Вы</b>"
+			if is_outbox:
+				new_message_text = "["
 
-				if ignore_self_debug and from_bot:
+				if from_self:
+					new_message_text += "<b>Вы</b>"
+				else:
+					assert event.from_id, "from_id не был получен, хотя должен присутствовать"
+
+					# Получаем информацию о пользователе, который отправил сообщение.
+					sent_user_info = await self.get_user_info(event.from_id)
+
+					name = sent_user_info.name
+					if await self.user.get_setting("Services.VK.CompactNames"):
+						name = utils.compact_name(name)
+
+					new_message_text += f"<b>{name}</b>"
+
+				if ignore_outbox_debug and from_bot:
 					new_message_text += " <i>debug-пересылка</i>"
 
 				new_message_text += "]"
@@ -470,7 +491,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 					await subgroup.send_message_in(
 						new_message_text,
 						attachments=attachment_media,
-						silent=sent_by_account_owner,
+						silent=is_outbox,
 						reply_to=reply_to,
 						keyboard=keyboard
 					),
@@ -615,14 +636,10 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 			#
 			# Данный кусок кода немного упрощает это, создавая словарь с информацией.
 			for group in response.get("groups", []):
-				extendedInfo.update({
-					-group["id"]: group
-				})
+				extendedInfo[-group["id"]] = group
 
 			for user in response.get("profiles", []):
-				extendedInfo.update({
-					user["id"]: user
-				})
+				extendedInfo[user["id"]] = user
 
 			for dialogue in response["items"]:
 				convo = dialogue["conversation"]
@@ -680,7 +697,8 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 						is_multiuser=conversation_type == "chat",
 						is_pinned=convo["sort_id"]["major_id"] > 0,
 						is_muted="push_settings" in convo and convo["push_settings"]["disabled_forever"],
-						incoming_messages=convo.get("unread_count", 0)
+						incoming_messages=convo.get("unread_count", 0),
+						multiuser_count=convo["chat_settings"].get("members_count") if conversation_type == "chat" else None
 					)
 				)
 
@@ -739,6 +757,29 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 			name=f"{self_info['first_name']} {self_info['last_name']}",
 			profile_url=self_info.get("photo_max_orig"),
 		)
+
+	async def get_user_info(self, user_id: int, force_update: bool = False) -> TelehooperServiceUserInfo:
+		"""
+		Возвращает информацию о пользователе ВКонтакте.
+
+		:param user_id: ID пользователя ВКонтакте.
+		:param force_update: Нужно ли обновить информацию о пользователе, если она уже есть в кэше.
+		"""
+
+		if not force_update and user_id in self._cachedUsersInfo:
+			return self._cachedUsersInfo[user_id]
+
+		user_info = (await self.vkAPI.users_get(user_ids=[user_id]))[0]
+
+		user_info_class = TelehooperServiceUserInfo(
+			service_name=self.service_name,
+			id=user_info["id"],
+			name=f"{user_info['first_name']} {user_info['last_name']}",
+			profile_url=user_info.get("photo_max_orig")
+		)
+		self._cachedUsersInfo[user_id] = user_info_class
+
+		return user_info_class
 
 	async def get_dialogue(self, chat_id: int, force_update: bool = False) -> ServiceDialogue:
 		dialogues = await self.get_list_of_dialogues(force_update=force_update)

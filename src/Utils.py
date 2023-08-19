@@ -35,6 +35,8 @@ def get_bot_version() -> int:
 def parse_str_boolean(value: str | bool) -> bool:
 	"""
 	Парсит строку в булевое значение.
+
+	:param value: Строка, которую нужно распарсить.
 	"""
 
 	if isinstance(value, bool):
@@ -49,6 +51,8 @@ def parse_str_boolean(value: str | bool) -> bool:
 def is_URL(url: str) -> bool:
 	"""
 	Проверяет, является ли строка URL или нет.
+
+	:param url: Строка, которую нужно проверить.
 	"""
 
 	return re.match(r"^(?:http(s)?:\/\/)?[\w.-]+(?:\.[\w\.-]+)+[\w\-\._~:/?#[\]@!\$&'\(\)\*\+,;=.]+$", url) is not None
@@ -56,6 +60,10 @@ def is_URL(url: str) -> bool:
 def clamp(number: int | float, value_min: int | float, value_max: int | float) -> int | float:
 	"""
 	Ограничивает значение `number` в пределах `value_min` и `value_max`.
+
+	:param number: Число, которое нужно ограничить.
+	:param value_min: Минимальное значение.
+	:param value_max: Максимальное значение.
 	"""
 
 	return max(value_min, min(number, value_max))
@@ -98,14 +106,13 @@ def traverse_dict(object: dict, *keys: str, default: Any = None):
 def encrypt_with_env_key(input: str) -> str:
 	"""
 	Шифрует строку `input` ключём шифрования из `.env`-файла.
+
+	:param input: Входная строка.
 	"""
 
 	# Проверяем, есть ли у нас ключ для шифрования в .env-файле:
 	if not config.token_encryption_key:
-		# Ключа нет, не шифруем, возвращаем такое же значение.
-
 		return input
-
 
 	# Ключ шифрования есть, тогда шифруем:
 	return Fernet(config.token_encryption_key.get_secret_value() + os.environ.get("token_encryption_key2", "")).encrypt(input.encode()).decode()
@@ -113,14 +120,13 @@ def encrypt_with_env_key(input: str) -> str:
 def decrypt_with_env_key(input: str) -> str:
 	"""
 	Расшифровывает строку `input` ключём шифрования из `.env`-файла.
+
+	:param input: Входная строка.
 	"""
 
 	# Проверяем, есть ли у нас ключ для шифрования в .env-файле:
 	if not config.token_encryption_key:
-		# Ключа нет, не шифруем, возвращаем такое же значение.
-
 		return input
-
 
 	# Ключ шифрования есть, тогда расшифровываем:
 	return Fernet(config.token_encryption_key.get_secret_value() + os.environ.get("token_encryption_key2", "")).decrypt(input.encode()).decode()
@@ -128,6 +134,9 @@ def decrypt_with_env_key(input: str) -> str:
 def encrypt_with_key(input: str, key: str) -> str:
 	"""
 	Шифрует строку `input` с ключём `key`.
+
+	:param input: Входная строка.
+	:param key: Ключ шифрования.
 	"""
 
 	hlib = hashlib.md5()
@@ -142,6 +151,9 @@ def encrypt_with_key(input: str, key: str) -> str:
 def decrypt_with_key(input: str, key: str) -> str:
 	"""
 	Расшифровывает строку `input` с ключём `key`.
+
+	:param input: Входная строка.
+	:param key: Ключ шифрования.
 	"""
 
 	hlib = hashlib.md5()
@@ -156,6 +168,8 @@ def decrypt_with_key(input: str, key: str) -> str:
 def md5_hash(input: str) -> str:
 	"""
 	Выдаёт MD5-хэш строки.
+
+	:param input: Входная строка.
 	"""
 
 	return hashlib.md5(input.encode()).hexdigest()
@@ -163,6 +177,8 @@ def md5_hash(input: str) -> str:
 def sha256_hash(input: str) -> str:
 	"""
 	Выдаёт SHA256-хэш строки.
+
+	:param input: Входная строка.
 	"""
 
 	return hashlib.sha256(input.encode()).hexdigest()
@@ -170,6 +186,16 @@ def sha256_hash(input: str) -> str:
 def seconds_to_userfriendly_string(seconds, max=2, minutes=True, hours=True, days=True, weeks=False, months=False, years=False, decades=False):
 	"""
 	Преобразовывает время, отображённое в секундах, как строку вида "5 часов, 17 секунд".
+
+	:param seconds: Количество секунд.
+	:param max: Максимальное количество единиц измерения времени, которые будут отображены в строке.
+	:param minutes: Отображать ли минуты.
+	:param hours: Отображать ли часы.
+	:param days: Отображать ли дни.
+	:param weeks: Отображать ли недели.
+	:param months: Отображать ли месяцы.
+	:param years: Отображать ли годы.
+	:param decades: Отображать ли десятилетия.
 	"""
 
 	seconds = int(seconds)
@@ -201,6 +227,9 @@ def get_telegram_logging_info(user: TelegramUser | None, use_url: bool = False) 
 	Возвращает строку с информацией о пользователе для логирования. Используется в случае каких-либо ошибок для логирования.
 
 	Пример вывода функции: `Full user name (@username, ID 123456)`
+
+	:param user: Пользователь, о котором нужно получить информацию.
+	:param use_url: Использовать ли ссылку на профиль пользователя вместо формата `@username`.
 	"""
 
 	if user is None:
@@ -216,6 +245,8 @@ def get_telegram_logging_info(user: TelegramUser | None, use_url: bool = False) 
 def telegram_safe_str(input: str) -> str:
 	"""
 	Возвращает копию строки, являющаяся «безопасной» для отправки как сообщение в Telegram.
+
+	:param input: Входная строка.
 	"""
 
 	return input.replace("<br>", "\n")
@@ -309,6 +340,8 @@ def replace_placeholders(input: str) -> str:
 def is_useful_exception(exc: Exception) -> bool:
 	"""
 	Метод для проверки на 'полезность' исключения. Если это исключения типа "Message Not Modified" или подобное, то данный метод возвращает `False`, в ином случае возвращает `True`.
+
+	:param exc: Исключение.
 	"""
 
 	ignore_errors = ["message is not modified"]
@@ -323,3 +356,17 @@ def is_useful_exception(exc: Exception) -> bool:
 			return False
 
 	return True
+
+def compact_name(input: str) -> str:
+	"""
+	Превращает имя человека в формате `Имя Фамилия` в формат `Имя Ф.`.
+
+	:param input: Входная строка.
+	"""
+
+	if " " not in input:
+		return input
+
+	first_name, last_name = input.split(" ", 1)
+
+	return f"{first_name} {last_name[0]}."
