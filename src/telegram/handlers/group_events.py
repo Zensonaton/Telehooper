@@ -67,11 +67,7 @@ async def on_telehooper_added_in_chat_handler(event: ChatMemberUpdated, bot: Bot
 	if event.new_chat_member.user.id != bot.id:
 		return
 
-	keyboard = InlineKeyboardMarkup(
-		inline_keyboard=[
-			[InlineKeyboardButton(text="👋 Инструкция по выдаче прав администратора", callback_data="/this showAdminTips")]
-		]
-	)
+	keyboard = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="👋 Инструкция по выдаче прав администратора", callback_data="/this showAdminTips")]])
 
 	status_message = await bot.send_message(
 		chat_id=event.chat.id,
@@ -121,10 +117,8 @@ async def on_other_member_add_handler(event: ChatMemberUpdated, bot: Bot) -> Non
 		return
 
 	# Проверяем, что это уведомление показано лишь один раз.
-	try:
-		group = await get_group(event.chat)
-	except:
-		return
+	group = await get_group(event.chat)
+	assert group, "Нету информации о группе в БД, удалите бота и добавьте снова"
 
 	if group["UserJoinedWarning"]:
 		return
