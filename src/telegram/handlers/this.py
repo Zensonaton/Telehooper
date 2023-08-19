@@ -26,9 +26,9 @@ async def group_convert_message(chat_id: int, user: User, message_to_edit: Messa
 
 	telehooper_user = await TelehooperAPI.get_user(user)
 
-	try:
-		telehooper_group = await TelehooperAPI.get_group(telehooper_user, chat_id)
-	except:
+	telehooper_group = await TelehooperAPI.get_group(telehooper_user, chat_id)
+
+	if not telehooper_group:
 		await bot.send_message(
 			chat_id,
 			text=(
