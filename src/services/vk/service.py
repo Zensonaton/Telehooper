@@ -787,9 +787,12 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 			self._longPollTask.cancel()
 
 		# Удаляем из памяти.
-		del self.token
-		del self.vkAPI
-		del self._longPollTask
+		try:
+			del self.token
+			del self.vkAPI
+			del self._longPollTask
+		except:
+			pass
 
 	async def current_user_info(self) -> TelehooperServiceUserInfo:
 		self_info = await self.vkAPI.get_self_info()
