@@ -77,6 +77,14 @@ class LongpollNewMessageEvent(BaseVKLongpollEvent):
 	"""Текст сообщения."""
 	from_id: int | None
 	"""ID пользователя, который отправил сообщение."""
+	source_act: str | None
+	"""Действие, которое было совершено с сообщением. Например, `chat_kick_user`."""
+	source_text: str | None
+	"""Текст, который связан с `source_act`."""
+	source_old_text: str | None
+	"""Старый текст, который связан с `source_act`."""
+	source_mid: int | None
+	"""ID пользователя, с которым связано `source_act`."""
 	flags: VKLongpollMessageFlags
 	"""Флаги сообщения."""
 	attachments: dict
@@ -93,6 +101,10 @@ class LongpollNewMessageEvent(BaseVKLongpollEvent):
 		self.from_id = self.event_data[5].get("from")
 		if self.from_id:
 			self.from_id = int(self.from_id)
+		self.source_act = self.event_data[5].get("source_act")
+		self.source_mid = self.event_data[5].get("source_mid")
+		self.source_text = self.event_data[5].get("source_text")
+		self.source_old_text = self.event_data[5].get("source_old_text")
 		self.attachments = self.event_data[6]
 
 class LongpollTypingEvent(BaseVKLongpollEvent):

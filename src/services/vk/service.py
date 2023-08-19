@@ -147,6 +147,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 		try:
 			attachment_media: list[InputMediaAudio | InputMediaDocument | InputMediaPhoto | InputMediaVideo] = []
 			attachment_items: list[str] = []
+			use_compact_names =  await self.user.get_setting("Services.VK.CompactNames")
 			use_mobile_vk = await self.user.get_setting("Services.VK.MobileVKURLs")
 			message_url = create_message_link(event.peer_id, event.message_id, use_mobile=use_mobile_vk)
 			ignore_outbox_debug = config.debug and await self.user.get_setting("Debug.SentViaBotInform")
@@ -166,6 +167,52 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 			# Проверяем, не было ли отправлено сообщение самим ботом.
 			from_bot = msg_saved and msg_saved.sent_via_bot
 			if from_bot and not ignore_outbox_debug:
+				return
+
+			# Проверяем, не было ли это событие беседы из ВК.
+			if is_convo and event.source_act:
+				# Здесь мы не сохраняем ID сообщения, поскольку с таковыми в любом случае нельзя взаимодействовать.
+				# TODO: Сделать настройку, что бы бот синхронизировал изменения.
+
+				issuer_name_with_link = None
+				victim_name_with_link = None
+
+				if event.from_id:
+					issuer_info = await self.get_user_info(event.from_id)
+
+					issuer_name_with_link = f"<a href=\"{'m.' if use_mobile_vk else ''}vk.com/id{event.from_id}\">{utils.compact_name(issuer_info.name) if use_compact_names else issuer_info.name}</a>"
+
+				if event.source_mid:
+					victim_info = await self.get_user_info(event.source_mid)
+
+					victim_name_with_link = f"<a href=\"{'m.' if use_mobile_vk else ''}vk.com/id{event.source_mid}\">{utils.compact_name(victim_info.name) if use_compact_names else victim_info.name}</a>"
+
+				messages = {
+					"chat_photo_update": f"Пользователь <b>{issuer_name_with_link}</b> <b>обновил(-а)</b> фотографию беседы",
+					"chat_photo_remove": f"Пользователь <b>{issuer_name_with_link}</b> <b>удалил(-а)</b> фотографию беседы",
+					"chat_create": f"Пользователь <b>{issuer_name_with_link}</b> создал(-а) <b>новую беседу</b>: <b>«{event.source_text}»</b>",
+					"chat_title_update": f"Пользователь <b>{issuer_name_with_link}</b> <b>изменил(-а)</b> имя беседы на <b>«{event.source_text}»</b>",
+					"chat_invite_user": f"Пользователь <b>{issuer_name_with_link}</b> <b>добавил(-а)</b> пользователя <b>{victim_name_with_link}</b>",
+					"chat_kick_user": f"Пользователь <b>{issuer_name_with_link}</b> <b>удалил(-а)</b> пользователя <b>{victim_name_with_link}</b> из беседы",
+					"chat_invite_user_by_link": f"Пользователь <b>{victim_name_with_link}</b> <b>присоеденился(-ась)</b> к беседе используя <b>пригласительную ссылку</b>",
+					"chat_invite_user_by_message_request": f"Пользователь <b>{victim_name_with_link}</b> <b>присоденился(-ась)</b> к беседе используя <b>запрос на вступление</b>",
+					"chat_pin_message": f"Пользователь <b>{issuer_name_with_link}</b> <b>закрепил(-а)</b> сообщение",
+					"chat_unpin_message": f"Пользователь <b>{issuer_name_with_link}</b> <b>открепил(-а)</b> закреплённое сообщение",
+					"chat_screenshot": f"Пользователь <b>{victim_name_with_link}</b> сделал(-а) <b>скриншот чата</b>",
+					"conversation_style_update": f"Пользователь <b>{issuer_name_with_link}</b> <b>обновил</b> стиль чата"
+					# "call_ended": f"Пользователь <b>{victim_name_with_link}</b> начал(-а) <b>вызов ВКонтакте</b>. Присоедениться можно <a href=\"https://vk.com/call/join/{group_chat_join_link}\">по ссылке</a>"
+				}
+				message = messages.get(event.source_act)
+
+				if not message:
+					logger.warning(f"[VK] Неизвестное событие беседы: {event.source_act}")
+
+					message = f"Неизвестное действие: <code>«{event.source_act}»</code>"
+
+					return
+
+				await subgroup.send_message_in(f"ℹ️  {message}  ℹ️", disable_web_preview=True)
+
 				return
 
 			# Получаем ID сообщения с ответом, а так же парсим вложения сообщения.
@@ -463,11 +510,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 					# Получаем информацию о пользователе, который отправил сообщение.
 					sent_user_info = await self.get_user_info(event.from_id)
 
-					name = sent_user_info.name
-					if await self.user.get_setting("Services.VK.CompactNames"):
-						name = utils.compact_name(name)
-
-					new_message_text += f"<b>{name}</b>"
+					new_message_text += f"<b>{utils.compact_name(sent_user_info.name) if use_compact_names else sent_user_info.name}</b>"
 
 				if ignore_outbox_debug and from_bot:
 					new_message_text += " <i>debug-пересылка</i>"

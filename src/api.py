@@ -419,7 +419,7 @@ class TelehooperGroup:
 			allow_sending_without_reply=True
 		)]
 
-	async def send_message(self, text: str, attachments: list[InputMediaAudio | InputMediaDocument | InputMediaPhoto | InputMediaVideo] | None = None, reply_to: int | None = None, topic: int = 0, silent: bool = False, keyboard: InlineKeyboardMarkup | None = None) -> list[int]:
+	async def send_message(self, text: str, attachments: list[InputMediaAudio | InputMediaDocument | InputMediaPhoto | InputMediaVideo] | None = None, reply_to: int | None = None, topic: int = 0, silent: bool = False, keyboard: InlineKeyboardMarkup | None = None, disable_web_preview: bool = False) -> list[int]:
 		"""
 		Отправляет сообщение в группу. Возвращает ID отправленного(-ых) сообщений.
 
@@ -429,6 +429,7 @@ class TelehooperGroup:
 		:param topic: ID диалога в сервисе, в который нужно отправить сообщение. Если не указано, то сообщение будет отправлено в главный диалог группы.
 		:param silent: Отправить ли сообщение без уведомления.
 		:param keyboard: Клавиатура, которую нужно прикрепить к сообщению.
+		:param disable_web_preview: Отключить ли превью ссылок в сообщении.
 		"""
 
 		if not attachments:
@@ -462,7 +463,8 @@ class TelehooperGroup:
 				text=text,
 				disable_notification=silent,
 				allow_sending_without_reply=True,
-				reply_markup=keyboard
+				reply_markup=keyboard,
+				disable_web_page_preview=disable_web_preview
 			)).message_id]
 
 		return message_ids
@@ -641,7 +643,7 @@ class TelehooperSubGroup:
 
 		return await self.parent.send_video_note(input, reply_to=reply_to, topic=self.id, silent=silent)
 
-	async def send_message_in(self, text: str, attachments: list[InputMediaAudio | InputMediaDocument | InputMediaPhoto | InputMediaVideo] | None = None, reply_to: int | None = None, silent: bool = False, keyboard: InlineKeyboardMarkup | None = None) -> list[int]:
+	async def send_message_in(self, text: str, attachments: list[InputMediaAudio | InputMediaDocument | InputMediaPhoto | InputMediaVideo] | None = None, reply_to: int | None = None, silent: bool = False, keyboard: InlineKeyboardMarkup | None = None, disable_web_preview: bool = False) -> list[int]:
 		"""
 		Отправляет сообщение в Telegram-группу.
 
@@ -650,9 +652,10 @@ class TelehooperSubGroup:
 		:param reply_to: ID сообщения, на которое нужно ответить.
 		:param silent: Отправить ли сообщение без уведомления.
 		:param keyboard: Клавиатура, которую нужно прикрепить к сообщению.
+		:param disable_web_preview: Отключить ли превью ссылок.
 		"""
 
-		return await self.parent.send_message(text, attachments=attachments, topic=self.id, silent=silent, reply_to=reply_to, keyboard=keyboard)
+		return await self.parent.send_message(text, attachments=attachments, topic=self.id, silent=silent, reply_to=reply_to, keyboard=keyboard, disable_web_preview=disable_web_preview)
 
 	async def start_activity(self, type: Literal["typing", "upload_photo", "record_video", "upload_video", "record_audio", "upload_audio", "upload_document", "find_location", "record_video_note", "upload_video_note"] = "typing") -> None:
 		"""
