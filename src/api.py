@@ -343,7 +343,7 @@ class TelehooperGroup:
 
 		# Сохраняем информацию о группе.
 		self.document["LastActivityAt"] = utils.get_timestamp()
-		self.document["Chats"][thread_id] = get_default_subgroup(
+		self.document["Chats"][str(thread_id)] = get_default_subgroup(
 			topic_id=thread_id,
 			service_name=dialogue.service_name,
 			dialogue_id=dialogue.id,
@@ -353,7 +353,7 @@ class TelehooperGroup:
 		)
 
 		# Сохраняем информацию о диалоге пользователя.
-		user.document["Connections"]["VK"]["OwnedGroups"][dialogue.id] = {
+		user.document["Connections"]["VK"]["OwnedGroups"][str(dialogue.id)] = {
 			"ID": dialogue.id,
 			"Name": dialogue.name,
 			"IsMultiuser": dialogue.is_multiuser,
