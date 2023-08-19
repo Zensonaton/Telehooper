@@ -115,7 +115,7 @@ def encrypt_with_env_key(input: str) -> str:
 		return input
 
 	# Ключ шифрования есть, тогда шифруем:
-	return Fernet(config.token_encryption_key.get_secret_value() + os.environ.get("token_encryption_key2", "")).encrypt(input.encode()).decode()
+	return encrypt_with_key(input, config.token_encryption_key.get_secret_value() + os.environ.get("token_encryption_key2", ""))
 
 def decrypt_with_env_key(input: str) -> str:
 	"""
@@ -129,7 +129,7 @@ def decrypt_with_env_key(input: str) -> str:
 		return input
 
 	# Ключ шифрования есть, тогда расшифровываем:
-	return Fernet(config.token_encryption_key.get_secret_value() + os.environ.get("token_encryption_key2", "")).decrypt(input.encode()).decode()
+	return decrypt_with_key(input, config.token_encryption_key.get_secret_value() + os.environ.get("token_encryption_key2", ""))
 
 def encrypt_with_key(input: str, key: str) -> str:
 	"""
@@ -142,11 +142,7 @@ def encrypt_with_key(input: str, key: str) -> str:
 	hlib = hashlib.md5()
 	hlib.update(key.encode())
 
-	return Fernet(
-		base64.urlsafe_b64encode(hlib.hexdigest().encode())
-	).encrypt(
-		input.encode()
-	).decode()
+	return Fernet(base64.urlsafe_b64encode(hlib.hexdigest().encode())).encrypt(input.encode()).decode()
 
 def decrypt_with_key(input: str, key: str) -> str:
 	"""
@@ -159,11 +155,7 @@ def decrypt_with_key(input: str, key: str) -> str:
 	hlib = hashlib.md5()
 	hlib.update(key.encode())
 
-	return Fernet(
-		base64.urlsafe_b64encode(hlib.hexdigest().encode())
-	).decrypt(
-		input.encode()
-	).decode()
+	return Fernet(base64.urlsafe_b64encode(hlib.hexdigest().encode())).decrypt(input.encode()).decode()
 
 def md5_hash(input: str) -> str:
 	"""
