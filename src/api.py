@@ -283,7 +283,7 @@ class TelehooperGroup:
 			try:
 
 				title = dialogue.name
-				if config.debug and user.get_setting("Debug.DebugTitleForDialogues"):
+				if config.debug and await user.get_setting("Debug.DebugTitleForDialogues"):
 					title = f"[DEBUG] {title}"
 
 				await self.chat.set_title(title)
