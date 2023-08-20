@@ -152,6 +152,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 			message_url = create_message_link(event.peer_id, event.message_id, use_mobile=use_mobile_vk)
 			ignore_outbox_debug = config.debug and await self.user.get_setting("Debug.SentViaBotInform")
 			is_outbox = event.flags.outbox
+			is_inbox = not is_outbox
 			is_group = event.peer_id < 0
 			is_convo = event.peer_id > 2e9
 			is_user = not is_group and not is_convo
@@ -508,30 +509,27 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 							raise TypeError(f"Неизвестный тип вложения \"{attachment_type}\"")
 
 			# Подготавливаем текст сообщения.
-			new_message_text = ""
+			new_message_text = "["
 
-			if is_outbox:
-				new_message_text = "["
+			if from_self:
+				new_message_text += "<b>Вы</b>"
+			else:
+				assert event.from_id, "from_id не был получен, хотя должен присутствовать"
 
-				if from_self:
-					new_message_text += "<b>Вы</b>"
-				else:
-					assert event.from_id, "from_id не был получен, хотя должен присутствовать"
+				# Получаем информацию о пользователе, который отправил сообщение.
+				sent_user_info = await self.get_user_info(event.from_id)
 
-					# Получаем информацию о пользователе, который отправил сообщение.
-					sent_user_info = await self.get_user_info(event.from_id)
+				new_message_text += f"<b>{utils.compact_name(sent_user_info.name) if use_compact_names else sent_user_info.name}</b>"
 
-					new_message_text += f"<b>{utils.compact_name(sent_user_info.name) if use_compact_names else sent_user_info.name}</b>"
+			if ignore_outbox_debug and sent_via_bot:
+				new_message_text += " <i>debug-пересылка</i>"
 
-				if ignore_outbox_debug and sent_via_bot:
-					new_message_text += " <i>debug-пересылка</i>"
+			new_message_text += "]"
 
-				new_message_text += "]"
+			if event.text:
+				new_message_text += ": "
 
-				if event.text:
-					new_message_text += ": "
-
-			new_message_text += utils.telegram_safe_str(event.text)
+			new_message_text += utils.telegram_safe_str(new_message_text)
 
 			if attachment_items:
 				new_message_text += "\n\n————————\n"
