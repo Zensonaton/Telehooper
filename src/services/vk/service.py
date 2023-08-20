@@ -631,7 +631,10 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 			return
 
 		# Редактируем сообщение.
-		await subgroup.edit_message(f"{event.new_text}   <i>(ред.)</i>", telegram_message.telegram_message_ids[0])
+		try:
+			await subgroup.edit_message(f"{event.new_text}   <i>(ред.)</i>", telegram_message.telegram_message_ids[0])
+		except:
+			pass
 
 		# TODO: При редактировании сообщения теряются префиксы и суфиксы от Telehooper.
 
