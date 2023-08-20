@@ -159,7 +159,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 			from_self = (not is_convo and is_outbox) or (is_convo and event.from_id and event.from_id == self.service_user_id)
 
 			# Проверяем, стоит ли боту обрабатывать исходящие сообщения.
-			if is_outbox and not (await self.user.get_setting("Services.VK.ViaServiceMessages") or ignore_outbox_debug):
+			if is_outbox and not (ignore_outbox_debug or await self.user.get_setting("Services.VK.ViaServiceMessages")):
 				return
 
 			# Получаем информацию о отправленном сообщении.
@@ -508,39 +508,44 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 						else:
 							raise TypeError(f"Неизвестный тип вложения \"{attachment_type}\"")
 
-			# Подготавливаем текст сообщения.
-			new_message_text = "["
+			# Подготавливаем текст сообщения, который будет отправлен.
+			full_message_text = ""
+			msg_prefix = ""
+			msg_suffix = ""
 
-			if from_self:
-				new_message_text += "<b>Вы</b>"
-			else:
-				assert event.from_id, "from_id не был получен, хотя должен присутствовать"
+			if from_self or is_convo:
+				msg_prefix = "["
 
-				# Получаем информацию о пользователе, который отправил сообщение.
-				sent_user_info = await self.get_user_info(event.from_id)
+				if from_self:
+					msg_prefix += "<b>Вы</b>"
 
-				new_message_text += f"<b>{utils.compact_name(sent_user_info.name) if use_compact_names else sent_user_info.name}</b>"
+					if sent_via_bot and ignore_outbox_debug:
+						msg_prefix += " <i>debug-пересылка</i>"
+				elif is_convo:
+					assert event.from_id, "from_id не был получен, хотя должен присутствовать"
 
-			if ignore_outbox_debug and sent_via_bot:
-				new_message_text += " <i>debug-пересылка</i>"
+					# Получаем информацию о пользователе, который отправил сообщение.
+					sent_user_info = await self.get_user_info(event.from_id)
 
-			new_message_text += "]"
+					msg_prefix += f"<b>{utils.compact_name(sent_user_info.name) if use_compact_names else sent_user_info.name}</b>"
 
-			if event.text:
-				new_message_text += ": "
+				msg_prefix += "]"
 
-			new_message_text += utils.telegram_safe_str(event.text)
+				if event.text:
+					msg_prefix += ": "
 
 			if attachment_items:
-				new_message_text += "\n\n————————\n"
+				msg_suffix += "\n\n————————\n"
 
-				new_message_text += "  |  ".join(attachment_items) + "."
+				msg_suffix += "  |  ".join(attachment_items) + "."
+
+			full_message_text = msg_prefix + utils.telegram_safe_str(event.text) + msg_suffix
 
 			# Отправляем готовое сообщение, и сохраняем его ID в БД бота.
 			async def _send_and_save() -> None:
 				# Высылаем сообщение.
 				msg = await subgroup.send_message_in(
-					new_message_text,
+					full_message_text,
 					attachments=attachment_media,
 					silent=is_outbox,
 					reply_to=reply_to,
