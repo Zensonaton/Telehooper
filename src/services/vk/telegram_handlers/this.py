@@ -103,7 +103,7 @@ async def this_vk_posts_inline_handler(query: CallbackQuery, msg: Message) -> No
 		query=query
 	)
 
-@router.callback_query(Text(startswith="/this vk messages separated"), F.message.as_("msg"), F.from_user.as_("user"), F.data.as_("query"))
+@router.callback_query(Text(startswith="/this vk messages separated"), F.message.as_("msg"), F.from_user.as_("user"), F.data.as_("queryStr"))
 async def this_vk_messages_separated_inline_handler(query: CallbackQuery, msg: Message, user: User, queryStr: str) -> None:
 	"""
 	Inline Callback Handler для команды `/this`.
@@ -200,7 +200,7 @@ async def this_vk_messages_separated_inline_handler(query: CallbackQuery, msg: M
 		query=query
 	)
 
-@router.callback_query(Text(startswith="/this vk convert"), F.message.as_("msg"), F.from_user.as_("user"), F.data.as_("query"))
+@router.callback_query(Text(startswith="/this vk convert"), F.message.as_("msg"), F.from_user.as_("user"), F.data.as_("queryStr"))
 async def this_vk_convert_inline_handler(query: CallbackQuery, msg: Message, user: User, queryStr: str) -> None:
 	"""
 	Inline Callback Handler для команды `/this`.
