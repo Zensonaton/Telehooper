@@ -13,11 +13,12 @@ from aiogram.filters.command import CommandPatternType
 from aiogram.types import Audio, BufferedInputFile, Chat
 from aiogram.types import Document as TelegramDocument
 from aiogram.types import (ForceReply, InlineKeyboardMarkup, InputFile,
-                           InputMediaAudio, InputMediaDocument,
-                           InputMediaPhoto, InputMediaVideo, Message,
-                           PhotoSize, ReplyKeyboardMarkup, ReplyKeyboardRemove,
-                           Sticker, User, Video, VideoNote, Voice)
+						   InputMediaAudio, InputMediaDocument,
+						   InputMediaPhoto, InputMediaVideo, Message,
+						   PhotoSize, ReplyKeyboardMarkup, ReplyKeyboardRemove,
+						   Sticker, User, Video, VideoNote, Voice)
 from magic_filter import MagicFilter
+from pyrate_limiter import BucketFullException, Limiter, RequestRate
 
 import utils
 from config import config
@@ -234,6 +235,9 @@ class TelehooperGroup:
 	bot: Bot
 	"""Объект бота в Telegram."""
 
+	limiter: Limiter
+	"""Лимитер для этой группы."""
+
 	def __init__(self, creator: TelehooperUser, document: Document, chat: Chat, bot: Bot) -> None:
 		"""
 		Инициализирует объект группы.
@@ -257,6 +261,32 @@ class TelehooperGroup:
 		self.adminRights = document["AdminRights"]
 		self.chats = document["Chats"]
 		self.services = document["Services"]
+
+		# 1 сообщение в секунду,
+		# 20 сообщений в минуту.
+		# TODO: Хранить информацию о лимитах в CouchDB.
+		self.limiter = Limiter(RequestRate(1, 1), RequestRate(20, 60))
+
+	async def try_acquire(self, key: str, max_delay: int | float | None = None) -> bool:
+		"""
+		Пытается получить место в очереди. Если место не было получено, то бот будет спать до тех пор, пока не получит место. Возвращает `True`, если место было получено, иначе `False`, если места вообще нет.
+
+		:param key: Ключ, по которому нужно получить место в очереди.
+		"""
+
+		while True:
+			try:
+				self.limiter.try_acquire(key)
+			except BucketFullException as err:
+				delay_time = float(err.meta_info["remaining_time"])
+
+				exceeded_max_delay = max_delay and delay_time > max_delay
+				if exceeded_max_delay:
+					return False
+
+				await asyncio.sleep(delay_time)
+			else:
+				return True
 
 	async def convert_to_dialogue_group(self, user: TelehooperUser, dialogue: ServiceDialogue, pinned_message: Message, serviceAPI: BaseTelehooperServiceAPI) -> None:
 		"""
@@ -365,7 +395,7 @@ class TelehooperGroup:
 		await user.document.save()
 		await self.document.save()
 
-	async def send_sticker(self, sticker: BufferedInputFile | InputFile | str, reply_to: int | None = None, topic: int = 0, silent: bool = False) -> list[Message]:
+	async def send_sticker(self, sticker: BufferedInputFile | InputFile | str, reply_to: int | None = None, topic: int = 0, silent: bool = False, bypass_queue: bool = False) -> list[Message] | None:
 		"""
 		Отправляет стикер в Telegram-группу.
 
@@ -373,7 +403,11 @@ class TelehooperGroup:
 		:param reply_to: ID сообщения, на которое нужно ответить.
 		:param topic: ID диалога в сервисе, в который нужно отправить сообщение. Если не указано, то сообщение будет отправлено в главный диалог группы.
 		:param silent: Отправить ли сообщение без уведомления.
+		:param bypass_queue: Отправить ли сообщение без учёта лимитов.
 		"""
+
+		if not bypass_queue and not await self.try_acquire("message"):
+			return None
 
 		return [await self.bot.send_sticker(
 			chat_id=self.chat.id,
@@ -384,7 +418,7 @@ class TelehooperGroup:
 			allow_sending_without_reply=True
 		)]
 
-	async def send_geo(self, latitude: float, longitude: float, reply_to: int | None = None, topic: int = 0, silent: bool = False) -> list[Message]:
+	async def send_geo(self, latitude: float, longitude: float, reply_to: int | None = None, topic: int = 0, silent: bool = False, bypass_queue: bool = False) -> list[Message] | None:
 		"""
 		Отправляет геолокацию в Telegram-группу.
 
@@ -393,7 +427,11 @@ class TelehooperGroup:
 		:param reply_to: ID сообщения, на которое нужно ответить.
 		:param topic: ID диалога в сервисе, в который нужно отправить сообщение. Если не указано, то сообщение будет отправлено в главный диалог группы.
 		:param silent: Отправить ли сообщение без уведомления.
+		:param bypass_queue: Отправить ли сообщение без учёта лимитов.
 		"""
+
+		if not bypass_queue and not await self.try_acquire("message"):
+			return None
 
 		return [await self.bot.send_location(
 			chat_id=self.chat.id,
@@ -405,7 +443,7 @@ class TelehooperGroup:
 			allow_sending_without_reply=True
 		)]
 
-	async def send_video_note(self, video_note: BufferedInputFile | InputFile | str, reply_to: int | None = None, topic: int = 0, silent: bool = False) -> list[Message]:
+	async def send_video_note(self, video_note: BufferedInputFile | InputFile | str, reply_to: int | None = None, topic: int = 0, silent: bool = False, bypass_queue: bool = False) -> list[Message] | None:
 		"""
 		Отправляет видео-сообщение (кружочек) в Telegram-группу.
 
@@ -413,7 +451,11 @@ class TelehooperGroup:
 		:param reply_to: ID сообщения, на которое нужно ответить.
 		:param topic: ID диалога в сервисе, в который нужно отправить сообщение. Если не указано, то сообщение будет отправлено в главный диалог группы.
 		:param silent: Отправить ли сообщение без уведомления.
+		:param bypass_queue: Отправить ли сообщение без учёта лимитов.
 		"""
+
+		if not bypass_queue and not await self.try_acquire("message"):
+			return None
 
 		return [await self.bot.send_video_note(
 			chat_id=self.chat.id,
@@ -424,7 +466,7 @@ class TelehooperGroup:
 			allow_sending_without_reply=True
 		)]
 
-	async def send_message(self, text: str, attachments: list[InputMediaAudio | InputMediaDocument | InputMediaPhoto | InputMediaVideo] | None = None, reply_to: int | None = None, topic: int = 0, silent: bool = False, keyboard: InlineKeyboardMarkup | None = None, disable_web_preview: bool = False) -> list[int]:
+	async def send_message(self, text: str, attachments: list[InputMediaAudio | InputMediaDocument | InputMediaPhoto | InputMediaVideo] | None = None, reply_to: int | None = None, topic: int = 0, silent: bool = False, keyboard: InlineKeyboardMarkup | None = None, disable_web_preview: bool = False, bypass_queue: bool = False) -> list[int] | None:
 		"""
 		Отправляет сообщение в группу. Возвращает ID отправленного(-ых) сообщений.
 
@@ -435,7 +477,11 @@ class TelehooperGroup:
 		:param silent: Отправить ли сообщение без уведомления.
 		:param keyboard: Клавиатура, которую нужно прикрепить к сообщению.
 		:param disable_web_preview: Отключить ли превью ссылок в сообщении.
+		:param bypass_queue: Отправить ли сообщение без учёта лимитов.
 		"""
+
+		if not bypass_queue and not await self.try_acquire("message"):
+			return None
 
 		if not attachments:
 			attachments = []
@@ -614,18 +660,19 @@ class TelehooperSubGroup:
 		self.parent = parent
 		self.service_chat_id = service_chat_id
 
-	async def send_sticker(self, sticker: BufferedInputFile | InputFile | str, reply_to: int | None = None, silent: bool = False) -> list[Message]:
+	async def send_sticker(self, sticker: BufferedInputFile | InputFile | str, reply_to: int | None = None, silent: bool = False, bypass_queue: bool = False) -> list[Message] | None:
 		"""
 		Отправляет стикер в Telegram-группу.
 
 		:param sticker: Стикер.
 		:param reply_to: ID сообщения, на которое нужно ответить.
 		:param silent: Отправить ли сообщение без уведомления.
+		:param bypass_queue: Отправить ли сообщение без учёта лимитов.
 		"""
 
-		return await self.parent.send_sticker(sticker, reply_to=reply_to, topic=self.id, silent=silent)
+		return await self.parent.send_sticker(sticker, reply_to=reply_to, topic=self.id, silent=silent, bypass_queue=bypass_queue)
 
-	async def send_geo(self, latitude: float, longitude: float, reply_to: int | None = None, silent: bool = False) -> list[Message]:
+	async def send_geo(self, latitude: float, longitude: float, reply_to: int | None = None, silent: bool = False, bypass_queue: bool = False) -> list[Message] | None:
 		"""
 		Отправляет геолокацию в Telegram-группу.
 
@@ -633,22 +680,24 @@ class TelehooperSubGroup:
 		:param longitude: Долгота.
 		:param reply_to: ID сообщения, на которое нужно ответить.
 		:param silent: Отправить ли сообщение без уведомления.
+		:param bypass_queue: Отправить ли сообщение без учёта лимитов.
 		"""
 
-		return await self.parent.send_geo(latitude, longitude, reply_to=reply_to, topic=self.id, silent=silent)
+		return await self.parent.send_geo(latitude, longitude, reply_to=reply_to, topic=self.id, silent=silent, bypass_queue=bypass_queue)
 
-	async def send_video_note(self, input: BufferedInputFile | InputFile | str, reply_to: int | None = None, silent: bool = False) -> list[Message]:
+	async def send_video_note(self, input: BufferedInputFile | InputFile | str, reply_to: int | None = None, silent: bool = False, bypass_queue: bool = False) -> list[Message] | None:
 		"""
 		Отправляет видео-сообщение (кружочек) в Telegram-группу.
 
 		:param video_note: Видео-сообщение.
 		:param reply_to: ID сообщения, на которое нужно ответить.
 		:param silent: Отправить ли сообщение без уведомления.
+		:param bypass_queue: Отправить ли сообщение без учёта лимитов.
 		"""
 
-		return await self.parent.send_video_note(input, reply_to=reply_to, topic=self.id, silent=silent)
+		return await self.parent.send_video_note(input, reply_to=reply_to, topic=self.id, silent=silent, bypass_queue=bypass_queue)
 
-	async def send_message_in(self, text: str, attachments: list[InputMediaAudio | InputMediaDocument | InputMediaPhoto | InputMediaVideo] | None = None, reply_to: int | None = None, silent: bool = False, keyboard: InlineKeyboardMarkup | None = None, disable_web_preview: bool = False) -> list[int]:
+	async def send_message_in(self, text: str, attachments: list[InputMediaAudio | InputMediaDocument | InputMediaPhoto | InputMediaVideo] | None = None, reply_to: int | None = None, silent: bool = False, keyboard: InlineKeyboardMarkup | None = None, disable_web_preview: bool = False, bypass_queue: bool = False) -> list[int] | None:
 		"""
 		Отправляет сообщение в Telegram-группу.
 
@@ -658,9 +707,10 @@ class TelehooperSubGroup:
 		:param silent: Отправить ли сообщение без уведомления.
 		:param keyboard: Клавиатура, которую нужно прикрепить к сообщению.
 		:param disable_web_preview: Отключить ли превью ссылок.
+		:param bypass_queue: Отправить ли сообщение без учёта лимитов.
 		"""
 
-		return await self.parent.send_message(text, attachments=attachments, topic=self.id, silent=silent, reply_to=reply_to, keyboard=keyboard, disable_web_preview=disable_web_preview)
+		return await self.parent.send_message(text, attachments=attachments, topic=self.id, silent=silent, reply_to=reply_to, keyboard=keyboard, disable_web_preview=disable_web_preview, bypass_queue=bypass_queue)
 
 	async def start_activity(self, type: Literal["typing", "upload_photo", "record_video", "upload_video", "record_audio", "upload_audio", "upload_document", "find_location", "record_video_note", "upload_video_note"] = "typing") -> None:
 		"""
@@ -722,10 +772,7 @@ class TelehooperAPI:
 		:param user: Объект пользователя в Telegram.
 		"""
 
-		return TelehooperUser(
-			await db_get_user(user),
-			user
-		)
+		return TelehooperUser(await db_get_user(user), user)
 
 	@staticmethod
 	async def get_user_by_id(user_id: int) -> TelehooperUser | None:
@@ -741,10 +788,7 @@ class TelehooperAPI:
 		try:
 			user = (await (bot).get_chat_member(user_id, user_id)).user
 
-			return TelehooperUser(
-				await (await get_db())[f"user_{user_id}"],
-				user
-			)
+			return TelehooperUser(await (await get_db())[f"user_{user_id}"], user)
 		except:
 			return None
 

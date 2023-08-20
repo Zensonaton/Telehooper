@@ -268,14 +268,20 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 					attachment = message_extended["geo"]
 
 					# Высылаем сообщение.
+					msg = await subgroup.send_geo(
+						latitude=attachment["coordinates"]["latitude"],
+						longitude=attachment["coordinates"]["longitude"],
+						silent=is_outbox,
+						reply_to=reply_to
+					)
+
+					# Если произошёл rate limit, то msg будет None.
+					if not msg:
+						return
+
 					await TelehooperAPI.save_message(
 						"VK",
-						(await subgroup.send_geo(
-							latitude=attachment["coordinates"]["latitude"],
-							longitude=attachment["coordinates"]["longitude"],
-							silent=is_outbox,
-							reply_to=reply_to
-						))[0].message_id,
+						msg[0].message_id,
 						event.message_id,
 						False
 					)
@@ -320,21 +326,21 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 										async with client.get(video[quality]) as response:
 											assert response.status == 200, f"Не удалось загрузить видео с качеством {quality}"
 
-											audio_bytes = b""
+											video_bytes = b""
 
 											while True:
 												chunk = await response.content.read(1024)
 												if not chunk:
 													break
 
-												audio_bytes += chunk
+												video_bytes += chunk
 
 												# Пытаемся найти самое большое видео, которое не превышает 50 МБ.
-												if len(audio_bytes) > 50 * 1024 * 1024:
+												if len(video_bytes) > 50 * 1024 * 1024:
 													if is_last:
 														raise Exception("Размер видео слишком большой")
 
-													logger.debug(f"Файл размером {quality} оказался слишком большой ({len(audio_bytes)} байт).")
+													logger.debug(f"Файл размером {quality} оказался слишком большой ({len(video_bytes)} байт).")
 
 													continue
 
@@ -342,13 +348,14 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 									if is_video_note:
 										# Отправляем видеосообщение.
 										msg = await subgroup.send_video_note(
-											input=BufferedInputFile(
-												audio_bytes,
-												filename=f"VK video note {attachment['id']}.mp4"
-											),
+											input=BufferedInputFile(video_bytes, filename=f"VK video note {attachment['id']}.mp4"),
 											silent=is_outbox,
 											reply_to=reply_to
 										)
+
+										# Если произошёл rate limit, то msg будет None.
+										if not msg:
+											return
 
 										# Сохраняем в память.
 										await TelehooperAPI.save_message("VK", msg[0].message_id, event.message_id, False)
@@ -358,7 +365,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 										return
 
 									# Прикрепляем видео.
-									attachment_media.append(InputMediaVideo(type="video", media=BufferedInputFile(audio_bytes, filename=f"{attachment['title'].strip()} {quality[4:]}p.mp4")))
+									attachment_media.append(InputMediaVideo(type="video", media=BufferedInputFile(video_bytes, filename=f"{attachment['title'].strip()} {quality[4:]}p.mp4")))
 
 									break
 								else:
@@ -408,10 +415,14 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 								reply_to=reply_to
 							)
 
-							# Сохраняем в память.
-							await TelehooperAPI.save_message("VK", msg[0].message_id, event.message_id, False)
+							# Если произошёл rate limit, то msg будет None.
+							if not msg:
+								return
 
 							assert msg[0].sticker, "Стикер не был отправлен"
+
+							# Сохраняем в память.
+							await TelehooperAPI.save_message("VK", msg[0].message_id, event.message_id, False)
 
 							# Кэшируем стикер, если настройка у пользователя это позволяет.
 							if await self.user.get_setting("Security.MediaCache"):
@@ -446,24 +457,24 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 									async with client.get(attachment["url"]) as response:
 										assert response.status == 200, f"Не удалось загрузить аудио с ID {attachment['id']}"
 
-										audio_bytes = b""
+										video_bytes = b""
 
 										while True:
 											chunk = await response.content.read(1024)
 											if not chunk:
 												break
 
-											audio_bytes += chunk
+											video_bytes += chunk
 
-											if len(audio_bytes) > 50 * 1024 * 1024:
-												logger.debug(f"Файл оказался слишком большой ({len(audio_bytes)} байт).")
+											if len(video_bytes) > 50 * 1024 * 1024:
+												logger.debug(f"Файл оказался слишком большой ({len(video_bytes)} байт).")
 
 												raise Exception("Размер файла слишком большой")
 
 								attachment_media.append(InputMediaAudio(
 									type="audio",
 									media=BufferedInputFile(
-										file=audio_bytes,
+										file=video_bytes,
 										filename=f"{attachment['artist']} - {attachment['title']}.mp3"
 									),
 									title=attachment["title"],
@@ -529,18 +540,20 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 			# Отправляем готовое сообщение, и сохраняем его ID в БД бота.
 			async def _send_and_save() -> None:
-				await TelehooperAPI.save_message(
-					"VK",
-					await subgroup.send_message_in(
-						new_message_text,
-						attachments=attachment_media,
-						silent=is_outbox,
-						reply_to=reply_to,
-						keyboard=keyboard
-					),
-					event.message_id,
-					False
+				# Высылаем сообщение.
+				msg = await subgroup.send_message_in(
+					new_message_text,
+					attachments=attachment_media,
+					silent=is_outbox,
+					reply_to=reply_to,
+					keyboard=keyboard
 				)
+
+				# Если произошёл rate limit, то msg будет None.
+				if not msg:
+					return
+
+				await TelehooperAPI.save_message("VK", msg, event.message_id, False)
 
 			# Если у нас были вложения, то мы должны отправить сообщение с ними.
 			if attachment_media:
