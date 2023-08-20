@@ -14,7 +14,7 @@ from consts import FAQ_INFO, CommandButtons
 
 router = Router()
 
-async def help_command_message(msg: Message, edit_message: bool = False, selected: int = 0) -> None:
+async def help_command_message(msg: Message, edit_message: bool = False, selected: int = 0, callback_query: CallbackQuery | None = None) -> None:
 	"""
 	Сообщение для команды `/help`.
 	"""
@@ -39,7 +39,8 @@ async def help_command_message(msg: Message, edit_message: bool = False, selecte
 		chat_id=msg.chat.id,
 		reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard_btns),
 		disable_web_page_preview=True,
-		message_to_edit=msg if edit_message else None
+		message_to_edit=msg if edit_message else None,
+		query=callback_query
 	)
 
 @router.message(CommandWithDeepLink("help", "info", "faq", "h"))
@@ -68,4 +69,4 @@ async def help_page_inline_handler(query: CallbackQuery) -> None:
 
 	page = utils.clamp(int((query.data or "").split()[1]), 0, len(FAQ_INFO) - 1)
 
-	await help_command_message(cast(Message, query.message), edit_message=True, selected=int(page))
+	await help_command_message(cast(Message, query.message), edit_message=True, selected=int(page), callback_query=query)

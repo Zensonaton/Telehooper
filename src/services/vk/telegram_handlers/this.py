@@ -41,7 +41,8 @@ async def this_vk_inline_handler(query: CallbackQuery, msg: Message) -> None:
 		"<b>❓ Что Вы хотите получать из ВКонтакте</b>?",
 		message_to_edit=msg,
 		chat_id=msg.chat.id,
-		reply_markup=keyboard
+		reply_markup=keyboard,
+		query=query
 	)
 
 @router.callback_query(Text("/this vk messages"), F.message.as_("msg"))
@@ -70,7 +71,8 @@ async def this_vk_messages_inline_handler(query: CallbackQuery, msg: Message) ->
 		"ℹ️ Вы не создали «общую» группу в Telegram, рекомендуется выбрать «Telegram-группа для всех чатов». Без такой группы Telehooper не сможет отправлять сообщения от новых людей.", # TODO: Проверка на это.
 		message_to_edit=msg,
 		chat_id=msg.chat.id,
-		reply_markup=keyboard
+		reply_markup=keyboard,
+		query=query
 	)
 
 @router.callback_query(Text("/this vk posts"), F.message.as_("msg"))
@@ -97,11 +99,12 @@ async def this_vk_posts_inline_handler(query: CallbackQuery, msg: Message) -> No
 		"<b>❓ Как именно Вы хотите получать посты или новости</b>?",
 		message_to_edit=msg,
 		chat_id=msg.chat.id,
-		reply_markup=keyboard
+		reply_markup=keyboard,
+		query=query
 	)
 
 @router.callback_query(Text(startswith="/this vk messages separated"), F.message.as_("msg"), F.from_user.as_("user"), F.data.as_("query"))
-async def this_vk_messages_separated_inline_handler(_: CallbackQuery, msg: Message, user: User, query: str) -> None:
+async def this_vk_messages_separated_inline_handler(query: CallbackQuery, msg: Message, user: User, queryStr: str) -> None:
 	"""
 	Inline Callback Handler для команды `/this`.
 
@@ -115,7 +118,7 @@ async def this_vk_messages_separated_inline_handler(_: CallbackQuery, msg: Messa
 
 	assert vkServiceAPI is not None, "Сервис ВКонтакте не существует"
 
-	is_forced_update = query.endswith("forced")
+	is_forced_update = queryStr.endswith("forced")
 	will_load_chats = is_forced_update or not vkServiceAPI.has_cached_list_of_dialogues()
 
 	if will_load_chats:
@@ -139,7 +142,8 @@ async def this_vk_messages_separated_inline_handler(_: CallbackQuery, msg: Messa
 			"<i>⏳ Пожалуйста, дождитесь получения списка чатов...</i>",
 			message_to_edit=msg,
 			chat_id=msg.chat.id,
-			reply_markup=keyboard
+			reply_markup=keyboard,
+			query=query
 		)
 
 	# Получаем список диалогов, а так же спим что бы бот "работал" 5 секунд,
@@ -157,8 +161,8 @@ async def this_vk_messages_separated_inline_handler(_: CallbackQuery, msg: Messa
 	last_page = dialogues_shown // DIALOGUES_PER_PAGE + 1
 
 	current_page = 1
-	if "page" in (query or ""):
-		current_page = utils.clamp(int(query.split(" ")[-1]), 1, last_page)
+	if "page" in (queryStr or ""):
+		current_page = utils.clamp(int(queryStr.split(" ")[-1]), 1, last_page)
 
 	for dialogue in dialogues[(current_page - 1) * DIALOGUES_PER_PAGE : current_page * DIALOGUES_PER_PAGE]:
 		prefix = "👥" if dialogue.is_multiuser else ""
@@ -192,18 +196,19 @@ async def this_vk_messages_separated_inline_handler(_: CallbackQuery, msg: Messa
 		f"Чатов отображено — {dialogues_shown} штук.\n",
 		message_to_edit=msg,
 		chat_id=msg.chat.id,
-		reply_markup=keyboard
+		reply_markup=keyboard,
+		query=query
 	)
 
 @router.callback_query(Text(startswith="/this vk convert"), F.message.as_("msg"), F.from_user.as_("user"), F.data.as_("query"))
-async def this_vk_convert_inline_handler(_: CallbackQuery, msg: Message, user: User, query: str) -> None:
+async def this_vk_convert_inline_handler(query: CallbackQuery, msg: Message, user: User, queryStr: str) -> None:
 	"""
 	Inline Callback Handler для команды `/this`.
 
 	Вызывается при нажатии выборе диалога/группы в команде `/this` для ВКонтакте.
 	"""
 
-	splitted = query.split()
+	splitted = queryStr.split()
 
 	chat_id = int(splitted[3])
 	is_messages = "messages" in splitted
@@ -234,6 +239,7 @@ async def this_vk_convert_inline_handler(_: CallbackQuery, msg: Message, user: U
 		"<i>⏳ Пожалуйста, подождите, пока Telehooper превращает данную Telegram-группу в похожий диалог из ВКонтакте...</i>",
 		message_to_edit=msg,
 		chat_id=msg.chat.id,
+		query=query
 	)
 
 	# TODO: Проверка на права админа у бота.

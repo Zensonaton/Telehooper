@@ -14,7 +14,7 @@ from services.vk.telegram_handlers.me import router as VKRouter
 router = Router()
 router.include_router(VKRouter)
 
-async def me_command_message(msg: Message, from_user: User, edit_message: bool = False) -> None:
+async def me_command_message(msg: Message, from_user: User, edit_message: bool = False, callback_query: CallbackQuery | None = None) -> None:
 	"""
 	Сообщение для команды `/me`.
 	"""
@@ -60,7 +60,8 @@ async def me_command_message(msg: Message, from_user: User, edit_message: bool =
 		disable_web_page_preview=True,
 		chat_id=msg.chat.id,
 		reply_markup=InlineKeyboardMarkup(inline_keyboard=[keyboard]),
-		message_to_edit=msg if edit_message else None
+		message_to_edit=msg if edit_message else None,
+		query=callback_query
 	)
 
 
@@ -76,11 +77,11 @@ async def me_command_handler(msg: Message) -> None:
 	await me_command_message(msg, msg.from_user)
 
 @router.callback_query(Text("/me"), F.message.as_("msg"), F.from_user.as_("user"))
-async def me_command_inline_handler(_: CallbackQuery, msg: Message, user: User) -> None:
+async def me_command_inline_handler(query: CallbackQuery, msg: Message, user: User) -> None:
 	"""
 	Inline Callback Handler для команды `/me`.
 
 	Вызывается при выходе в меню у команды `/me`.
 	"""
 
-	await me_command_message(msg, user, edit_message=True)
+	await me_command_message(msg, user, edit_message=True, callback_query=query)

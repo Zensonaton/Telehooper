@@ -10,13 +10,13 @@ from aiogram import Bot
 from aiogram.exceptions import TelegramAPIError, TelegramBadRequest
 from aiogram.filters import Command
 from aiogram.filters.command import CommandPatternType
-from aiogram.types import Audio, BufferedInputFile, Chat
+from aiogram.types import Audio, BufferedInputFile, CallbackQuery, Chat
 from aiogram.types import Document as TelegramDocument
 from aiogram.types import (ForceReply, InlineKeyboardMarkup, InputFile,
-						   InputMediaAudio, InputMediaDocument,
-						   InputMediaPhoto, InputMediaVideo, Message,
-						   PhotoSize, ReplyKeyboardMarkup, ReplyKeyboardRemove,
-						   Sticker, User, Video, VideoNote, Voice)
+                           InputMediaAudio, InputMediaDocument,
+                           InputMediaPhoto, InputMediaVideo, Message,
+                           PhotoSize, ReplyKeyboardMarkup, ReplyKeyboardRemove,
+                           Sticker, User, Video, VideoNote, Voice)
 from magic_filter import MagicFilter
 from pyrate_limiter import BucketFullException, Limiter, RequestRate
 
@@ -1060,7 +1060,7 @@ class TelehooperAPI:
 		return None
 
 	@staticmethod
-	async def edit_or_resend_message(text: str, chat_id: int, message_to_edit: Message | int | None, thread_id: int | None = None, reply_markup: InlineKeyboardMarkup | ReplyKeyboardMarkup | ReplyKeyboardRemove | ForceReply | None = None, disable_web_page_preview: bool = False, allow_sending_without_reply: bool = False, bot: Bot | None = None, show_warning_message: bool = True) -> Message | int:
+	async def edit_or_resend_message(text: str, chat_id: int, message_to_edit: Message | int | None, thread_id: int | None = None, reply_markup: InlineKeyboardMarkup | ReplyKeyboardMarkup | ReplyKeyboardRemove | ForceReply | None = None, disable_web_page_preview: bool = False, allow_sending_without_reply: bool = False, bot: Bot | None = None, query: CallbackQuery | None = None) -> Message | int:
 		"""
 		Пытается отредактировать либо отправить сообщение в группу. Возвращает объект сообщения.
 		"""
@@ -1102,6 +1102,9 @@ class TelehooperAPI:
 		except TelegramAPIError as error:
 			if not utils.is_useful_exception(error):
 				return message_id
+
+			if query:
+				await query.answer("Данное сообщение устарело, проверьте новые сообщения бота.", show_alert=True)
 
 			return await _send()
 

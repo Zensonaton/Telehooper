@@ -24,7 +24,7 @@ from config import config
 router = Router()
 
 @router.callback_query(Text("/me vk"), F.message.as_("msg"), F.from_user.as_("user"))
-async def me_vk_inline_handler(_: CallbackQuery, msg: Message, user: User) -> None:
+async def me_vk_inline_handler(query: CallbackQuery, msg: Message, user: User) -> None:
 	"""
 	Inline Callback Handler для команды `/me`.
 
@@ -70,6 +70,7 @@ async def me_vk_inline_handler(_: CallbackQuery, msg: Message, user: User) -> No
 					]
 				]
 			),
+			query=query
 		)
 
 		return
@@ -97,7 +98,8 @@ async def me_vk_inline_handler(_: CallbackQuery, msg: Message, user: User) -> No
 				InlineKeyboardButton(text="🔙 Назад", callback_data="/me"),
 				InlineKeyboardButton(text="🔗 Авторизоваться", url=VK_OAUTH_URL)
 			]
-		])
+		]),
+		query=query
 	)
 
 @router.message(Text(startswith="https://oauth.vk.com/blank.html#access_token="), F.from_user.as_("user"))
@@ -330,7 +332,8 @@ async def me_vk_multitokens_inline_handler(query: CallbackQuery, msg: Message) -
 		message_to_edit=msg,
 		chat_id=msg.chat.id,
 		reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 Назад", callback_data="/me vk"), InlineKeyboardButton(text="🔝 В начало", callback_data="/me")]]),
-		disable_web_page_preview=True
+		disable_web_page_preview=True,
+		query=query
 	)
 
 @router.callback_query(Text("/me vk disconnect"), F.message.as_("msg"), F.from_user.as_("user"))
@@ -356,7 +359,8 @@ async def me_vk_disconnect_inline_handler(query: CallbackQuery, msg: Message, us
 				[InlineKeyboardButton(text="🔙 Назад", callback_data="/me vk"), InlineKeyboardButton(text="🔝 В начало", callback_data="/me")],
 				[InlineKeyboardButton(text="⛔️ Да, отключить", callback_data="/me vk disconnect confirm")]
 			]
-		)
+		),
+		query=query
 	)
 
 @router.callback_query(Text("/me vk disconnect confirm"), F.message.as_("msg"), F.from_user.as_("user"))
@@ -382,5 +386,6 @@ async def me_vk_disconnect_confirm_inline_handler(query: CallbackQuery, msg: Mes
 		"ℹ️ Вы можете снова подключиться, введя команду /connect.\n",
 		message_to_edit=msg,
 		chat_id=msg.chat.id,
-		reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔝 В начало", callback_data="/me")]])
+		reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔝 В начало", callback_data="/me")]]),
+		query=query
 	)

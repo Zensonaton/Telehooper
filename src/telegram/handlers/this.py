@@ -16,7 +16,7 @@ from services.vk.telegram_handlers.this import router as VKRouter
 router = Router()
 router.include_router(VKRouter)
 
-async def group_convert_message(chat_id: int, user: User, message_to_edit: Message | int | None = None, called_from_command: bool = True) -> None:
+async def group_convert_message(chat_id: int, user: User, message_to_edit: Message | int | None = None, called_from_command: bool = True, callback_query: CallbackQuery | None = None) -> None:
 	"""
 	Сообщение у команды /this, либо же при выдаче прав администратора боту после его добавления в группу.
 	"""
@@ -73,7 +73,8 @@ async def group_convert_message(chat_id: int, user: User, message_to_edit: Messa
 			),
 			chat_id=chat_id,
 			message_to_edit=message_to_edit,
-			reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons)
+			reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons),
+			query=callback_query
 		)
 
 		return
@@ -94,15 +95,11 @@ async def group_convert_message(chat_id: int, user: User, message_to_edit: Messa
 
 		return
 
-	keyboard = InlineKeyboardMarkup(
-		inline_keyboard=[
-			[
-				# TODO: Убедиться, что сервис и вправду подключён.
+	# TODO: Убедиться, что сервис и вправду подключён.
 
-				InlineKeyboardButton(text="ВКонтакте", callback_data="/this vk")
-			]
-		]
-	)
+	keyboard = InlineKeyboardMarkup(inline_keyboard=[[
+		InlineKeyboardButton(text="ВКонтакте", callback_data="/this vk")
+	]])
 
 	use_mobile_vk = await telehooper_user.get_setting("Services.VK.MobileVKURLs")
 
@@ -121,7 +118,8 @@ async def group_convert_message(chat_id: int, user: User, message_to_edit: Messa
 		chat_id=chat_id,
 		message_to_edit=message_to_edit,
 		disable_web_page_preview=True,
-		reply_markup=keyboard
+		reply_markup=keyboard,
+		query=callback_query
 	)
 
 @router.message(Command("this"))
@@ -151,4 +149,4 @@ async def this_inline_handler(query: CallbackQuery, msg: Message, user: User) ->
 	Вызывается при нажатии на нажатии на кнопку "назад", показывая содержимое команды `/this`.
 	"""
 
-	await group_convert_message(msg.chat.id, user, message_to_edit=query.message, called_from_command=False)
+	await group_convert_message(msg.chat.id, user, message_to_edit=query.message, called_from_command=False, callback_query=query)

@@ -175,7 +175,7 @@ async def on_other_member_add_handler(event: ChatMemberUpdated, bot: Bot) -> Non
 	await group.save()
 
 @router.callback_query(Text("/this showAdminTips"), F.message.as_("msg"))
-async def show_platform_admin_steps_inline_handler(_: CallbackQuery, msg: Message) -> None:
+async def show_platform_admin_steps_inline_handler(query: CallbackQuery, msg: Message) -> None:
 	"""
 	Handler, вызываемый если пользователь в welcome-сообщении нажал на кнопку с инструкцией по выдаче прав администратора.
 	"""
@@ -205,6 +205,7 @@ async def show_platform_admin_steps_inline_handler(_: CallbackQuery, msg: Messag
 		),
 		message_to_edit=msg,
 		chat_id=msg.chat.id,
+		query=query
 	)
 
 @router.my_chat_member(ChatMemberUpdatedFilter(member_status_changed=(RESTRICTED | MEMBER) >> (ADMINISTRATOR | CREATOR)))
