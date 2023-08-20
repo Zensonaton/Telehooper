@@ -237,7 +237,7 @@ class VKAPILongpoll:
 	version: int
 	"""Версия Longpoll."""
 
-	def __init__(self, api: VKAPI, wait: int = 50, mode: int = 682, version: int = 3, user_id: int | None = None):
+	def __init__(self, api: VKAPI, wait: int = 50, mode: int = 234, version: int = 3, user_id: int | None = None):
 		self.api = api
 
 		self.wait = wait

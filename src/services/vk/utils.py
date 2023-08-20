@@ -69,37 +69,44 @@ class VKLongpollMessageFlags:
 
 	_input_flags: int
 	"""Сырое значение флагов сообщения."""
+	_flags_dict: dict[str, bool]
+	"""Словарь с флагами сообщения, их названиями и значениями."""
 
 	def __init__(self, flags: int) -> None:
 		self._input_flags = flags
 
-		def _get_flag(flag_upper_value: int) -> bool:
-			"""
-			Проверяет, установлен ли флаг `flag`.
-			"""
+		self.unread = (flags & 1) != 0
+		self.outbox = (flags & 2) != 0
+		self.replied = (flags & 4) != 0
+		self.important = (flags & 8) != 0
+		self.chat = (flags & 16) != 0
+		self.friends = (flags & 32) != 0
+		self.spam = (flags & 64) != 0
+		self.deleted = (flags & 128) != 0
+		self.fixed = (flags & 256) != 0
+		self.media = (flags & 512) != 0
+		self.hidden = (flags & 65536) != 0
+		self.delete_for_all = (flags & (1 << 6)) != 0
+		self.not_delivered = (flags & (1 << 6)) != 0
 
-			nonlocal flags
+		self._flags_dict = {
+			"unread": self.unread,
+			"outbox": self.outbox,
+			"replied": self.replied,
+			"important": self.important,
+			"chat": self.chat,
+			"friends": self.friends,
+			"spam": self.spam,
+			"deleted": self.deleted,
+			"fixed": self.fixed,
+			"media": self.media,
+			"hidden": self.hidden,
+			"delete_for_all": self.delete_for_all,
+			"not_delivered": self.not_delivered
+		}
 
-			if flags >= flag_upper_value:
-				flags -= flag_upper_value
-
-				return True
-
-			return False
-
-		self.hidden = _get_flag(2 ** 16)
-		self.media = _get_flag(2 ** 9)
-		self.fixed = _get_flag(2 ** 8)
-		self.deleted = _get_flag(2 ** 7)
-		self.spam = _get_flag(2 ** 6)
-		self.delete_for_all = self.spam
-		self.not_delivered = self.spam
-		self.friends = _get_flag(2 ** 5)
-		self.chat = _get_flag(2 ** 4)
-		self.important = _get_flag(2 ** 3)
-		self.replied = _get_flag(2 ** 2)
-		self.outbox = _get_flag(2 ** 1)
-		self.unread = _get_flag(2 ** 0)
+	def __str__(self) -> str:
+		return f"VKLongpollMessageFlags({', '.join([flag for flag, value in self._flags_dict.items() if value])})"
 
 def create_message_link(peer_id: int | str | None, message_id: int | str, use_mobile: bool = False) -> str:
 	"""

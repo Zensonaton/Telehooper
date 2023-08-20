@@ -165,8 +165,8 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 			msg_saved = await subgroup.service.get_message_by_service_id(event.message_id)
 
 			# Проверяем, не было ли отправлено сообщение самим ботом.
-			from_bot = msg_saved and msg_saved.sent_via_bot
-			if from_bot and not ignore_outbox_debug:
+			sent_via_bot = msg_saved and msg_saved.sent_via_bot
+			if sent_via_bot and not ignore_outbox_debug:
 				return
 
 			# Проверяем, не было ли это событие беседы из ВК.
@@ -523,7 +523,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 					new_message_text += f"<b>{utils.compact_name(sent_user_info.name) if use_compact_names else sent_user_info.name}</b>"
 
-				if ignore_outbox_debug and from_bot:
+				if ignore_outbox_debug and sent_via_bot:
 					new_message_text += " <i>debug-пересылка</i>"
 
 				new_message_text += "]"
