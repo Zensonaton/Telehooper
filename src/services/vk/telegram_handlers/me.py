@@ -316,11 +316,6 @@ async def authorize_by_token(user: User, token: SecretStr) -> dict:
 			f"{dot_symbol_space}{utils.get_telegram_logging_info(user, use_url=True)}.\n"
 			"\n"
 			"⚠ Если это были не Вы, то срочно в настройках подключённых приложений (https://vk.com/settings?act=apps) отключите приложение «Kate Mobile», после чего срочно поменяйте пароль от своей страницы ВКонтакте, поскольку произошедшее значит, что кто-то сумел войти в Ваш аккаунт ВКонтакте!\n"
-			"\n"
-			"ℹ️ В этом диалоге можно делать следующее для управления Telehooper'ом; Все команды прописываются без «кавычек»:\n"
-			f"{dot_symbol_space}Проверить, подключён ли Telehooper: «test».\n"
-			f"{dot_symbol_space}Отправить тестовое сообщение в Telegram: «ping».\n"
-			f"{dot_symbol_space}Отключить аккаунт ВКонтакте от Telehooper: «logoff»."
 		)
 	)
 
