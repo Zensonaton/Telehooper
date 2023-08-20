@@ -354,7 +354,7 @@ async def me_vk_disconnect_inline_handler(query: CallbackQuery, msg: Message, us
 		"\n"
 		f"Вы уверены, что хотите отключить страницу «{telehooper_user.connections['VK']['FullName']}» от Telehooper?\n"
 		"\n"
-		"⚠️ Отключив страницу, Telehooper перестанет получать сообщения от ВКонтакте.\n",
+		"⚠️ Отключив страницу, Telehooper перестанет получать сообщения от ВКонтакте. Все подключённые диалоги будут отключены от бота.\n",
 		message_to_edit=msg,
 		chat_id=msg.chat.id,
 		reply_markup=InlineKeyboardMarkup(inline_keyboard=
