@@ -147,7 +147,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 		try:
 			attachment_media: list[InputMediaAudio | InputMediaDocument | InputMediaPhoto | InputMediaVideo] = []
 			attachment_items: list[str] = []
-			use_compact_names =  await self.user.get_setting("Services.VK.CompactNames")
+			use_compact_names = await self.user.get_setting("Services.VK.CompactNames")
 			use_mobile_vk = await self.user.get_setting("Services.VK.MobileVKURLs")
 			message_url = create_message_link(event.peer_id, event.message_id, use_mobile=use_mobile_vk)
 			ignore_outbox_debug = config.debug and await self.user.get_setting("Debug.SentViaBotInform")
@@ -163,6 +163,10 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 				return
 
 			# Получаем информацию о отправленном сообщении.
+			#
+			# Небольшая задержка здесь нужна, потому что бот может получить сообщение раньше, чем оно будет сохранено в БД.
+			# Асинхронность - это весело! 🤡
+			await asyncio.sleep(0.05)
 			msg_saved = await subgroup.service.get_message_by_service_id(event.message_id)
 
 			# Проверяем, не было ли отправлено сообщение самим ботом.
