@@ -252,9 +252,8 @@ async def group_to_supergroup_convert_handler(message: Message):
 	_supergroup_converts.append(message.chat.id)
 	_supergroup_converts.append(message.migrate_to_chat_id)
 
-	try:
-		group_old = await get_group(message.chat)
-	except:
+	group_old = await get_group(message.chat)
+	if not group_old:
 		return
 
 	old_group_data = group_old._data.copy()
