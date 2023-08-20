@@ -529,7 +529,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 			if event.text:
 				new_message_text += ": "
 
-			new_message_text += utils.telegram_safe_str(new_message_text)
+			new_message_text += utils.telegram_safe_str(event.text)
 
 			if attachment_items:
 				new_message_text += "\n\n————————\n"
