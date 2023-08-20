@@ -202,8 +202,12 @@ async def connect_vk_token_handler(msg: Message, user: User, bot: Bot) -> None:
 			"Успешно! Я сумел подключиться к Вашему аккаунту ВКонтакте!\n"
 			f"Я рад с Вами познакомиться, <b>{auth_result['first_name']} {auth_result['last_name']}</b>! 🙃\n"
 			"\n"
-			f"ℹ️ Теперь Вы можете «соединить» диалог или группу из ВКонтакте в Telegram; Для этого Вам нужно создать группу в Telegram и добавить туда этого бота. Для более подробной информации обратитесь к команде <a href=\"{utils.create_command_url('/h 5')}\">/help</a>.\n"
+			f"ℹ️ Не понимаете что нужно делать дальше? Создайте группу в Telegram и добавьте туда этого бота, после чего следуйте инструкциям. Для более подробной информации обратитесь к команде <a href=\"{utils.create_command_url('/h 5')}\">/help</a>."
 		)
+		keyboard = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(
+			text="➕ Добавить в группу",
+			url=f"https://t.me/{utils.get_bot_username()}?startgroup=1"
+		)]])
 
 		if not allow_tokens_storing:
 			_text += (
@@ -218,10 +222,14 @@ async def connect_vk_token_handler(msg: Message, user: User, bot: Bot) -> None:
 		if auth_result["has_photo"]:
 			await msg.answer_photo(
 				photo=auth_result["photo_max"],
-				caption=utils.replace_placeholders(_text)
+				caption=utils.replace_placeholders(_text),
+				reply_markup=keyboard
 			)
 		else:
-			await msg.answer(utils.replace_placeholders(_text))
+			await msg.answer(
+				utils.replace_placeholders(_text),
+				reply_markup=keyboard
+			)
 
 		# Создаём объект сервиса, а так же сохраняем его в память пользователя Telehooper.
 		vkServiceAPI = VKServiceAPI(
