@@ -1,7 +1,13 @@
 # coding: utf-8
 
+import asyncio
+import io
 import random
 import re
+
+from PIL import Image
+
+import utils
 
 
 def extract_access_token_from_url(url: str) -> str:
@@ -121,3 +127,35 @@ def create_message_link(peer_id: int | str | None, message_id: int | str, use_mo
 		raise Exception("Не указан ID диалога")
 
 	return f"https://m.vk.com/mail?act=msg&id={message_id}" if use_mobile else f"https://vk.com/im?sel={peer_id}&msgid={message_id}"
+
+async def prepare_sticker(sticker: bytes) -> bytes:
+	"""
+	Подготавливает стикер для отправки в ВКонтакте. Данный метод изменяет размеры стикера, дабы отправляемое графити не было слишком большим.
+
+	:param sticker: Стикер, который нужно подготовить.
+	"""
+
+	def _inner() -> bytes:
+		"""
+		Внутренняя функция, которая запускается в отдельном потоке.
+		"""
+
+		img = Image.open(io.BytesIO(sticker))
+
+		height = img.height
+		width = img.width
+
+		height_new = int(utils.clamp(height, 32, 128))
+		width_new = int(width / (height / utils.clamp(height, 32, 128)))
+
+		if height == height_new and width == width_new:
+			return sticker
+
+		img = img.resize((width_new, height_new))
+
+		img_bytes = io.BytesIO()
+		img.save(img_bytes, format="PNG")
+
+		return img_bytes.getvalue()
+
+	return await asyncio.to_thread(_inner)

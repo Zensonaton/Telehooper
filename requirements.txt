@@ -9,3 +9,4 @@ aiocouch
 case-insensitive-dictionary
 cachetools
 pyrate-limiter
+Pillow

@@ -274,16 +274,25 @@ class CodeTimer:
 	Небольшая утилита, которая позволяет измерять время выполнения блока кода.
 	"""
 
+	message: str
+	"""Сообщение, которое будет выведено в лог после выполнения блока кода."""
+
+	def __init__(self, message: str = "Времени заняло: {time}с") -> None:
+		"""
+		Инициализирует данный класс.
+
+		:param message: Сообщение, которое будет выведено в лог после выполнения блока кода. `{time}` - время выполнения блока кода.
+		"""
+
+		self.message = message
+
 	def __enter__(self):
-		self.start_time = time.time()
+		self.start_time = time.perf_counter()
 
 		return self
 
 	def __exit__(self, exc_type, exc_value, traceback):
-		end_time = time.time()
-		elapsed_time = end_time - self.start_time
-
-		logger.debug(f"Времени заняло: {elapsed_time:.6f}с")
+		logger.debug(self.message, time=time.perf_counter() - self.start_time)
 
 def get_bot_username() -> str:
 	"""

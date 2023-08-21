@@ -6,6 +6,7 @@ import asyncio
 from typing import TYPE_CHECKING, Literal, Optional, cast
 
 import aiohttp
+import cachetools
 from aiocouch import Document
 from aiogram import Bot
 from aiogram.types import Audio, BufferedInputFile
@@ -15,7 +16,6 @@ from aiogram.types import (InlineKeyboardButton, InlineKeyboardMarkup,
                            InputMediaPhoto, InputMediaVideo, Location, Message,
                            PhotoSize, Sticker, Video, VideoNote, Voice)
 from aiogram.utils.chat_action import ChatActionSender
-import cachetools
 from loguru import logger
 from pydantic import SecretStr
 
@@ -27,7 +27,7 @@ from services.service_api_base import (BaseTelehooperServiceAPI,
                                        ServiceDisconnectReason,
                                        TelehooperServiceUserInfo)
 from services.vk.exceptions import AccessDeniedException, TokenRevokedException
-from services.vk.utils import create_message_link
+from services.vk.utils import create_message_link, prepare_sticker
 from services.vk.vk_api.api import VKAPI
 from services.vk.vk_api.longpoll import (BaseVKLongpollEvent,
                                          LongpollMessageEditEvent,
@@ -944,8 +944,6 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 						if not attachment_value:
 							upload_url = (await self.vkAPI.docs_getMessagesUploadServer(type="graffiti", peer_id=subgroup.service_chat_id))["upload_url"]
 							ext = "png"
-
-						# TODO: Изменение размера стикера что бы он не был слишком большим для ВК.
 					elif attch_type == "Document":
 						upload_url = (await self.vkAPI.docs_getMessagesUploadServer(type="doc", peer_id=subgroup.service_chat_id))["upload_url"]
 
@@ -988,6 +986,11 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 								field_name = "file"
 								if len(attchs_of_same_type_part) > 1:
 									field_name = f"file{index}"
+
+								# Если нам дан стикер, то изменяем его размера.
+								if attch_type == "Sticker":
+									with utils.CodeTimer("Время на изменение размера стикера: {time}"):
+										file_bytes = await prepare_sticker(file_bytes)
 
 								form_data.add_field(name=field_name, value=file_bytes, filename=f"file{index}.{ext}" if ext else filenames.pop(0))
 
