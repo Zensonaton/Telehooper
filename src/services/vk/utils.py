@@ -128,6 +128,19 @@ def create_message_link(peer_id: int | str | None, message_id: int | str, use_mo
 
 	return f"https://m.vk.com/mail?act=msg&id={message_id}" if use_mobile else f"https://vk.com/im?sel={peer_id}&msgid={message_id}"
 
+def create_dialogue_link(peer_id: int, use_mobile: bool = False) -> str:
+	"""
+	Возвращает ссылку на диалог ВКонтакте.
+
+	:param peer_id: ID диалога.
+	:param use_mobile: Использовать ли мобильную версию сайта (`m.vk.com`).
+	"""
+
+	if use_mobile and peer_id > 2e9:
+		peer_id = int(peer_id - 2e9)
+
+	return f"https://m.vk.com/mail?act=show&chat={peer_id}" if use_mobile else f"https://vk.com/im?sel={peer_id}"
+
 async def prepare_sticker(sticker: bytes) -> bytes:
 	"""
 	Подготавливает стикер для отправки в ВКонтакте. Данный метод изменяет размеры стикера, дабы отправляемое графити не было слишком большим.

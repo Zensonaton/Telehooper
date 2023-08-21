@@ -307,6 +307,7 @@ class TelehooperGroup:
 		thread_id = 0 if not pinned_message.is_topic_message else (pinned_message.message_thread_id or 0)
 
 		allow_group_params_copy = await user.get_setting("Services.VK.GroupInfoCopy")
+		allow_group_url = await user.get_setting("Security.GetChatURL")
 
 		# Пытаемся изменить название группы.
 		if allow_group_params_copy and dialogue.name:
@@ -352,6 +353,22 @@ class TelehooperGroup:
 			else:
 				await _sleep()
 
+		# Пытаемся получить ссылку на группу, если это разрешено пользователем.
+		group_url = None
+		if allow_group_url:
+			try:
+				chat_link = (await self.chat.create_invite_link("[Telehooper] Ссылка на чат", creates_join_request=True)).invite_link
+
+				# Удаляем https://t.me/ из начала ссылки; Мы должны сохранить только часть после слеша.
+				chat_link = chat_link.split("/")[-1]
+
+				# Безопасности ради, шифруем ключём.
+				group_url = utils.encrypt_with_env_key(chat_link)
+			except:
+				await _longSleep()
+			else:
+				await _sleep()
+
 		# Сохраняем в память.
 		TelehooperAPI.save_subgroup(
 			TelehooperSubGroup(
@@ -373,6 +390,7 @@ class TelehooperGroup:
 
 		# Сохраняем информацию о группе.
 		self.document["LastActivityAt"] = utils.get_timestamp()
+		self.document["URL"] = group_url
 		self.document["Chats"][str(thread_id)] = get_default_subgroup(
 			topic_id=thread_id,
 			service_name=dialogue.service_name,
@@ -389,7 +407,8 @@ class TelehooperGroup:
 			"IsMultiuser": dialogue.is_multiuser,
 			"GroupID": self.chat.id,
 			"TopicID": thread_id,
-			"Type": "dialogue"
+			"Type": "dialogue",
+			"URL": group_url
 		}
 
 		await user.document.save()
@@ -807,13 +826,14 @@ class TelehooperAPI:
 		bot = Bot.get_current()
 		assert bot
 
+		if not db_group:
+			db_group = await get_group(chat_id)
+
+		if not db_group:
+			return None
+
 		try:
-			return TelehooperGroup(
-				user,
-				db_group if db_group else await get_group(chat_id),
-				chat if isinstance(chat, Chat) else (await bot.get_chat(chat_id)),
-				bot
-			)
+			return TelehooperGroup(user, db_group, chat if isinstance(chat, Chat) else (await bot.get_chat(chat_id)), bot)
 		except NotFoundError:
 			return None
 
@@ -853,6 +873,24 @@ class TelehooperAPI:
 		"""
 
 		_service_dialogues.append(group)
+
+	@staticmethod
+	def delete_subgroup(group: TelehooperSubGroup) -> None:
+		"""
+		Удаляет TelehooperSubGroup из памяти бота.
+
+		:param group: TelehooperSubGroup, который нужно удалить.
+		"""
+
+		_service_dialogues.remove(group)
+
+	@staticmethod
+	def get_all_subgroups() -> list[TelehooperSubGroup]:
+		"""
+		Возвращает все TelehooperSubGroup, которые были сохранены в памяти бота.
+		"""
+
+		return _service_dialogues
 
 	@staticmethod
 	def get_subgroup_by_service_dialogue(user: TelehooperUser, dialogue: ServiceDialogue) -> TelehooperSubGroup | None:

@@ -1,6 +1,7 @@
 # coding: utf-8
 
 import asyncio
+from typing import cast
 
 from aiogram import Bot, F, Router
 from aiogram.filters import (ADMINISTRATOR, CREATOR, IS_MEMBER, IS_NOT_MEMBER,
@@ -9,7 +10,7 @@ from aiogram.filters import (ADMINISTRATOR, CREATOR, IS_MEMBER, IS_NOT_MEMBER,
 from aiogram.types import (CallbackQuery, ChatMemberUpdated,
                            InlineKeyboardButton, InlineKeyboardMarkup, Message)
 from loguru import logger
-from api import TelehooperAPI
+from api import TelehooperAPI, TelehooperSubGroup, TelehooperUser
 
 import utils
 from DB import get_db, get_default_group, get_group
@@ -241,18 +242,37 @@ async def on_bot_chat_kick_handler(event: ChatMemberUpdated):
 	...
 
 @router.message(F.migrate_to_chat_id)
-async def group_to_supergroup_convert_handler(message: Message):
+async def group_to_supergroup_convert_handler(message: Message, bot: Bot):
 	"""
 	Handler для события конвертации Telegram-группы в супергруппу.
 
 	При конвертации в супергруппу Telegram меняет ID группы.
 	"""
 
-	logger.debug(f"Telegram-группа с ID {message.chat.id} конвертировалась в supergroup'у с ID {message.migrate_to_chat_id}")
+	old_chat_id = message.chat.id
+	new_chat_id = cast(int, message.migrate_to_chat_id)
 
-	_supergroup_converts.append(message.chat.id)
-	_supergroup_converts.append(message.migrate_to_chat_id)
+	logger.debug(f"Telegram-группа с ID {old_chat_id} конвертировалась в supergroup'у с ID {new_chat_id}")
 
+	new_chat = await bot.get_chat(new_chat_id)
+
+	_supergroup_converts.append(old_chat_id)
+	_supergroup_converts.append(new_chat_id)
+
+	db = await get_db()
+
+	# Пытаемся получить ассоциированного с данной группой пользователем.
+	group_owner = None
+	async for user in db.docs(prefix="user_"):
+		if old_chat_id not in user["Groups"]:
+			continue
+
+		group_owner = user
+
+	if not group_owner:
+		logger.debug(f"Владелец группы, которая была конвертирована в супергруппу не был найден. Старый ID: {old_chat_id}, новый: {new_chat_id}")
+
+	# Редактируем старую группу, и создаём новую с новым ID и прочими параметрами.
 	group_old = await get_group(message.chat)
 	if not group_old:
 		return
@@ -262,19 +282,36 @@ async def group_to_supergroup_convert_handler(message: Message):
 	del old_group_data["_id"]
 	del old_group_data["_rev"]
 
-	old_group_data["ID"] = message.migrate_to_chat_id
+	old_group_data["ID"] = new_chat_id
 	old_group_data["LastActivityAt"] = utils.get_timestamp()
 
-	db = await get_db()
-
 	# Создаём новый объект группы из БД.
-	group_new = await db.create(
-		f"group_{message.migrate_to_chat_id}",
-		exists_ok=False,
-		data=old_group_data
-	)
+	group_new = await db.create(f"group_{new_chat_id}", exists_ok=False, data=old_group_data)
 
+	# Сохраняем новую группу.
 	await group_new.save()
 
 	# Удаляем старый объект группы из БД.
 	await group_old.delete()
+
+	# Редактируем информацию у владельца группы.
+	if group_owner:
+		group_owner["Groups"].remove(old_chat_id)
+		group_owner["Groups"].append(new_chat_id)
+
+		if "VK" in group_owner["Connections"]:
+			for group in group_owner["Connections"]["VK"]["OwnedGroups"].values():
+				if group["GroupID"] != old_chat_id:
+					continue
+
+				group["GroupID"] = new_chat_id
+
+		# Сохраняем изменения у владельца группы.
+		await group_owner.save()
+
+	# Фиксим все subgroup'ы, что бы в них был новый ID.
+	for subgroup in TelehooperAPI.get_all_subgroups():
+		if subgroup.parent.chat.id != old_chat_id:
+			continue
+
+		subgroup.parent.chat = new_chat

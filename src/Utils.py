@@ -30,7 +30,7 @@ def get_bot_version() -> int:
 	Возвращает версию бота.
 	"""
 
-	return 1
+	return 2
 
 def parse_str_boolean(value: str | bool) -> bool:
 	"""

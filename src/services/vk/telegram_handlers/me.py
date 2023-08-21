@@ -44,7 +44,18 @@ async def me_vk_inline_handler(query: CallbackQuery, msg: Message, user: User) -
 
 		dialogues = []
 		for dialogue in telehooper_user.connections["VK"]["OwnedGroups"].values():
-			dialogues.append(f" • <b>{dialogue['Name']}</b>: <a href=\"{'m.' if use_mobile_vk else ''}vk.com/id{dialogue['ID']}\">{dialogue['Type']}</a>.")
+			chat = "чат"
+
+			chat_url = None
+			if dialogue["GroupID"] < -1e12:
+				chat_url = f"https://t.me/c/{-int(dialogue['GroupID'] + 1e12)}"
+			elif dialogue["URL"]:
+				chat_url = f"https://t.me/{utils.decrypt_with_env_key(dialogue['URL'])}"
+
+			if chat_url:
+				chat = f"<a href=\"{chat_url}\">чат</a>"
+
+			dialogues.append(f" • <a href=\"{vk_utils.create_dialogue_link(dialogue['ID'], use_mobile_vk)}\">{dialogue['Name']}</a>: {chat}.")
 
 		dialogues_str = "\n".join(dialogues)
 

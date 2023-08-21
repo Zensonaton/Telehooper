@@ -68,21 +68,43 @@ async def get_user(user: User, create_by_default: bool = True) -> Document:
 
 	id = str(user.id)
 
-	try:
-		return await db["user_" + id]
-	except NotFoundError:
-		if not create_by_default:
-			raise NotFoundError(f"Пользователь с ID {id} не был найден в базе данных")
+	async def _get():
+		try:
+			return await db["user_" + id]
+		except NotFoundError:
+			if not create_by_default:
+				raise NotFoundError(f"Пользователь с ID {id} не был найден в базе данных")
 
-		# Пользователь не был найден, поэтому мы создаем его.
-		user_db = await db.create(
-			"user_" + id,
-			exists_ok=False,
-			data=get_default_user(user)
-		)
-		await user_db.save()
+			# Пользователь не был найден, поэтому мы создаем его.
+			user_db = await db.create(
+				"user_" + id,
+				exists_ok=False,
+				data=get_default_user(user)
+			)
+			await user_db.save()
 
+			return user_db
+
+	user_db = await _get()
+	if user_db["DocVer"] == utils.get_bot_version():
 		return user_db
+
+	while user_db["DocVer"] < utils.get_bot_version():
+		ver = user_db["DocVer"]
+		logger.debug(f"Делаю обновление пользователя {utils.get_telegram_logging_info(user)} с версии {ver} до версии {ver + 1}")
+
+		if ver == 1:
+			vk_connection = user_db["Connections"].get("VK")
+
+			if vk_connection:
+				for group in vk_connection["OwnedGroups"].values():
+					group["URL"] = None
+
+		user_db["DocVer"] += 1
+
+	await user_db.save()
+	return user_db
+
 
 async def get_global(create_by_default: bool = True) -> Document:
 	"""
@@ -140,14 +162,17 @@ def get_default_global(version: int = utils.get_bot_version()) -> dict:
 		"DocVer": version
 	}
 
-async def get_group(chat: int | Chat) -> Document:
+async def get_group(chat: int | Chat) -> Document | None:
 	"""
 	Возвращает информацию о группе из базы данных. Учтите, что данный метод не создаёт группу, если она не была найдена.
 	"""
 
 	db = await get_db()
 
-	return await db[f"group_{chat.id if isinstance(chat, Chat) else chat}"]
+	try:
+		return await db[f"group_{chat.id if isinstance(chat, Chat) else chat}"]
+	except NotFoundError:
+		return None
 
 def get_default_group(chat: Chat, creator: User, status_message: Message, admin_rights: bool = False, topics_enabled: bool = False, version: int = utils.get_bot_version()) -> dict:
 	"""

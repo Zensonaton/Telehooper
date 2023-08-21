@@ -146,25 +146,30 @@ async def reconnect_services() -> None:
 			return
 
 		# Все сервисы переподключены, возвращаем диалоги.
-		async for group in db.docs([f"group_{i}" for i in user["Groups"]]):
-			telegram_group = await bot.get_chat(group["ID"])
-			telehooper_group = TelehooperGroup(telehooper_user, group, telegram_group, bot)
+		try:
+			async for group in db.docs([f"group_{i}" for i in user["Groups"]]):
+				telegram_group = await bot.get_chat(group["ID"])
+				telehooper_group = TelehooperGroup(telehooper_user, group, telegram_group, bot)
 
-			for chat in group["Chats"].values():
-				serviceAPI = service_apis.get(chat["Service"])
+				for chat in group["Chats"].values():
+					serviceAPI = service_apis.get(chat["Service"])
 
-				if not serviceAPI:
-					continue
+					if not serviceAPI:
+						continue
 
-				TelehooperAPI.save_subgroup(
-					TelehooperSubGroup(
-						id=chat["ID"],
-						dialogue_name=chat["Name"],
-						service=serviceAPI,
-						parent=telehooper_group,
-						service_chat_id=chat["DialogueID"]
+					TelehooperAPI.save_subgroup(
+						TelehooperSubGroup(
+							id=chat["ID"],
+							dialogue_name=chat["Name"],
+							service=serviceAPI,
+							parent=telehooper_group,
+							service_chat_id=chat["DialogueID"]
+						)
 					)
-				)
+		except Exception as error:
+			logger.exception(f"Не удалось переподключить диалоги для пользователя {user['ID']}:", error)
+
+			return
 
 	async for user in db.docs(prefix="user_"):
 		tasks.append(asyncio.create_task(_reconnect(user)))
