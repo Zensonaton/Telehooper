@@ -102,6 +102,8 @@ class LongpollNewMessageEvent(BaseVKLongpollEvent):
 			self.from_id = int(self.from_id)
 		self.source_act = self.event_data[5].get("source_act")
 		self.source_mid = self.event_data[5].get("source_mid")
+		if self.source_mid:
+			self.source_mid = int(self.source_mid)
 		self.source_text = self.event_data[5].get("source_text")
 		self.source_old_text = self.event_data[5].get("source_old_text")
 		self.attachments = self.event_data[6]

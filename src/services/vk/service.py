@@ -180,43 +180,56 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 				# TODO: Сделать настройку, что бы бот синхронизировал изменения.
 
 				issuer_name_with_link = None
+				issuer_male = True
 				victim_name_with_link = None
+				victim_name = True
 
 				if event.from_id:
 					issuer_info = await self.get_user_info(event.from_id)
 
 					issuer_name_with_link = f"<a href=\"{'m.' if use_mobile_vk else ''}vk.com/id{event.from_id}\">{utils.compact_name(issuer_info.name) if use_compact_names else issuer_info.name}</a>"
+					issuer_male = issuer_info.male or False
 
 				if event.source_mid:
 					victim_info = await self.get_user_info(event.source_mid)
 
 					victim_name_with_link = f"<a href=\"{'m.' if use_mobile_vk else ''}vk.com/id{event.source_mid}\">{utils.compact_name(victim_info.name) if use_compact_names else victim_info.name}</a>"
+					victim_male = victim_info.male or False
+
+				event_action = event.source_act
+
+				# Во ВКонтакте, событие "X вернулся/вышел из беседы" работает как
+				# "X пригласил/исключил X из беседы", поэтому здесь такая проверка.
+				if event.from_id == event.source_mid and event_action in ["chat_invite_user", "chat_kick_user"]:
+					event_action = "chat_return" if event_action == "chat_invite_user" else "chat_leave"
 
 				messages = {
-					"chat_photo_update": f"Пользователь <b>{issuer_name_with_link}</b> <b>обновил(-а)</b> фотографию беседы",
-					"chat_photo_remove": f"Пользователь <b>{issuer_name_with_link}</b> <b>удалил(-а)</b> фотографию беседы",
-					"chat_create": f"Пользователь <b>{issuer_name_with_link}</b> создал(-а) <b>новую беседу</b>: <b>«{event.source_text}»</b>",
-					"chat_title_update": f"Пользователь <b>{issuer_name_with_link}</b> <b>изменил(-а)</b> имя беседы на <b>«{event.source_text}»</b>",
-					"chat_invite_user": f"Пользователь <b>{issuer_name_with_link}</b> <b>добавил(-а)</b> пользователя <b>{victim_name_with_link}</b>",
-					"chat_kick_user": f"Пользователь <b>{issuer_name_with_link}</b> <b>удалил(-а)</b> пользователя <b>{victim_name_with_link}</b> из беседы",
-					"chat_invite_user_by_link": f"Пользователь <b>{victim_name_with_link}</b> <b>присоеденился(-ась)</b> к беседе используя <b>пригласительную ссылку</b>",
-					"chat_invite_user_by_message_request": f"Пользователь <b>{victim_name_with_link}</b> <b>присоденился(-ась)</b> к беседе используя <b>запрос на вступление</b>",
-					"chat_pin_message": f"Пользователь <b>{issuer_name_with_link}</b> <b>закрепил(-а)</b> сообщение",
-					"chat_unpin_message": f"Пользователь <b>{issuer_name_with_link}</b> <b>открепил(-а)</b> закреплённое сообщение",
-					"chat_screenshot": f"Пользователь <b>{victim_name_with_link}</b> сделал(-а) <b>скриншот чата</b>",
-					"conversation_style_update": f"Пользователь <b>{issuer_name_with_link}</b> <b>обновил</b> стиль чата"
-					# "call_ended": f"Пользователь <b>{victim_name_with_link}</b> начал(-а) <b>вызов ВКонтакте</b>. Присоедениться можно <a href=\"https://vk.com/call/join/{group_chat_join_link}\">по ссылке</a>"
+					"chat_photo_update": f"{issuer_name_with_link} обновил{'' if issuer_male else 'а'} фотографию беседы",
+					"chat_photo_remove": f"{issuer_name_with_link} удалил{'' if issuer_male else 'а'} фотографию беседы",
+					"chat_create": f"{issuer_name_with_link} создал{'' if issuer_male else 'а'} новую беседу: «{event.source_text}»",
+					"chat_title_update": f"{issuer_name_with_link} изменил{'' if issuer_male else 'а'} имя беседы на «{event.source_text}»",
+					"chat_invite_user": f"{issuer_name_with_link} добавил{'' if issuer_male else 'а'} пользователя {victim_name_with_link}",
+					"chat_kick_user": f"{issuer_name_with_link} удалил{'' if issuer_male else 'а'} пользователя {victim_name_with_link} из беседы",
+					"chat_invite_user_by_link": f"{victim_name_with_link} присоеденил{'ся' if issuer_male else 'ась'} к беседе используя пригласительную ссылку",
+					"chat_invite_user_by_message_request": f"{victim_name_with_link} присоденил{'ся' if issuer_male else 'ась'} к беседе используя запрос на вступление",
+					"chat_pin_message": f"{issuer_name_with_link} закрепил{'' if issuer_male else 'а'} сообщение",
+					"chat_unpin_message": f"{issuer_name_with_link} открепил{'' if issuer_male else 'а'} закреплённое сообщение",
+					"chat_screenshot": f"{victim_name_with_link} сделал{'' if issuer_male else 'а'} скриншот чата",
+					"conversation_style_update": f"{issuer_name_with_link} обновил стиль чата",
+					"chat_leave": f"{issuer_name_with_link} покинул{'' if issuer_male else 'а'} беседу",
+					"chat_return": f"{issuer_name_with_link} вернул{'ся' if issuer_male else 'ась'} в беседу",
+					# "call_ended": f"{victim_name_with_link} начал{'' if issuer_male else 'а'} вызов ВКонтакте. Присоедениться можно <a href=\"https://vk.com/call/join/{group_chat_join_link}\">по ссылке</a>"
 				}
-				message = messages.get(event.source_act)
+				message = messages.get(event_action)
 
 				if not message:
-					logger.warning(f"[VK] Неизвестное событие беседы: {event.source_act}")
+					logger.warning(f"[VK] Неизвестное событие беседы: {event_action}")
 
-					message = f"Неизвестное действие: <code>«{event.source_act}»</code>"
+					message = f"Неизвестное действие: <code>«{event_action}»</code>"
 
 					return
 
-				await subgroup.send_message_in(f"ℹ️  {message}  ℹ️", disable_web_preview=True)
+				await subgroup.send_message_in(f"ℹ️  <i>{message}</i>  ℹ️", disable_web_preview=True)
 
 				return
 
@@ -844,7 +857,8 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 			service_name=self.service_name,
 			id=user_info["id"],
 			name=f"{user_info['first_name']} {user_info['last_name']}",
-			profile_url=user_info.get("photo_max_orig")
+			profile_url=user_info.get("photo_max_orig"),
+			male=user_info.get("sex", 2) == 2 # Судя по документации ВК, может быть и третий вариант с ID 0, "пол не указан". https://dev.vk.com/ru/reference/objects/user#sex
 		)
 		self._cachedUsersInfo[user_id] = user_info_class
 
