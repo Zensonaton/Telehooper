@@ -21,5 +21,6 @@ jobs:
         pip install -r requirements.txt pytest
 
     - name: Run pytest
+      working-directory: ./src
       run: |
-        pytest
+        pytest -v
