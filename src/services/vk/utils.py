@@ -21,17 +21,6 @@ def extract_access_token_from_url(url: str) -> str:
 
 	raise Exception("Не удалось извлечь ACCESS_TOKEN из URL.")
 
-def extract_user_id_from_url(url: str) -> int:
-	"""
-	Извлекает USER_ID из URL. Используется для ВКонтакте-авторизации.
-	"""
-
-	regex_result = re.search(r"user_id=([^&]+)", url)
-	if regex_result:
-		return int(regex_result.group(1))
-
-	raise Exception("Не удалось извлечь USER_ID из URL.")
-
 def random_id() -> int:
 	"""
 	Создаёт случайный ID для отправки сообщений во ВКонтакте.

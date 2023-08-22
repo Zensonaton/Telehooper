@@ -68,41 +68,6 @@ def clamp(number: int | float, value_min: int | float, value_max: int | float) -
 
 	return max(value_min, min(number, value_max))
 
-def traverse_dict(object: dict, *keys: str, default: Any = None):
-	"""
-	Достаёт значение из `object`, используя N-ное количество ключей. Если что-то пошло не так, и функция не сумела найти какое-то значение, то она просто вернёт значение `default`.
-
-	Пример:
-	```python
-	someObject = {
-		"hi": {
-			"test": {
-				"foo": {
-					"bar": True
-				}
-			}
-		}
-	}
-
-	print(
-		safeGet(object, "hi", "test", "foo", "bar")
-	)
-	# True
-	```
-	"""
-
-	value = object.copy()
-	for key in keys:
-		if not key:
-			break
-
-		if not isinstance(value, dict) or key not in value:
-			return default
-
-		value = value[key]
-
-	return value
-
 def encrypt_with_env_key(input: str) -> str:
 	"""
 	Шифрует строку `input` ключём шифрования из `.env`-файла.
