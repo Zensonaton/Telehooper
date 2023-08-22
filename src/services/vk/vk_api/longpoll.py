@@ -189,6 +189,8 @@ class LongpollMessageEditEvent(BaseVKLongpollEvent):
 	"""Новый текст сообщения."""
 	attachments: list[str]
 	"""Новые вложения сообщения."""
+	is_expired: bool | None
+	"""Истёк ли срок действия сообщения."""
 
 	def __init__(self, event: list) -> None:
 		super().__init__(event)
@@ -198,6 +200,7 @@ class LongpollMessageEditEvent(BaseVKLongpollEvent):
 		self.peer_id = self.event_data[2]
 		self.timestamp = self.event_data[3]
 		self.new_text = self.event_data[4]
+		self.is_expired = self.event_data[5].get("is_expired")
 		self.attachments = self.event_data[6]
 
 class LongpollMessageFlagsEdit(BaseVKLongpollEvent):

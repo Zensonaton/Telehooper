@@ -655,6 +655,15 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 		if not telegram_message:
 			return
 
+		# Если это самоуничтожающееся сообщение, которое, ну, самоуничтожилось, то просто удаляем его вместо редактирования.
+		if event.is_expired:
+			try:
+				await subgroup.delete_message(telegram_message.telegram_message_ids)
+			except:
+				pass
+
+			return
+
 		# Редактируем сообщение.
 		try:
 			await subgroup.edit_message(f"{event.new_text}   <i>(ред.)</i>", telegram_message.telegram_message_ids[0])
