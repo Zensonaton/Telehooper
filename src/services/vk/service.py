@@ -12,8 +12,8 @@ from aiogram import Bot
 from aiogram.types import Audio, BufferedInputFile
 from aiogram.types import Document as TelegramDocument
 from aiogram.types import (InlineKeyboardButton, InlineKeyboardMarkup,
-                           InputMediaAudio, InputMediaDocument,
-                           InputMediaPhoto, InputMediaVideo, Location, Message,
+                           InputFile, InputMediaAudio, InputMediaDocument,
+                           InputMediaPhoto, InputMediaVideo, Message,
                            PhotoSize, Sticker, Video, VideoNote, Voice)
 from aiogram.utils.chat_action import ChatActionSender
 from loguru import logger
@@ -177,69 +177,11 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 			if sent_via_bot and not ignore_outbox_debug:
 				return
 
-			# Проверяем, не было ли это событие беседы из ВК.
-			if is_convo and event.source_act:
-				# Здесь мы не сохраняем ID сообщения, поскольку с таковыми в любом случае нельзя взаимодействовать.
-				# TODO: Сделать настройку, что бы бот синхронизировал изменения.
-
-				issuer_name_with_link = None
-				issuer_male = True
-				victim_name_with_link = None
-				victim_name = True
-
-				if event.from_id:
-					issuer_info = await self.get_user_info(event.from_id)
-
-					issuer_name_with_link = f"<a href=\"{'m.' if use_mobile_vk else ''}vk.com/id{event.from_id}\">{utils.compact_name(issuer_info.name) if use_compact_names else issuer_info.name}</a>"
-					issuer_male = issuer_info.male or False
-
-				if event.source_mid:
-					victim_info = await self.get_user_info(event.source_mid)
-
-					victim_name_with_link = f"<a href=\"{'m.' if use_mobile_vk else ''}vk.com/id{event.source_mid}\">{utils.compact_name(victim_info.name) if use_compact_names else victim_info.name}</a>"
-					victim_male = victim_info.male or False
-
-				event_action = event.source_act
-
-				# Во ВКонтакте, событие "X вернулся/вышел из беседы" работает как
-				# "X пригласил/исключил X из беседы", поэтому здесь такая проверка.
-				if event.from_id == event.source_mid and event_action in ["chat_invite_user", "chat_kick_user"]:
-					event_action = "chat_return" if event_action == "chat_invite_user" else "chat_leave"
-
-				messages = {
-					"chat_photo_update": f"{issuer_name_with_link} обновил{'' if issuer_male else 'а'} фотографию беседы",
-					"chat_photo_remove": f"{issuer_name_with_link} удалил{'' if issuer_male else 'а'} фотографию беседы",
-					"chat_create": f"{issuer_name_with_link} создал{'' if issuer_male else 'а'} новую беседу: «{event.source_text}»",
-					"chat_title_update": f"{issuer_name_with_link} изменил{'' if issuer_male else 'а'} имя беседы на «{event.source_text}»",
-					"chat_invite_user": f"{issuer_name_with_link} добавил{'' if issuer_male else 'а'} пользователя {victim_name_with_link}",
-					"chat_kick_user": f"{issuer_name_with_link} удалил{'' if issuer_male else 'а'} пользователя {victim_name_with_link} из беседы",
-					"chat_invite_user_by_link": f"{victim_name_with_link} присоеденил{'ся' if issuer_male else 'ась'} к беседе используя пригласительную ссылку",
-					"chat_invite_user_by_message_request": f"{victim_name_with_link} присоденил{'ся' if issuer_male else 'ась'} к беседе используя запрос на вступление",
-					"chat_pin_message": f"{issuer_name_with_link} закрепил{'' if issuer_male else 'а'} сообщение",
-					"chat_unpin_message": f"{issuer_name_with_link} открепил{'' if issuer_male else 'а'} закреплённое сообщение",
-					"chat_screenshot": f"{victim_name_with_link} сделал{'' if issuer_male else 'а'} скриншот чата",
-					"conversation_style_update": f"{issuer_name_with_link} обновил стиль чата",
-					"chat_leave": f"{issuer_name_with_link} покинул{'' if issuer_male else 'а'} беседу",
-					"chat_return": f"{issuer_name_with_link} вернул{'ся' if issuer_male else 'ась'} в беседу",
-					# "call_ended": f"{victim_name_with_link} начал{'' if issuer_male else 'а'} вызов ВКонтакте. Присоедениться можно <a href=\"https://vk.com/call/join/{group_chat_join_link}\">по ссылке</a>"
-				}
-				message = messages.get(event_action)
-
-				if not message:
-					logger.warning(f"[VK] Неизвестное событие беседы: {event_action}")
-
-					message = f"Неизвестное действие: <code>«{event_action}»</code>"
-
-					return
-
-				await subgroup.send_message_in(f"ℹ️  <i>{message}</i>  ℹ️", disable_web_preview=True)
-
-				return
-
 			# Получаем ID сообщения с ответом, а так же парсим вложения сообщения.
 			reply_to = None
 
 			# Парсим вложения.
+			message_extended = None
 			if event.attachments or is_group:
 				attachments = event.attachments.copy()
 
@@ -392,10 +334,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 								else:
 									raise Exception("Не удалось получить ссылку на видео")
 						elif attachment_type == "audio_message":
-							attachment_media.append(InputMediaAudio(
-								type="audio",
-								media=attachment["link_ogg"]
-							))
+							attachment_media.append(InputMediaAudio(type="audio", media=attachment["link_ogg"]))
 						elif attachment_type == "sticker":
 							# В данный момент, поддержка анимированных стикеров отсутствует из-за возможного бага в библиотеке gzip.
 
@@ -528,6 +467,105 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 						else:
 							raise TypeError(f"Неизвестный тип вложения \"{attachment_type}\"")
 
+			# Проверяем, не было ли это событие беседы из ВК.
+			if is_convo and event.source_act:
+				issuer_name_with_link = None
+				issuer_male = True
+				victim_name_with_link = None
+				victim_name = True
+
+				if event.from_id:
+					issuer_info = await self.get_user_info(event.from_id)
+
+					issuer_name_with_link = f"<a href=\"{'m.' if use_mobile_vk else ''}vk.com/id{event.from_id}\">{utils.compact_name(issuer_info.name) if use_compact_names else issuer_info.name}</a>"
+					issuer_male = issuer_info.male or False
+
+				if event.source_mid:
+					victim_info = await self.get_user_info(event.source_mid)
+
+					victim_name_with_link = f"<a href=\"{'m.' if use_mobile_vk else ''}vk.com/id{event.source_mid}\">{utils.compact_name(victim_info.name) if use_compact_names else victim_info.name}</a>"
+					victim_male = victim_info.male or False
+
+				event_action = event.source_act
+
+				# Во ВКонтакте, событие "X вернулся/вышел из беседы" работает как
+				# "X пригласил/исключил X из беседы", поэтому здесь такая проверка.
+				if event.from_id == event.source_mid and event_action in ["chat_invite_user", "chat_kick_user"]:
+					event_action = "chat_return" if event_action == "chat_invite_user" else "chat_leave"
+
+				messages = {
+					"chat_photo_update": f"{issuer_name_with_link} обновил{'' if issuer_male else 'а'} фотографию беседы",
+					"chat_photo_remove": f"{issuer_name_with_link} удалил{'' if issuer_male else 'а'} фотографию беседы",
+					"chat_create": f"{issuer_name_with_link} создал{'' if issuer_male else 'а'} новую беседу: «{event.source_text}»",
+					"chat_title_update": f"{issuer_name_with_link} изменил{'' if issuer_male else 'а'} имя беседы на «{event.source_text}»",
+					"chat_invite_user": f"{issuer_name_with_link} добавил{'' if issuer_male else 'а'} пользователя {victim_name_with_link}",
+					"chat_kick_user": f"{issuer_name_with_link} удалил{'' if issuer_male else 'а'} пользователя {victim_name_with_link} из беседы",
+					"chat_invite_user_by_link": f"{victim_name_with_link} присоеденил{'ся' if issuer_male else 'ась'} к беседе используя пригласительную ссылку",
+					"chat_invite_user_by_message_request": f"{victim_name_with_link} присоденил{'ся' if issuer_male else 'ась'} к беседе используя запрос на вступление",
+					"chat_pin_message": f"{issuer_name_with_link} закрепил{'' if issuer_male else 'а'} сообщение",
+					"chat_unpin_message": f"{issuer_name_with_link} открепил{'' if issuer_male else 'а'} закреплённое сообщение",
+					"chat_screenshot": f"{victim_name_with_link} сделал{'' if issuer_male else 'а'} скриншот чата",
+					"conversation_style_update": f"{issuer_name_with_link} обновил стиль чата",
+					"chat_leave": f"{issuer_name_with_link} покинул{'' if issuer_male else 'а'} беседу",
+					"chat_return": f"{issuer_name_with_link} вернул{'ся' if issuer_male else 'ась'} в беседу",
+					# "call_ended": f"{victim_name_with_link} начал{'' if issuer_male else 'а'} вызов ВКонтакте. Присоедениться можно <a href=\"https://vk.com/call/join/{group_chat_join_link}\">по ссылке</a>"
+				}
+				message = messages.get(event_action)
+
+				if not message:
+					logger.warning(f"[VK] Неизвестное событие беседы: {event_action}")
+
+					message = f"Неизвестное действие: <code>«{event_action}»</code>"
+
+					return
+
+				# Здесь мы не сохраняем ID сообщения, поскольку с таковыми в любом случае нельзя взаимодействовать.
+				await subgroup.send_message_in(f"ℹ️  <i>{message}</i>", disable_web_preview=True)
+
+				# Если пользователь разрешил синхронизацию изменений в беседе, то делаем их.
+				if await self.user.get_setting("Services.VK.SyncGroupInfo"):
+					if event_action == "chat_title_update":
+						assert event.source_text, "Новое имя беседы не было получено"
+
+						title = event.source_text
+						if config.debug and await self.user.get_setting("Debug.DebugTitleForDialogues"):
+							title = f"[DEBUG] {title}"
+
+						await subgroup.parent.set_title(title)
+					elif event_action == "chat_photo_update":
+						assert message_extended, "Не удалось получить информацию о сообщении"
+
+						async with aiohttp.ClientSession() as client:
+							async with client.get(message_extended["attachments"][0]["photo"]["sizes"][-1]["url"]) as response:
+								assert response.status == 200, "Не удалось загрузить фотографию беседы"
+
+								photo_bytes = await response.read()
+
+						await subgroup.parent.set_photo(BufferedInputFile(photo_bytes, filename="VK chat photo.jpg"))
+					elif event_action == "chat_photo_remove":
+						await subgroup.parent.remove_photo()
+					elif event_action in ["chat_pin_message", "chat_unpin_message"]:
+						assert event.source_chat_local_id, "ID сообщения, которое было прикреплено не было получено"
+
+						vk_message_id = (await self.vkAPI.messages_getByConversationMessageId(peer_id=event.peer_id, conversation_message_ids=event.source_chat_local_id))["items"][0]["id"]
+
+						telegram_message = await subgroup.service.get_message_by_service_id(vk_message_id)
+						if not telegram_message:
+							return
+
+						if event_action == "chat_pin_message":
+							# Открепляем старое сообщение.
+							try:
+								await subgroup.parent.unpin_message()
+							except:
+								pass
+
+							await subgroup.parent.pin_message(telegram_message.telegram_message_ids[0])
+						else:
+							await subgroup.parent.unpin_message(telegram_message.telegram_message_ids[0])
+
+				return
+
 			# Подготавливаем текст сообщения, который будет отправлен.
 			full_message_text = ""
 			msg_prefix = ""
@@ -645,6 +683,14 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 		# Проверяем, что у пользователя есть подгруппа, в которую можно отправить сообщение.
 		if not subgroup:
+			return
+
+		# Уродливая проверка, поскольку ВК по какой-то причине "редактирует" сообщение при его закрепе.
+		#
+		# В моём случае, ничего не будет происходить, если "редактирование" имеет
+		# поле "pinned_at", и разница между текущим и этим временем менее 2 секунды.
+		# Возможно, это не самый лучший способ, но он работает.
+		if event.pinned_at and (utils.get_timestamp() - event.pinned_at) < 2:
 			return
 
 		logger.debug(f"[VK] Событие редактирования сообщения для подгруппы \"{subgroup.service_dialogue_name}\"")

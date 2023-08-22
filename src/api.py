@@ -307,18 +307,17 @@ class TelehooperGroup:
 
 		thread_id = 0 if not pinned_message.is_topic_message else (pinned_message.message_thread_id or 0)
 
-		allow_group_params_copy = await user.get_setting("Services.VK.GroupInfoCopy")
+		allow_group_params_copy = await user.get_setting("Services.VK.SyncGroupInfo")
 		allow_group_url = await user.get_setting("Security.GetChatURL")
 
 		# Пытаемся изменить название группы.
 		if allow_group_params_copy and dialogue.name:
 			try:
-
 				title = dialogue.name
 				if config.debug and await user.get_setting("Debug.DebugTitleForDialogues"):
 					title = f"[DEBUG] {title}"
 
-				await self.chat.set_title(title)
+				await self.set_title(title)
 			except:
 				await _longSleep()
 			else:
@@ -588,10 +587,65 @@ class TelehooperGroup:
 			id = [id]
 
 		for i in id:
-			await self.bot.delete_message(
-				chat_id=self.chat.id,
-				message_id=i
-			)
+			await self.bot.delete_message(self.chat.id, message_id=i)
+
+	async def set_title(self, title: str) -> None:
+		"""
+		Устанавливает название группы в Telegram.
+
+		:param title: Новое название группы.
+		"""
+
+		await self.bot.set_chat_title(self.chat.id, title)
+
+	async def set_description(self, description: str) -> None:
+		"""
+		Устанавливает описание группы в Telegram.
+
+		:param description: Новое описание группы.
+		"""
+
+		await self.bot.set_chat_description(self.chat.id, description)
+
+	async def set_photo(self, photo: BufferedInputFile | InputFile) -> None:
+		"""
+		Устанавливает фотографию группы в Telegram.
+
+		:param photo: Новая фотография группы.
+		"""
+
+		await self.bot.set_chat_photo(self.chat.id, photo=photo)
+
+	async def remove_photo(self) -> None:
+		"""
+		Удаляет фотографию группы в Telegram.
+		"""
+
+		await self.bot.delete_chat_photo(self.chat.id)
+
+	async def pin_message(self, message_id: int, disable_notification: bool = False) -> None:
+		"""
+		Закрепляет сообщение в Telegram-группе.
+
+		:param message_id: ID сообщения, которое нужно закрепить.
+		:param disable_notification: Отправить ли сообщение без уведомления.
+		"""
+
+		await self.bot.pin_chat_message(self.chat.id, message_id=message_id, disable_notification=disable_notification)
+
+	async def unpin_message(self, message_id: int | None = None) -> None:
+		"""
+		Открепляет сообщение в Telegram-группе.
+		"""
+
+		await self.bot.unpin_chat_message(self.chat.id, message_id)
+
+	async def unpin_all_messages(self) -> None:
+		"""
+		Открепляет все сообщения в Telegram-группе.
+		"""
+
+		await self.bot.unpin_all_chat_messages(self.chat.id)
 
 class TelehooperMessage:
 	"""

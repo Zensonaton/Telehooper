@@ -84,6 +84,8 @@ class LongpollNewMessageEvent(BaseVKLongpollEvent):
 	"""Старый текст, который связан с `source_act`."""
 	source_mid: int | None
 	"""ID пользователя, с которым связано `source_act`."""
+	source_chat_local_id: int | None
+	"""ID сообщения, с которым связано `source_act`."""
 	flags: VKLongpollMessageFlags
 	"""Флаги сообщения."""
 	attachments: dict
@@ -104,6 +106,9 @@ class LongpollNewMessageEvent(BaseVKLongpollEvent):
 		self.source_mid = self.event_data[5].get("source_mid")
 		if self.source_mid:
 			self.source_mid = int(self.source_mid)
+		self.source_chat_local_id = self.event_data[5].get("source_chat_local_id")
+		if self.source_chat_local_id:
+			self.source_chat_local_id = int(self.source_chat_local_id)
 		self.source_text = self.event_data[5].get("source_text")
 		self.source_old_text = self.event_data[5].get("source_old_text")
 		self.attachments = self.event_data[6]
@@ -191,6 +196,8 @@ class LongpollMessageEditEvent(BaseVKLongpollEvent):
 	"""Новые вложения сообщения."""
 	is_expired: bool | None
 	"""Истёк ли срок действия сообщения."""
+	pinned_at: int | None
+	"""Время закрепления сообщения."""
 
 	def __init__(self, event: list) -> None:
 		super().__init__(event)
@@ -201,6 +208,9 @@ class LongpollMessageEditEvent(BaseVKLongpollEvent):
 		self.timestamp = self.event_data[3]
 		self.new_text = self.event_data[4]
 		self.is_expired = self.event_data[5].get("is_expired")
+		self.pinned_at = self.event_data[5].get("pinned_at")
+		if self.pinned_at:
+			self.pinned_at = int(self.pinned_at)
 		self.attachments = self.event_data[6]
 
 class LongpollMessageFlagsEdit(BaseVKLongpollEvent):
