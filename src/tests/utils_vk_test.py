@@ -1,7 +1,6 @@
 # coding: utf-8
 
 import pytest
-from PIL import Image
 
 from services.vk import utils
 
