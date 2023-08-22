@@ -18,6 +18,7 @@ from aiogram.types import (InlineKeyboardButton, InlineKeyboardMarkup,
 from aiogram.utils.chat_action import ChatActionSender
 from loguru import logger
 from pydantic import SecretStr
+from pyrate_limiter import Limiter, RequestRate
 
 import utils
 from config import config
@@ -61,13 +62,15 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 	_cachedUsersInfo: cachetools.TLRUCache[int, TelehooperServiceUserInfo] = cachetools.TLRUCache(maxsize=80, ttu=lambda _, value, now: now + 5 * 60)  # 80 элементов, 5 минут хранения.
 	"""Кэшированные данные о пользователях ВКонтакте для быстрого повторного получения."""
 
-	def __init__(self, token: SecretStr, vk_user_id: int, user: "TelehooperUser") -> None:
+	def __init__(self, token: SecretStr, vk_user_id: int, user: "TelehooperUser", limiter: Limiter = Limiter(RequestRate(2, 1), RequestRate(20, 60))) -> None:
 		super().__init__("VK", vk_user_id, user)
 
 		self.token = token
 		self.user = user
 
 		self.vkAPI = VKAPI(self.token)
+
+		self.limiter = limiter
 
 	async def start_listening(self, bot: Bot | None = None) -> asyncio.Task:
 		async def handle_updates() -> None:
@@ -801,9 +804,9 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 			if reason not in [ServiceDisconnectReason.INITIATED_BY_USER, ServiceDisconnectReason.ISSUED_BY_ADMIN]:
 				raise Exception
 
-			await self.vkAPI.messages_send(
-				peer_id=db_user["Connections"]["VK"]["ID"],
-				message="ℹ️ Telegram-бот «Telehooper» был отключён от Вашей страницы ВКонтакте."
+			await self.send_message(
+				chat_id=db_user["Connections"]["VK"]["ID"],
+				text="ℹ️ Telegram-бот «Telehooper» был отключён от Вашей страницы ВКонтакте."
 			)
 		except:
 			pass
@@ -882,7 +885,10 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 	async def mark_as_read(self, peer_id: int) -> None:
 		await self.vkAPI.messages_markAsRead(peer_id=peer_id)
 
-	async def send_message(self, chat_id: int, text: str, reply_to_message: int | None = None, attachments: list[str] | str | None = None, latitude: float | None = None, longitude: float | None = None) -> int:
+	async def send_message(self, chat_id: int, text: str, reply_to_message: int | None = None, attachments: list[str] | str | None = None, latitude: float | None = None, longitude: float | None = None, bypass_queue: bool = False) -> int | None:
+		if not bypass_queue and not await self.try_acquire("message"):
+			return None
+
 		return await self.vkAPI.messages_send(peer_id=chat_id, message=text, reply_to=reply_to_message, attachment=attachments, lat=latitude, long=longitude)
 
 	async def handle_inner_message(self, msg: Message, subgroup: "TelehooperSubGroup", attachments: list[PhotoSize | Video | Audio | TelegramDocument | Voice | Sticker | VideoNote]) -> None:
@@ -1061,20 +1067,27 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 			asyncio.create_task(self.set_online())
 
 		# Делаем статус "печати" и прочитываем сообщение.
-		if await self.user.get_setting("Services.VK.WaitToType"):
+		if await self.user.get_setting("Services.VK.WaitToType") and len(message_text) > 3:
+			# TODO: Использовать здесь execute для ускорения.
 			await asyncio.gather(self.mark_as_read(subgroup.service_chat_id), self.start_activity(subgroup.service_chat_id))
 
 			await asyncio.sleep(0.6 if len(message_text) <= 15 else 1)
 
 		# Отправляем сообщение.
-		await TelehooperAPI.save_message("VK", msg.message_id, await self.send_message(
+		vk_message_id = await self.send_message(
 			chat_id=subgroup.service_chat_id,
 			text=message_text,
 			reply_to_message=reply_message_id,
 			attachments=attachments_to_send,
 			latitude=msg.location.latitude if msg.location else None,
 			longitude=msg.location.longitude if msg.location else None
-		), True)
+		)
+
+		# В некоторых случаях сообщение может быть не отправлено из-за большой очереди.
+		if not vk_message_id:
+			return
+
+		await TelehooperAPI.save_message("VK", msg.message_id, vk_message_id, True)
 
 	async def handle_message_delete(self, msg: Message, subgroup: "TelehooperSubGroup") -> None:
 		from api import TelehooperAPI

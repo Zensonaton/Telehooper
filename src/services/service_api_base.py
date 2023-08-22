@@ -1,12 +1,14 @@
 # coding: utf-8
 
 from __future__ import annotations
+import asyncio
 
 import enum
 from typing import TYPE_CHECKING, Literal, Optional
 
 from aiogram import Bot
 from aiogram.types import Audio, Document, Message, PhotoSize, Video, VideoNote
+from pyrate_limiter import BucketFullException, Limiter, RequestRate
 
 if TYPE_CHECKING:
 	from api import TelehooperMessage, TelehooperSubGroup, TelehooperUser
@@ -105,19 +107,45 @@ class BaseTelehooperServiceAPI:
 	"""Название сервиса."""
 	service_user_id: int
 	"""ID пользователя в сервисе."""
+	limiter: Limiter
+	"""Лимитер для этого сервиса."""
 
-	def __init__(self, service_name: str, service_id: int, user: "TelehooperUser") -> None:
+	def __init__(self, service_name: str, service_id: int, user: "TelehooperUser", limiter: Limiter = Limiter(RequestRate(1, 1), RequestRate(20, 60))) -> None:
 		"""
 		Инициализирует данный Service API.
 
 		:param service_name: Название сервиса.
 		:param service_id: ID пользователя в сервисе.
 		:param user: Пользователь, которому принадлежит данный сервис.
+		:param limiter: Лимитер для этого сервиса.
 		"""
 
 		self.service_name = service_name
 		self.service_user_id = service_id
 		self.user = user
+		self.limiter = limiter
+
+	async def try_acquire(self, key: str, max_delay: int | float | None = None) -> bool:
+		"""
+		Пытается получить место в очереди. Если место не было получено, то бот будет спать до тех пор, пока не получит место. Возвращает `True`, если место было получено, иначе `False`, если места вообще нет.
+
+		:param key: Ключ, по которому нужно получить место в очереди.
+		:param max_delay: Максимальное время ожидания в секундах. Если ожидание превысит это время, то метод вернёт `False`.
+		"""
+
+		while True:
+			try:
+				self.limiter.try_acquire(key)
+			except BucketFullException as err:
+				delay_time = float(err.meta_info["remaining_time"])
+
+				exceeded_max_delay = max_delay and delay_time > max_delay
+				if exceeded_max_delay:
+					return False
+
+				await asyncio.sleep(delay_time)
+			else:
+				return True
 
 	async def start_listening(self, bot: Bot | None = None) -> None:
 		"""
@@ -200,7 +228,7 @@ class BaseTelehooperServiceAPI:
 
 		raise NotImplementedError
 
-	async def send_message(self, chat_id: int, text: str, reply_to_message: int | None = None, attachments: list[str] | str | None = None, latitude: float | None = None, longitude: float | None = None) -> None:
+	async def send_message(self, chat_id: int, text: str, reply_to_message: int | None = None, attachments: list[str] | str | None = None, latitude: float | None = None, longitude: float | None = None, bypass_queue: bool = False) -> None:
 		"""
 		Отправляет сообщение в диалог.
 
@@ -210,6 +238,7 @@ class BaseTelehooperServiceAPI:
 		:param attachments: Вложения к сообщению. Может быть как строкой, так и списком строк.
 		:param latitude: Широта для геолокации.
 		:param longitude: Долгота для геолокации.
+		:param bypass_queue: Отправить ли сообщение без учёта лимитов.
 		"""
 
 		raise NotImplementedError
