@@ -1164,7 +1164,7 @@ class TelehooperAPI:
 		return None
 
 	@staticmethod
-	async def edit_or_resend_message(text: str, chat_id: int, message_to_edit: Message | int | None, thread_id: int | None = None, reply_markup: InlineKeyboardMarkup | ReplyKeyboardMarkup | ReplyKeyboardRemove | ForceReply | None = None, disable_web_page_preview: bool = False, allow_sending_without_reply: bool = False, bot: Bot | None = None, query: CallbackQuery | None = None) -> Message | int:
+	async def edit_or_resend_message(text: str, chat_id: int, message_to_edit: Message | int | None, thread_id: int | None = None, reply_markup: InlineKeyboardMarkup | ReplyKeyboardMarkup | ReplyKeyboardRemove | ForceReply | None = None, disable_web_page_preview: bool = False, allow_sending_without_reply: bool = False, bot: Bot | None = None, query: CallbackQuery | None = None) -> Message | int | None:
 		"""
 		Пытается отредактировать либо отправить сообщение в группу. Возвращает объект сообщения.
 		"""
@@ -1206,6 +1206,8 @@ class TelehooperAPI:
 		except TelegramForbiddenError:
 			if query:
 				await query.answer("Вы удалили бота из группы.", show_alert=True)
+
+			return None
 		except TelegramAPIError as error:
 			if not utils.is_useful_exception(error):
 				return message_id
