@@ -7,9 +7,7 @@ import io
 import os
 import re
 import time
-from typing import Any
 
-from aiogram import Bot
 from aiogram.exceptions import TelegramAPIError
 from aiogram.types import User as TelegramUser
 from cryptography.fernet import Fernet
@@ -336,3 +334,12 @@ def compact_name(input: str) -> str:
 	first_name, last_name = input.split(" ", 1)
 
 	return f"{first_name} {last_name[0]}."
+
+def time_since(timestamp: int) -> int:
+	"""
+	Возвращает количество секунд, прошедшее с момента `timestamp`.
+
+	:param timestamp: Время в формате UNIX Timestamp.
+	"""
+
+	return get_timestamp() - timestamp

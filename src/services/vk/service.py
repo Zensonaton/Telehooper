@@ -690,7 +690,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 		# В моём случае, ничего не будет происходить, если "редактирование" имеет
 		# поле "pinned_at", и разница между текущим и этим временем менее 2 секунды.
 		# Возможно, это не самый лучший способ, но он работает.
-		if event.pinned_at and (utils.get_timestamp() - event.pinned_at) < 2:
+		if event.pinned_at and (utils.time_since(event.pinned_at)) < 2:
 			return
 
 		logger.debug(f"[VK] Событие редактирования сообщения для подгруппы \"{subgroup.service_dialogue_name}\"")
@@ -1116,7 +1116,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 			return
 
 		# Делаем статус "онлайн", если он не был обновлён в течении минуты.
-		if utils.get_timestamp() - self._lastOnlineStatus > 60 and await self.user.get_setting("Services.VK.SetOnline"):
+		if utils.time_since(self._lastOnlineStatus) > 60 and await self.user.get_setting("Services.VK.SetOnline"):
 			self._lastOnlineStatus = utils.get_timestamp()
 
 			asyncio.create_task(self.set_online())

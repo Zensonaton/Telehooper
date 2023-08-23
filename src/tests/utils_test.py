@@ -1,5 +1,7 @@
 # coding: utf-8
 
+from time import sleep
+
 import pytest
 
 import utils
@@ -11,6 +13,10 @@ def test_getTimestamp():
 	"""
 
 	assert isinstance(utils.get_timestamp(), int)
+
+	time = utils.get_timestamp()
+	sleep(1)
+	assert utils.get_timestamp() > time
 
 def test_getBotVersion():
 	"""
@@ -133,3 +139,16 @@ def test_compactName():
 	"""
 
 	assert utils.compact_name("Иван Петров") == "Иван П."
+
+def test_timeSince():
+	"""
+	`time_since()` возвращает количество секунд, прошедшее с определённого момента.
+	"""
+
+	time = utils.get_timestamp()
+
+	assert utils.time_since(time) == 0
+	assert utils.time_since(time - 1) == 1
+	sleep(1)
+	assert utils.time_since(time) == 1
+
