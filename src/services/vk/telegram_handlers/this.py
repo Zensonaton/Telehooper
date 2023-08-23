@@ -230,6 +230,17 @@ async def this_vk_convert_inline_handler(query: CallbackQuery, msg: Message, use
 
 	assert dialog is not None, "Диалог не существует"
 
+	# Проверка на то, что такой диалог уже существует.
+	if TelehooperAPI.get_subgroup_by_service_dialogue(telehooper_user, dialog):
+		await query.answer(
+			"Упс, этот диалог уже подключён к боту.\n"
+			"\n"
+			"ℹ️ Воспользуйтесь командой /me, что бы найти группу, с которой этот диалог связан.",
+			show_alert=True
+		)
+
+		return
+
 	await TelehooperAPI.edit_or_resend_message(
 		"<b>🫂 Группа-диалог — ВКонтакте — сообщения</b>.\n"
 		"\n"
