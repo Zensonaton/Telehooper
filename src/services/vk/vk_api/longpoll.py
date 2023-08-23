@@ -131,7 +131,11 @@ class LongpollTypingEvent(BaseVKLongpollEvent):
 		super().__init__(event)
 
 		self.user_id = self.event_data[0]
-		self.peer_id = self.user_id if self.event_type == 61 else self.event_data[1]
+		self.peer_id = self.user_id
+		if self.event_type == 61:
+			# В беседах, передаваемый ID чата равен ID пользователя + 2e9.
+
+			self.peer_id = int(2e9 + self.event_data[1])
 
 class LongpollTypingEventMultiple(BaseVKLongpollEvent):
 	"""
