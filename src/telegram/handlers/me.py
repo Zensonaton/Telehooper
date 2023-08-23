@@ -49,7 +49,7 @@ async def me_command_message(msg: Message, from_user: User, edit_message: bool =
 
 	await TelehooperAPI.edit_or_resend_message(
 		text=(
-			"<b>👤 Профиль</b>.\n"
+			"<b>👤 Профиль и сервисы</b>.\n"
 			"\n"
 			"Информация о Вашем профиле:\n"
 			f" • <b>Telegram</b>: {utils.get_telegram_logging_info(msg.from_user)}.\n"
@@ -67,6 +67,7 @@ async def me_command_message(msg: Message, from_user: User, edit_message: bool =
 
 @router.message(Command("me", "profile", "connect", "connections"))
 @router.message(Text(CommandButtons.ME))
+@router.message(Text(CommandButtons.CONNECT))
 async def me_command_handler(msg: Message) -> None:
 	"""
 	Handler для команды `/me`.

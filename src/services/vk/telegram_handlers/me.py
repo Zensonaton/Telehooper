@@ -61,7 +61,7 @@ async def me_vk_inline_handler(query: CallbackQuery, msg: Message, user: User) -
 
 		await TelehooperAPI.edit_or_resend_message(
 			(
-				"<b>👤 Ваш профиль — ВКонтакте</b>.\n"
+				"<b>👤 Профиль — ВКонтакте</b>.\n"
 				"\n"
 				"Вы управляете этой страницей ВКонтакте:\n"
 				f" • <b>Страница</b>: {full_name} (<a href=\"{'m.' if use_mobile_vk else ''}vk.com/{domain}\">@{domain}</a>, ID {id}).\n"
