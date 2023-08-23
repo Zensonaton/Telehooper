@@ -1203,12 +1203,20 @@ class TelehooperAPI:
 			)
 
 			return message_id
+		except TelegramForbiddenError:
+			if query:
+				await query.answer("Вы удалили бота из группы.", show_alert=True)
 		except TelegramAPIError as error:
 			if not utils.is_useful_exception(error):
 				return message_id
 
 			if query:
-				await query.answer("Данное сообщение устарело, проверьте новые сообщения бота.", show_alert=True)
+				await query.answer(
+					"Данное сообщение устарело!\n"
+					"\n"
+					"Проверьте на наличие новых сообщений от бота в этом же диалоге.",
+					show_alert=True
+				)
 
 			return await _send()
 
