@@ -1,12 +1,15 @@
 # coding: utf-8
 
-from aiogram import F, Router
-from aiogram.exceptions import TelegramAPIError
-from aiogram.types import CallbackQuery, ErrorEvent, Message
+from aiogram import Bot, F, Router
+from aiogram.exceptions import TelegramForbiddenError
+from aiogram.types import CallbackQuery, Chat, ErrorEvent, Message
 from loguru import logger
 
 import utils
+from api import TelehooperAPI
 
+
+router = Router()
 
 def exception_filter(event: ErrorEvent) -> bool:
 	"""
@@ -15,13 +18,31 @@ def exception_filter(event: ErrorEvent) -> bool:
 
 	return utils.is_useful_exception(event.exception)
 
-router = Router()
+async def handle_error(event: ErrorEvent, bot: Bot, chat: Chat) -> bool:
+	"""
+	Ранний обработчик ошибок. Если вернул значение True, то значит, что обработчик сработал и дальнейшая обработка не требуется.
+
+	:param event: Событие ошибки.
+	:param bot: Экземпляр бота.
+	:param chat: Чат, в котором произошла ошибка.
+	"""
+
+	exc = event.exception
+	if isinstance(exc, TelegramForbiddenError) and "bot was kicked" in exc.message:
+		logger.debug("Пользователь удалил бота из группы.")
+
+		await TelehooperAPI.delete_group_data(chat, fully_delete=True)
+
+	return False
 
 @router.errors(F.update.message.as_("msg"), exception_filter)
-async def message_error_handler(event: ErrorEvent, msg: Message) -> None:
+async def message_error_handler(event: ErrorEvent, msg: Message, bot: Bot) -> None:
 	"""
 	Error Handler для случаев с сообщениями.
 	"""
+
+	if await handle_error(event, bot, msg.chat):
+		return
 
 	logger.exception(f"Ошибка при обработке сообщения от пользователя {utils.get_telegram_logging_info(msg.from_user)}:", event.exception)
 
@@ -37,10 +58,13 @@ async def message_error_handler(event: ErrorEvent, msg: Message) -> None:
 	)
 
 @router.errors(F.update.callback_query.as_("query"), exception_filter)
-async def callback_query_error_handler(event: ErrorEvent, query: CallbackQuery) -> None:
+async def callback_query_error_handler(event: ErrorEvent, query: CallbackQuery, bot: Bot) -> None:
 	"""
 	Error Handler для случаев с Inline Callback Query.
 	"""
+
+	if query.message and await handle_error(event, bot, query.message.chat):
+		return
 
 	logger.exception(f"Ошибка при обработке callback query от пользователя {utils.get_telegram_logging_info(query.from_user)}:", event.exception)
 

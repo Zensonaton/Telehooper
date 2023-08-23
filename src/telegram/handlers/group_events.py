@@ -5,14 +5,14 @@ from typing import cast
 
 from aiogram import Bot, F, Router
 from aiogram.filters import (ADMINISTRATOR, CREATOR, IS_MEMBER, IS_NOT_MEMBER,
-                             JOIN_TRANSITION, MEMBER, RESTRICTED,
-                             ChatMemberUpdatedFilter, Text)
+                             JOIN_TRANSITION, KICKED, LEAVE_TRANSITION, MEMBER,
+                             RESTRICTED, ChatMemberUpdatedFilter, Text)
 from aiogram.types import (CallbackQuery, ChatMemberUpdated,
                            InlineKeyboardButton, InlineKeyboardMarkup, Message)
 from loguru import logger
-from api import TelehooperAPI, TelehooperSubGroup, TelehooperUser
 
 import utils
+from api import TelehooperAPI, TelehooperSubGroup, TelehooperUser
 from DB import get_db, get_default_group, get_group
 from telegram.handlers.this import group_convert_message
 
@@ -178,7 +178,7 @@ async def on_other_member_add_handler(event: ChatMemberUpdated, bot: Bot) -> Non
 @router.callback_query(Text("/this showAdminTips"), F.message.as_("msg"))
 async def show_platform_admin_steps_inline_handler(query: CallbackQuery, msg: Message) -> None:
 	"""
-	Handler, вызываемый если пользователь в welcome-сообщении нажал на кнопку с инструкцией по выдаче прав администратора.
+	Handler, вызываемый, если пользователь в welcome-сообщении нажал на кнопку с инструкцией по выдаче прав администратора.
 	"""
 
 	await TelehooperAPI.edit_or_resend_message(
@@ -209,9 +209,15 @@ async def show_platform_admin_steps_inline_handler(query: CallbackQuery, msg: Me
 		query=query
 	)
 
-@router.my_chat_member(ChatMemberUpdatedFilter(member_status_changed=(RESTRICTED | MEMBER) >> (ADMINISTRATOR | CREATOR)))
-async def on_admin_promoted_handler(event: ChatMemberUpdated):
-	# TODO: Убедиться, что данное сообщение будет показано лишь один раз.
+@router.my_chat_member(ChatMemberUpdatedFilter(member_status_changed=(RESTRICTED | MEMBER | KICKED) >> (ADMINISTRATOR | CREATOR)))
+async def on_user_promoted_handler(event: ChatMemberUpdated, bot: Bot):
+	"""
+	Handler, вызываемый, если пользователя повысили в группе.
+	"""
+
+	# Проверяем, что повысили именно бота.
+	if event.new_chat_member.user.id != bot.id:
+		return
 
 	await asyncio.sleep(1)
 
@@ -230,16 +236,61 @@ async def on_admin_promoted_handler(event: ChatMemberUpdated):
 		await group_convert_message(event.chat.id, event.from_user, None, called_from_command=False)
 
 @router.chat_member(ChatMemberUpdatedFilter(member_status_changed=(ADMINISTRATOR | CREATOR) >> (RESTRICTED | MEMBER)))
-async def on_bot_demotion_handler(event: ChatMemberUpdated):
-	# TODO: Обработка события, если у бота забрали права администратора.
+async def on_user_demotion_handler(event: ChatMemberUpdated, bot: Bot):
+	"""
+	Handler, вызываемый, если пользователя в группе понизили.
+	"""
 
-	...
+	# Проверяем, что понизили именно бота.
+	if event.new_chat_member.user.id != bot.id:
+		return
 
-@router.chat_member(ChatMemberUpdatedFilter(member_status_changed=IS_MEMBER >> IS_NOT_MEMBER))
-async def on_bot_chat_kick_handler(event: ChatMemberUpdated):
-	# TODO: Обработка события, если бота удалили из группы.
+	await asyncio.sleep(1)
 
-	...
+	group = await get_group(event.chat)
+
+	# В некоторых edge-case'ах группа может быть не найдена в БД.
+	if not group:
+		return
+
+	# Проверяем, что у бота ранее были права администратора.
+	if not group["AdminRights"]:
+		return
+
+	# Запоминаем, что у бота теперь нет прав админа.
+	group["AdminRights"] = False
+	await group.save()
+
+	await bot.send_message(
+		event.chat.id,
+		(
+			"<b>⚠️ Предупреждение о работе бота в этой группе</b>.\n"
+			"\n"
+			"Похоже, что Вы понизили бота Telehooper в этой группе. Бот продолжит работу, однако его стабильность может быть нарушена.\n"
+			"\n"
+			"Рекомендуется выдать боту права администратора, что бы он мог работать стабильно."
+		)
+	)
+
+@router.chat_member(ChatMemberUpdatedFilter(member_status_changed=LEAVE_TRANSITION))
+async def on_user_chat_kick_handler(event: ChatMemberUpdated, bot: Bot):
+	"""
+	Handler, вызываемый, если пользователя удалили из группы.
+	"""
+
+	# Проверяем, что понизили именно бота.
+	# TODO: Если из группы вышел именно владелец, то написать ему в ЛС об этом, и предложить вернуться, в ином случае - удалить группу.
+	if event.new_chat_member.user.id != bot.id:
+		return
+
+	await asyncio.sleep(1)
+
+	# Если группа не была сохранена в БД, то значит что удалять нечего.
+	if not get_group(event.chat):
+		return
+
+	# Удаляем группу из БД.
+	await TelehooperAPI.delete_group_data(event.chat.id, fully_delete=True, bot=bot)
 
 @router.message(F.migrate_to_chat_id)
 async def group_to_supergroup_convert_handler(message: Message, bot: Bot):

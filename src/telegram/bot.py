@@ -5,13 +5,13 @@ import importlib
 import os
 import pkgutil
 from types import ModuleType
-from aiocouch import Document
 
+from aiocouch import Document
 from aiogram import Bot, Dispatcher
+from aiogram.exceptions import TelegramForbiddenError
 from aiogram.types import (BotCommand, BotCommandScopeAllGroupChats,
                            BotCommandScopeDefault)
 from loguru import logger
-from pydantic import SecretStr
 
 import utils
 from api import (TelehooperAPI, TelehooperGroup, TelehooperSubGroup,
@@ -19,8 +19,6 @@ from api import (TelehooperAPI, TelehooperGroup, TelehooperSubGroup,
 from config import config
 from consts import COMMANDS, COMMANDS_USERS_GROUPS
 from DB import get_db
-from services.service_api_base import ServiceDisconnectReason
-from services.vk.exceptions import TokenRevokedException
 from services.vk.service import VKServiceAPI
 
 
@@ -148,24 +146,31 @@ async def reconnect_services() -> None:
 		# Все сервисы переподключены, возвращаем диалоги.
 		try:
 			async for group in db.docs([f"group_{i}" for i in user["Groups"]]):
-				telegram_group = await bot.get_chat(group["ID"])
-				telehooper_group = TelehooperGroup(telehooper_user, group, telegram_group, bot)
+				group_id = group["ID"]
 
-				for chat in group["Chats"].values():
-					serviceAPI = service_apis.get(chat["Service"])
+				try:
+					telegram_group = await bot.get_chat(group_id)
+					telehooper_group = TelehooperGroup(telehooper_user, group, telegram_group, bot)
 
-					if not serviceAPI:
-						continue
+					for chat in group["Chats"].values():
+						serviceAPI = service_apis.get(chat["Service"])
 
-					TelehooperAPI.save_subgroup(
-						TelehooperSubGroup(
-							id=chat["ID"],
-							dialogue_name=chat["Name"],
-							service=serviceAPI,
-							parent=telehooper_group,
-							service_chat_id=chat["DialogueID"]
+						if not serviceAPI:
+							continue
+
+						TelehooperAPI.save_subgroup(
+							TelehooperSubGroup(
+								id=chat["ID"],
+								dialogue_name=chat["Name"],
+								service=serviceAPI,
+								parent=telehooper_group,
+								service_chat_id=chat["DialogueID"]
+							)
 						)
-					)
+				except TelegramForbiddenError:
+					await TelehooperAPI.delete_group_data(group_id, fully_delete=True, bot=bot)
+				except Exception as error:
+					logger.exception(f"Не удалось переподключить группу {group_id} для пользователя {utils.get_telegram_logging_info(telegram_user)}:", error)
 		except Exception as error:
 			logger.exception(f"Не удалось переподключить диалоги для пользователя {user['ID']}:", error)
 

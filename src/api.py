@@ -7,7 +7,8 @@ from typing import Any, Literal, Sequence, cast
 import aiohttp
 from aiocouch import Document, NotFoundError
 from aiogram import Bot
-from aiogram.exceptions import TelegramAPIError, TelegramBadRequest
+from aiogram.exceptions import (TelegramAPIError, TelegramBadRequest,
+                                TelegramForbiddenError)
 from aiogram.filters import Command
 from aiogram.filters.command import CommandPatternType
 from aiogram.types import Audio, BufferedInputFile, CallbackQuery, Chat
@@ -17,6 +18,7 @@ from aiogram.types import (ForceReply, InlineKeyboardMarkup, InputFile,
                            InputMediaPhoto, InputMediaVideo, Message,
                            PhotoSize, ReplyKeyboardMarkup, ReplyKeyboardRemove,
                            Sticker, User, Video, VideoNote, Voice)
+from loguru import logger
 from magic_filter import MagicFilter
 from pyrate_limiter import BucketFullException, Limiter, RequestRate
 
@@ -28,7 +30,6 @@ from exceptions import DisallowedInDebugException
 from services.service_api_base import BaseTelehooperServiceAPI, ServiceDialogue
 from services.vk.service import VKServiceAPI
 from settings import SETTINGS_TREE, SettingsHandler
-
 
 # Да, я знаю что это плохой способ. Знаю. Ни к чему другому, адекватному я не пришёл.
 _saved_connections = {}
@@ -512,30 +513,34 @@ class TelehooperGroup:
 		if attachments:
 			attachments[0].caption = text
 
-		if attachments:
-			# У нас есть хотя бы одно вложение, отправляем как медиа-группу.
+		try:
+			if attachments:
+				# У нас есть хотя бы одно вложение, отправляем как медиа-группу.
 
-			message_ids = [i.message_id for i in await self.bot.send_media_group(
-				chat_id=self.chat.id,
-				media=attachments,
-				message_thread_id=topic,
-				reply_to_message_id=reply_to,
-				disable_notification=silent,
-				allow_sending_without_reply=True
-			)]
-		else:
-			# Вложений нету.
+				message_ids = [i.message_id for i in await self.bot.send_media_group(
+					chat_id=self.chat.id,
+					media=attachments,
+					message_thread_id=topic,
+					reply_to_message_id=reply_to,
+					disable_notification=silent,
+					allow_sending_without_reply=True
+				)]
+			else:
+				# Вложений нету.
 
-			message_ids = [(await self.bot.send_message(
-				chat_id=self.chat.id,
-				message_thread_id=topic,
-				reply_to_message_id=reply_to,
-				text=text,
-				disable_notification=silent,
-				allow_sending_without_reply=True,
-				reply_markup=keyboard,
-				disable_web_page_preview=disable_web_preview
-			)).message_id]
+				message_ids = [(await self.bot.send_message(
+					chat_id=self.chat.id,
+					message_thread_id=topic,
+					reply_to_message_id=reply_to,
+					text=text,
+					disable_notification=silent,
+					allow_sending_without_reply=True,
+					reply_markup=keyboard,
+					disable_web_page_preview=disable_web_preview
+				)).message_id]
+		except TelegramForbiddenError:
+			await TelehooperAPI.delete_group_data(self.chat.id, fully_delete=True)
+
 
 		return message_ids
 
@@ -547,11 +552,14 @@ class TelehooperGroup:
 		:param topic: ID диалога в сервисе, в который нужно отправить сообщение. Если не указано, то сообщение будет отправлено в главный диалог группы.
 		"""
 
-		await self.bot.send_chat_action(
-			chat_id=self.chat.id,
-			action=type,
-			message_thread_id=topic
-		)
+		try:
+			await self.bot.send_chat_action(
+				chat_id=self.chat.id,
+				action=type,
+				message_thread_id=topic
+			)
+		except TelegramForbiddenError:
+			await TelehooperAPI.delete_group_data(self.chat.id, fully_delete=True)
 
 	async def edit_message(self, new_text: str, id: int) -> None:
 		"""
@@ -575,6 +583,8 @@ class TelehooperGroup:
 				chat_id=self.chat.id,
 				message_id=id
 			)
+		except TelegramForbiddenError:
+			await TelehooperAPI.delete_group_data(self.chat.id, fully_delete=True)
 
 	async def delete_message(self, id: list[int] | int) -> None:
 		"""
@@ -586,8 +596,11 @@ class TelehooperGroup:
 		if isinstance(id, int):
 			id = [id]
 
-		for i in id:
-			await self.bot.delete_message(self.chat.id, message_id=i)
+		try:
+			for i in id:
+				await self.bot.delete_message(self.chat.id, message_id=i)
+		except TelegramForbiddenError:
+			await TelehooperAPI.delete_group_data(self.chat.id, fully_delete=True)
 
 	async def set_title(self, title: str) -> None:
 		"""
@@ -596,7 +609,10 @@ class TelehooperGroup:
 		:param title: Новое название группы.
 		"""
 
-		await self.bot.set_chat_title(self.chat.id, title)
+		try:
+			await self.bot.set_chat_title(self.chat.id, title)
+		except TelegramForbiddenError:
+			await TelehooperAPI.delete_group_data(self.chat.id, fully_delete=True)
 
 	async def set_description(self, description: str) -> None:
 		"""
@@ -605,7 +621,10 @@ class TelehooperGroup:
 		:param description: Новое описание группы.
 		"""
 
-		await self.bot.set_chat_description(self.chat.id, description)
+		try:
+			await self.bot.set_chat_description(self.chat.id, description)
+		except TelegramForbiddenError:
+			await TelehooperAPI.delete_group_data(self.chat.id, fully_delete=True)
 
 	async def set_photo(self, photo: BufferedInputFile | InputFile) -> None:
 		"""
@@ -614,14 +633,20 @@ class TelehooperGroup:
 		:param photo: Новая фотография группы.
 		"""
 
-		await self.bot.set_chat_photo(self.chat.id, photo=photo)
+		try:
+			await self.bot.set_chat_photo(self.chat.id, photo=photo)
+		except TelegramForbiddenError:
+			await TelehooperAPI.delete_group_data(self.chat.id, fully_delete=True)
 
 	async def remove_photo(self) -> None:
 		"""
 		Удаляет фотографию группы в Telegram.
 		"""
 
-		await self.bot.delete_chat_photo(self.chat.id)
+		try:
+			await self.bot.delete_chat_photo(self.chat.id)
+		except TelegramForbiddenError:
+			await TelehooperAPI.delete_group_data(self.chat.id, fully_delete=True)
 
 	async def pin_message(self, message_id: int, disable_notification: bool = False) -> None:
 		"""
@@ -631,21 +656,37 @@ class TelehooperGroup:
 		:param disable_notification: Отправить ли сообщение без уведомления.
 		"""
 
-		await self.bot.pin_chat_message(self.chat.id, message_id=message_id, disable_notification=disable_notification)
+		try:
+			await self.bot.pin_chat_message(self.chat.id, message_id=message_id, disable_notification=disable_notification)
+		except TelegramForbiddenError:
+			await TelehooperAPI.delete_group_data(self.chat.id, fully_delete=True)
 
 	async def unpin_message(self, message_id: int | None = None) -> None:
 		"""
 		Открепляет сообщение в Telegram-группе.
 		"""
 
-		await self.bot.unpin_chat_message(self.chat.id, message_id)
+		try:
+			await self.bot.unpin_chat_message(self.chat.id, message_id)
+		except TelegramForbiddenError:
+			await TelehooperAPI.delete_group_data(self.chat.id, fully_delete=True)
 
 	async def unpin_all_messages(self) -> None:
 		"""
 		Открепляет все сообщения в Telegram-группе.
 		"""
 
-		await self.bot.unpin_all_chat_messages(self.chat.id)
+		try:
+			await self.bot.unpin_all_chat_messages(self.chat.id)
+		except TelegramForbiddenError:
+			await TelehooperAPI.delete_group_data(self.chat.id, fully_delete=True)
+
+	def get_subgroups(self) -> list["TelehooperSubGroup"]:
+		"""
+		Возвращает список сервис-диалогов, связанных с данной группой.
+		"""
+
+		return [i for i in TelehooperAPI.get_all_subgroups() if i.parent.chat.id == self.chat.id]
 
 class TelehooperMessage:
 	"""
@@ -849,14 +890,17 @@ class TelehooperAPI:
 		return TelehooperUser(await db_get_user(user), user)
 
 	@staticmethod
-	async def get_user_by_id(user_id: int) -> TelehooperUser | None:
+	async def get_user_by_id(user_id: int, bot: Bot | None = None) -> TelehooperUser | None:
 		"""
 		Возвращает объект TelehooperUser, либо None, если данного пользователя нет в БД, или же если он не писал боту.
 
 		:param user_id: ID пользователя в Telegram.
+		:param bot: Объект бота. Если не указано, то бот попытается получить его самостоятельно.
 		"""
 
-		bot = Bot.get_current()
+		if not bot:
+			bot = Bot.get_current()
+
 		assert bot
 
 		try:
@@ -1200,6 +1244,67 @@ class TelehooperAPI:
 				await query.answer("Данное сообщение устарело, проверьте новые сообщения бота.", show_alert=True)
 
 			return await _send()
+
+	@staticmethod
+	async def delete_group_data(chat: int | Chat, fully_delete: bool = True, bot: Bot | None = None) -> None:
+		"""
+		Полностью удаляет группу, её подгруппы и все связанные с ними данные из БД. Используется, если пользователь удалил бота из группы.
+
+		Данный метод работает для группы в целом, даже если в ней есть топики.
+
+		:param chat: Объект группы или её ID в Telegram.
+		:param fully_delete: Совершить полное удаление данных группы из БД. Если False, то данные будут оставлены в БД, но информация о подключённых диалогах внутри группы будет удалена.
+		:param bot: Объект бота. Если не указан, то бот не будет удаляться из группы.
+		"""
+
+		if isinstance(chat, Chat):
+			chat = chat.id
+
+		logger.debug(f"Группа с ID {chat} была отправлена на удаление.")
+
+		db_group = await get_group(chat)
+		if not db_group:
+			return
+
+		telehooper_user = None
+		try:
+			telehooper_user = await TelehooperAPI.get_user_by_id(db_group["Creator"], bot)
+		except:
+			pass
+
+		# Отключаем все сервис-диалоги, связанные с этой группой.
+		for i in [i for i in TelehooperAPI.get_all_subgroups() if i.parent.chat.id == chat]:
+			TelehooperAPI.delete_subgroup(i)
+
+		# Удаляем группу из памяти пользователя, если объект пользователя существует.
+		if telehooper_user:
+			telehooper_user.document["Groups"].remove(chat)
+
+			for connection in telehooper_user.document["Connections"].values():
+				for group in connection["OwnedGroups"].copy().values():
+					if group["GroupID"] != chat:
+						continue
+
+					connection["OwnedGroups"].pop(str(group["ID"]), None)
+
+			await telehooper_user.document.save()
+
+		# Удаляем информацию из БД группы.
+		if db_group:
+			if fully_delete:
+				await db_group.delete()
+			else:
+				db_group["LastActivityAt"] = utils.get_timestamp()
+				db_group["Chats"] = {}
+
+				await db_group.save()
+
+		# Если нужно, удаляем бота.
+		if bot:
+			try:
+				await bot.leave_chat(chat)
+			except:
+				pass
 
 async def get_subgroup(msg: Message) -> dict | None:
 	"""

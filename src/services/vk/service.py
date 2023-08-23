@@ -9,6 +9,7 @@ import aiohttp
 import cachetools
 from aiocouch import Document
 from aiogram import Bot
+from aiogram.exceptions import TelegramForbiddenError
 from aiogram.types import Audio, BufferedInputFile
 from aiogram.types import Document as TelegramDocument
 from aiogram.types import (InlineKeyboardButton, InlineKeyboardMarkup,

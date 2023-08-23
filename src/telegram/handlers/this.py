@@ -43,11 +43,8 @@ async def group_convert_message(chat_id: int, user: User, message_to_edit: Messa
 
 		return
 
-	telehooper_group = cast(TelehooperGroup, telehooper_group)
-
 	# Сохраняем то, что у бота есть права администратора в группе.
 	telehooper_group.document["AdminRights"] = True
-
 	await telehooper_group.document.save()
 
 	# Проверяем на то, что данная группа уже является диалогом.
