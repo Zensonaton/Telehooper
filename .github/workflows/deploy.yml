@@ -20,7 +20,7 @@ jobs:
             cd ${{ secrets.WORK_DIR }}
             git checkout ${{ secrets.MAIN_BRANCH }}
             git fetch --all
-            git reset --hard origin/$GITHUB_REF
+            git reset --hard origin/${{ github.ref }}
             pip install -r requirements.txt
             systemctl --user restart ${{ secrets.SERVICE_NAME }}
             exit
