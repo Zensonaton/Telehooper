@@ -18,9 +18,11 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             cd ${{ secrets.WORK_DIR }}
+            branch_name=$(basename ${{ github.ref }})
+
             git checkout ${{ secrets.MAIN_BRANCH }}
             git fetch --all
-            git reset --hard origin/${{ github.ref }}
+            git reset --hard origin/$branch_name
             pip install -r requirements.txt
             systemctl --user restart ${{ secrets.SERVICE_NAME }}
             exit
