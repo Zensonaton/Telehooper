@@ -7,6 +7,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
       - name: Deploy on server
         uses: appleboy/ssh-action@master
         with:
@@ -16,7 +19,8 @@ jobs:
           script: |
             cd ${{ secrets.WORK_DIR }}
             git checkout ${{ secrets.MAIN_BRANCH }}
-            git pull
+            git fetch --all
+            git reset --hard origin/${{ secrets.MAIN_BRANCH }}
             pip install -r requirements.txt
             systemctl --user restart ${{ secrets.SERVICE_NAME }}
             exit
