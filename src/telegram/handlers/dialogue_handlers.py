@@ -34,7 +34,7 @@ async def delete_command_handler(msg: Message, subgroup: TelehooperSubGroup, use
 
 		return
 
-	await subgroup.service.handle_message_delete(msg.reply_to_message, subgroup)
+	await subgroup.service.handle_telegram_message_delete(msg.reply_to_message, subgroup)
 
 	# Удаляем сообщение (команду), если этого позволяет настройка.
 	if await user.get_setting(f"Services.{subgroup.service.service_name}.CleanupAfterUse"):
@@ -51,7 +51,7 @@ async def read_command_handler(msg: Message, subgroup: TelehooperSubGroup, user:
 	Handler для команды `/read`.
 	"""
 
-	await subgroup.service.handle_message_read(subgroup)
+	await subgroup.service.handle_telegram_message_read(subgroup)
 
 	# Удаляем сообщение (команду), если этого позволяет настройка.
 	if await user.get_setting(f"Services.{subgroup.service.service_name}.CleanupAfterUse"):
@@ -68,7 +68,7 @@ async def on_message_edit(msg: Message, subgroup: TelehooperSubGroup) -> None:
 	Handler для случая, если пользователь отредактировал сообщение в группе-диалоге (или топик-диалоге).
 	"""
 
-	await subgroup.service.handle_message_edit(msg, subgroup)
+	await subgroup.service.handle_telegram_message_edit(msg, subgroup)
 
 @router.message(get_mediagroup, get_subgroup)
 async def on_group_message(msg: Message, subgroup: TelehooperSubGroup, mediagroup: list) -> None:
@@ -76,4 +76,4 @@ async def on_group_message(msg: Message, subgroup: TelehooperSubGroup, mediagrou
 	Handler для случая, если бот получил в группе сообщение, для которого существует диалог в сервисе.
 	"""
 
-	await subgroup.service.handle_inner_message(msg, subgroup, mediagroup)
+	await subgroup.service.handle_telegram_message(msg, subgroup, mediagroup)

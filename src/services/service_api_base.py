@@ -125,7 +125,7 @@ class BaseTelehooperServiceAPI:
 		self.user = user
 		self.limiter = limiter
 
-	async def try_acquire(self, key: str, max_delay: int | float | None = None) -> bool:
+	async def acquire_queue(self, key: str, max_delay: int | float | None = None) -> bool:
 		"""
 		Пытается получить место в очереди. Если место не было получено, то бот будет спать до тех пор, пока не получит место. Возвращает `True`, если место было получено, иначе `False`, если места вообще нет.
 
@@ -183,14 +183,14 @@ class BaseTelehooperServiceAPI:
 
 		raise NotImplementedError
 
-	async def current_user_info(self) -> TelehooperServiceUserInfo:
+	async def get_current_user_info(self) -> TelehooperServiceUserInfo:
 		"""
 		Возвращает информацию о текущем подключённом пользователе сервиса.
 		"""
 
 		raise NotImplementedError
 
-	async def get_dialogue(self, chat_id: int, force_update: bool = False) -> ServiceDialogue:
+	async def get_service_dialogue(self, chat_id: int, force_update: bool = False) -> ServiceDialogue:
 		"""
 		Возвращает диалог по его ID.
 
@@ -209,7 +209,7 @@ class BaseTelehooperServiceAPI:
 
 		raise NotImplementedError
 
-	async def start_activity(self, peer_id: int, type: Literal["typing", "audiomessage"]) -> None:
+	async def start_chat_activity(self, peer_id: int, type: Literal["typing", "audiomessage"]) -> None:
 		"""
 		Вызывает событие "печатает" текущего пользователя в указанном диалоге.
 
@@ -219,7 +219,7 @@ class BaseTelehooperServiceAPI:
 
 		raise NotImplementedError
 
-	async def mark_as_read(self, peer_id: int) -> None:
+	async def read_message(self, peer_id: int) -> None:
 		"""
 		Помечает сообщения в указанном диалоге как прочитанные.
 
@@ -243,7 +243,7 @@ class BaseTelehooperServiceAPI:
 
 		raise NotImplementedError
 
-	async def handle_inner_message(self, msg: Message, subgroup: "TelehooperSubGroup", attachments: list[PhotoSize | Video | Audio | Document | VideoNote]) -> None:
+	async def handle_telegram_message(self, msg: Message, subgroup: "TelehooperSubGroup", attachments: list[PhotoSize | Video | Audio | Document | VideoNote]) -> None:
 		"""
 		Метод, вызываемый ботом, в случае получения нового сообщения в группе-диалоге (или топик-диалоге). Этот метод обрабатывает события, передавая их текст в сервис.
 
@@ -254,7 +254,7 @@ class BaseTelehooperServiceAPI:
 
 		raise NotImplementedError
 
-	async def handle_message_delete(self, msg: Message, subgroup: "TelehooperSubGroup") -> None:
+	async def handle_telegram_message_delete(self, msg: Message, subgroup: "TelehooperSubGroup") -> None:
 		"""
 		Метод, вызываемый ботом, в случае попытки удаления сообщения в группе-диалоге (или топик-диалоге) в боте при помощи команды `/delete`.
 
@@ -264,7 +264,7 @@ class BaseTelehooperServiceAPI:
 
 		raise NotImplementedError
 
-	async def handle_message_edit(self, msg: Message, subgroup: "TelehooperSubGroup") -> None:
+	async def handle_telegram_message_edit(self, msg: Message, subgroup: "TelehooperSubGroup") -> None:
 		"""
 		Метод, вызываемый ботом, в случае попытки редактирования сообщения в группе-диалоге (или топик-диалоге).
 
@@ -274,7 +274,7 @@ class BaseTelehooperServiceAPI:
 
 		raise NotImplementedError
 
-	async def handle_message_read(self, subgroup: "TelehooperSubGroup") -> None:
+	async def handle_telegram_message_read(self, subgroup: "TelehooperSubGroup") -> None:
 		"""
 		Метод, вызываемый ботом, в случае прочтения сообщения в группе-диалоге (или топик-диалоге) в боте при помощи команды `/read` либо нажатия кнопки "прочитать".
 
@@ -283,7 +283,7 @@ class BaseTelehooperServiceAPI:
 
 		raise NotImplementedError
 
-	async def handle_callback_button(self, msg: Message, subgroup: "TelehooperSubGroup") -> None:
+	async def handle_telegram_callback_button(self, msg: Message, subgroup: "TelehooperSubGroup") -> None:
 		"""
 		Метод, вызываемый ботом при нажатии на кнопку в сообщении в группе-диалоге (или топик-диалоге). Данный метод вызывается только при нажатии на кнопки, которые были скопированы с сервиса.
 

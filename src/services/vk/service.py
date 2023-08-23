@@ -59,7 +59,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 	"""Задача, выполняющая longpoll."""
 	_lastOnlineStatus: int = 0
 	"""UNIX-timestamp последнего обновления статуса онлайна через бота. Используется для настройки `Security.StoreTokens`."""
-	_cachedUsersInfo: cachetools.TLRUCache[int, TelehooperServiceUserInfo] = cachetools.TLRUCache(maxsize=80, ttu=lambda _, value, now: now + 5 * 60)  # 80 элементов, 5 минут хранения.
+	_cachedUsersInfo: cachetools.TLRUCache[int, TelehooperServiceUserInfo] = cachetools.TLRUCache(maxsize=80, ttu=lambda _, value, now: now + 5 * 60) # 80 элементов, 5 минут хранения.
 	"""Кэшированные данные о пользователях ВКонтакте для быстрого повторного получения."""
 
 	def __init__(self, token: SecretStr, vk_user_id: int, user: "TelehooperUser", limiter: Limiter = Limiter(RequestRate(2, 1), RequestRate(20, 60))) -> None:
@@ -78,7 +78,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 				longpoll = VKAPILongpoll(self.vkAPI, user_id=self.service_user_id)
 
 				async for event in longpoll.listen_for_updates():
-					await self.handle_update(event)
+					await self.handle_longpoll_update(event)
 			except TokenRevokedException as e:
 				# Отправляем сообщение, если у нас есть объект бота.
 				if bot:
@@ -104,7 +104,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 		self._longPollTask = asyncio.create_task(handle_updates())
 		return self._longPollTask
 
-	async def handle_update(self, event: BaseVKLongpollEvent) -> None:
+	async def handle_longpoll_update(self, event: BaseVKLongpollEvent) -> None:
 		"""
 		Метод, обрабатывающий события VK Longpoll.
 
@@ -114,17 +114,17 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 		logger.debug(f"[VK] Новое событие {event.__class__.__name__}: {event.event_data}")
 
 		if type(event) is LongpollNewMessageEvent:
-			await self.handle_new_message(event)
+			await self.handle_vk_message(event)
 		elif type(event) is LongpollTypingEvent or type(event) is LongpollTypingEventMultiple or type(event) is LongpollVoiceMessageEvent:
-			await self.handle_typing(event)
+			await self.handle_vk_typing(event)
 		elif type(event) is LongpollMessageEditEvent:
-			await self.handle_edit(event)
+			await self.handle_vk_message_edit(event)
 		elif type(event) is LongpollMessageFlagsEdit:
-			await self.handle_message_flags_change(event)
+			await self.handle_vk_message_flags_change(event)
 		else:
 			logger.warning(f"[VK] Метод handle_update столкнулся с неизвестным событием {event.__class__.__name__}: {event.event_data}")
 
-	async def handle_new_message(self, event: LongpollNewMessageEvent) -> None:
+	async def handle_vk_message(self, event: LongpollNewMessageEvent) -> None:
 		"""
 		Обработчик полученных новых сообщений во ВКонтакте.
 
@@ -647,7 +647,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 			except:
 				pass
 
-	async def handle_typing(self, event: LongpollTypingEvent | LongpollTypingEventMultiple | LongpollVoiceMessageEvent) -> None:
+	async def handle_vk_typing(self, event: LongpollTypingEvent | LongpollTypingEventMultiple | LongpollVoiceMessageEvent) -> None:
 		"""
 		Обработчик события начала "печати" либо записи голосового сообщения во ВКонтакте.
 
@@ -669,7 +669,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 		# TODO: Если пользователей несколько, и в группе несколько Telehooper-ботов, то начать событие печати от имени разных ботов.
 
-	async def handle_edit(self, event: LongpollMessageEditEvent) -> None:
+	async def handle_vk_message_edit(self, event: LongpollMessageEditEvent) -> None:
 		"""
 		Обработчик события редактирования сообщения во ВКонтакте.
 
@@ -728,7 +728,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 		# TODO: При редактировании сообщения теряются префиксы и суфиксы от Telehooper.
 
-	async def handle_message_flags_change(self, event: LongpollMessageFlagsEdit) -> None:
+	async def handle_vk_message_flags_change(self, event: LongpollMessageFlagsEdit) -> None:
 		"""
 		Обработчик события изменения флагов у уже существующего сообщения во ВКонтакте.
 
@@ -898,7 +898,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 		except:
 			pass
 
-	async def current_user_info(self) -> TelehooperServiceUserInfo:
+	async def get_current_user_info(self) -> TelehooperServiceUserInfo:
 		self_info = await self.vkAPI.get_self_info()
 
 		return TelehooperServiceUserInfo(
@@ -932,7 +932,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 		return user_info_class
 
-	async def get_dialogue(self, chat_id: int, force_update: bool = False) -> ServiceDialogue:
+	async def get_service_dialogue(self, chat_id: int, force_update: bool = False) -> ServiceDialogue:
 		dialogues = await self.get_list_of_dialogues(force_update=force_update)
 
 		for dialogue in dialogues:
@@ -944,19 +944,19 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 	async def set_online(self) -> None:
 		await self.vkAPI.account_setOnline()
 
-	async def start_activity(self, peer_id: int, type: Literal["typing", "audiomessage"] = "typing") -> None:
+	async def start_chat_activity(self, peer_id: int, type: Literal["typing", "audiomessage"] = "typing") -> None:
 		await self.vkAPI.messages_setActivity(peer_id=peer_id, type=type)
 
-	async def mark_as_read(self, peer_id: int) -> None:
+	async def read_message(self, peer_id: int) -> None:
 		await self.vkAPI.messages_markAsRead(peer_id=peer_id)
 
 	async def send_message(self, chat_id: int, text: str, reply_to_message: int | None = None, attachments: list[str] | str | None = None, latitude: float | None = None, longitude: float | None = None, bypass_queue: bool = False) -> int | None:
-		if not bypass_queue and not await self.try_acquire("message"):
+		if not bypass_queue and not await self.acquire_queue("message"):
 			return None
 
 		return await self.vkAPI.messages_send(peer_id=chat_id, message=text, reply_to=reply_to_message, attachment=attachments, lat=latitude, long=longitude)
 
-	async def handle_inner_message(self, msg: Message, subgroup: "TelehooperSubGroup", attachments: list[PhotoSize | Video | Audio | TelegramDocument | Voice | Sticker | VideoNote]) -> None:
+	async def handle_telegram_message(self, msg: Message, subgroup: "TelehooperSubGroup", attachments: list[PhotoSize | Video | Audio | TelegramDocument | Voice | Sticker | VideoNote]) -> None:
 		from api import TelehooperAPI
 
 
@@ -1134,7 +1134,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 		# Делаем статус "печати" и прочитываем сообщение.
 		if await self.user.get_setting("Services.VK.WaitToType") and len(message_text) > 3:
 			# TODO: Использовать здесь execute для ускорения.
-			await asyncio.gather(self.mark_as_read(subgroup.service_chat_id), self.start_activity(subgroup.service_chat_id))
+			await asyncio.gather(self.read_message(subgroup.service_chat_id), self.start_chat_activity(subgroup.service_chat_id))
 
 			await asyncio.sleep(0.6 if len(message_text) <= 15 else 1)
 
@@ -1154,7 +1154,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 		await TelehooperAPI.save_message("VK", msg.message_id, vk_message_id, True)
 
-	async def handle_message_delete(self, msg: Message, subgroup: "TelehooperSubGroup") -> None:
+	async def handle_telegram_message_delete(self, msg: Message, subgroup: "TelehooperSubGroup") -> None:
 		from api import TelehooperAPI
 
 
@@ -1196,7 +1196,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 			saved_message.service_message_ids
 		)
 
-	async def handle_message_edit(self, msg: Message, subgroup: "TelehooperSubGroup") -> None:
+	async def handle_telegram_message_edit(self, msg: Message, subgroup: "TelehooperSubGroup") -> None:
 		logger.debug(f"[TG] Обработка редактирования сообщения в Telegram: \"{msg.text}\" в \"{subgroup}\"")
 
 		saved_message = await self.get_message_by_telegram_id(msg.message_id)
@@ -1226,10 +1226,10 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 				silent=True
 			)
 
-	async def handle_message_read(self, subgroup: "TelehooperSubGroup") -> None:
+	async def handle_telegram_message_read(self, subgroup: "TelehooperSubGroup") -> None:
 		logger.debug(f"[TG] Обработка прочтения сообщения в Telegram в \"{subgroup}\"")
 
-		await self.mark_as_read(subgroup.service_chat_id)
+		await self.read_message(subgroup.service_chat_id)
 
 	async def get_message_by_telegram_id(self, message_id: int, bypass_cache: bool = False) -> Optional["TelehooperMessage"]:
 		from api import TelehooperAPI

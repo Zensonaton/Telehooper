@@ -226,7 +226,7 @@ async def this_vk_convert_inline_handler(query: CallbackQuery, msg: Message, use
 	assert vkServiceAPI is not None, "Сервис ВКонтакте не существует"
 	assert bot is not None, "Telegram-бот не существует"
 
-	dialog = await vkServiceAPI.get_dialogue(chat_id)
+	dialog = await vkServiceAPI.get_service_dialogue(chat_id)
 
 	assert dialog is not None, "Диалог не существует"
 
