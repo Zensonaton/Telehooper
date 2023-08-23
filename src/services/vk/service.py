@@ -134,7 +134,6 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 		from api import TelehooperAPI
 
-
 		subgroup = TelehooperAPI.get_subgroup_by_service_dialogue(self.user, ServiceDialogue(service_name=self.service_name, id=event.peer_id))
 
 		# Проверяем, что у пользователя есть подгруппа, в которую можно отправить сообщение.
@@ -623,6 +622,8 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 					await _send_and_save()
 			else:
 				await _send_and_save()
+		except TelegramForbiddenError:
+			await TelehooperAPI.delete_group_data(subgroup.parent.chat.id, fully_delete=True, bot=subgroup.parent.bot)
 		except Exception as e:
 			logger.exception(f"Ошибка отправки сообщения Telegram-пользователю {utils.get_telegram_logging_info(self.user.telegramUser)}:", e)
 
@@ -666,7 +667,10 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 		logger.debug(f"[VK] Событие печати для подгруппы \"{subgroup.service_dialogue_name}\"")
 
-		await subgroup.start_activity("record_audio" if type(event) is LongpollVoiceMessageEvent else "typing")
+		try:
+			await subgroup.start_activity("record_audio" if type(event) is LongpollVoiceMessageEvent else "typing")
+		except TelegramForbiddenError:
+			await TelehooperAPI.delete_group_data(subgroup.parent.chat.id, fully_delete=True, bot=subgroup.parent.bot)
 
 		# TODO: Если пользователей несколько, и в группе несколько Telehooper-ботов, то начать событие печати от имени разных ботов.
 
@@ -716,7 +720,9 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 		if event.is_expired:
 			try:
 				await subgroup.delete_message(telegram_message.telegram_message_ids)
-			except:
+			except TelegramForbiddenError:
+				await TelehooperAPI.delete_group_data(subgroup.parent.chat.id, fully_delete=True, bot=subgroup.parent.bot)
+			except Exception:
 				pass
 
 			return
@@ -724,7 +730,9 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 		# Редактируем сообщение.
 		try:
 			await subgroup.edit_message(f"{event.new_text}   <i>(ред.)</i>", telegram_message.telegram_message_ids[0])
-		except:
+		except TelegramForbiddenError:
+			await TelehooperAPI.delete_group_data(subgroup.parent.chat.id, fully_delete=True, bot=subgroup.parent.bot)
+		except Exception:
 			pass
 
 		# TODO: При редактировании сообщения теряются префиксы и суфиксы от Telehooper.
@@ -760,7 +768,10 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 			return
 
 		# Удаляем сообщение.
-		await subgroup.delete_message(telegram_message.telegram_message_ids)
+		try:
+			await subgroup.delete_message(telegram_message.telegram_message_ids)
+		except TelegramForbiddenError:
+			await TelehooperAPI.delete_group_data(subgroup.parent.chat.id, fully_delete=True, bot=subgroup.parent.bot)
 
 	async def get_list_of_dialogues(self, force_update: bool = False, max_amount: int = 800, skip_ids: list[int] = []) -> list[ServiceDialogue]:
 		if not force_update and self._cachedDialogues:
@@ -964,6 +975,12 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 		message_text = msg.text or msg.caption or ""
 
 		logger.debug(f"[TG] Обработка сообщения в Telegram: \"{message_text}\" в \"{subgroup}\" {'с вложениями' if attachments else ''}")
+
+		# Если это статусное сообщение, то обрабатываем его.
+		if msg.left_chat_member and msg.left_chat_member.id == subgroup.parent.bot.id:
+			await TelehooperAPI.delete_group_data(subgroup.parent.chat.id, fully_delete=True, bot=subgroup.parent.bot)
+
+			return
 
 		reply_message_id = None
 		if msg.reply_to_message:
