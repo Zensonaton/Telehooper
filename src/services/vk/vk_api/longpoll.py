@@ -196,7 +196,7 @@ class LongpollMessageEditEvent(BaseVKLongpollEvent):
 	"""UNIX-время отправки сообщения."""
 	new_text: str
 	"""Новый текст сообщения."""
-	attachments: list[str]
+	attachments: dict
 	"""Новые вложения сообщения."""
 	is_expired: bool | None
 	"""Истёк ли срок действия сообщения."""

@@ -693,6 +693,16 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 		if event.pinned_at and (utils.time_since(event.pinned_at)) < 2:
 			return
 
+		# Проверка на то, какой тип сообщения был отредактирован. Если отредактировано было голосовое сообщение, то пропускаем обновление.
+		#
+		# Понятия не имею почему, но в ВК решили, что при добавлении текста расшифровки голосового сообщения, оно будет редактироваться.
+		for i in range(int(event.attachments.get("attachments_count", 0))):
+			attachment_type = event.attachments.get(f"attach{i + 1}_type")
+			attachment_kind = event.attachments.get(f"attach{i + 1}_kind")
+
+			if attachment_type == "doc" and attachment_kind == "audiomsg":
+				return
+
 		logger.debug(f"[VK] Событие редактирования сообщения для подгруппы \"{subgroup.service_dialogue_name}\"")
 
 		# Пытаемся получить ID сообщения в Telegram, которое нужно отредактировать.
