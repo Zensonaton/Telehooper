@@ -18,5 +18,5 @@ jobs:
             git checkout ${{ secrets.MAIN_BRANCH }}
             git pull
             pip install -r requirements.txt
-            systemctl restart ${{ secrets.SERVICE_NAME }}
+            systemctl --user restart ${{ secrets.SERVICE_NAME }}
             exit
