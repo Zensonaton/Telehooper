@@ -132,7 +132,7 @@ class LongpollTypingEvent(BaseVKLongpollEvent):
 
 		self.user_id = self.event_data[0]
 		self.peer_id = self.user_id
-		if self.event_type == 61:
+		if self.event_type == 62:
 			# В беседах, передаваемый ID чата равен ID пользователя + 2e9.
 
 			self.peer_id = int(2e9 + self.event_data[1])
