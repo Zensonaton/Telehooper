@@ -2,6 +2,8 @@
 
 from pydantic import BaseSettings, Field, SecretStr
 
+import consts
+
 
 class Configuration(BaseSettings):
 	"""
@@ -26,7 +28,7 @@ class Configuration(BaseSettings):
 	"""Включает режим отладки."""
 
 	class Config:
-		env_file = ".env"
+		env_file = ".env" if not consts.IS_TESTING else "src/tests/test.env"
 		env_file_encoding = "utf-8"
 		case_sensitive = False
 

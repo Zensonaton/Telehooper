@@ -22,5 +22,5 @@ jobs:
 
     - name: Run pytest
       run: |
-        echo "PYTHONPATH=$PYTHONPATH" >> $GITHUB_ENV
+        echo "PYTHONPATH=home/runner/work/${{ github.event.repository.name }}/Telehooper/src" >> $GITHUB_ENV
         python -m pytest -v
