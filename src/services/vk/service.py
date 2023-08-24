@@ -354,7 +354,10 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 						attachment = attachment[attachment["type"]]
 
 						if attachment_type == "photo":
-							attachment_media.append(InputMediaPhoto(type="photo", media=attachment["sizes"][-1]["url"]))
+							# Проходимся по всем размерам фотографии и выбираем самый большой.
+							sizes_sorted = sorted(attachment["sizes"], key=lambda size: size["width"] * size["height"], reverse=True)
+
+							attachment_media.append(InputMediaPhoto(type="photo", media=sizes_sorted[0]["url"]))
 						elif attachment_type == "video":
 							# Так как ВК не выдают прямую ссылку на видео, необходимо её извлечь из API.
 							# Что важно, передать ссылку напрямую не получается, поскольку ВК проверяет
