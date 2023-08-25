@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Literal, Optional
 
 from aiogram import Bot
 from aiogram.types import Audio, Document, Message, PhotoSize, Video, VideoNote
+import cachetools
 from pyrate_limiter import BucketFullException, Limiter, RequestRate
 
 if TYPE_CHECKING:
@@ -109,6 +110,8 @@ class BaseTelehooperServiceAPI:
 	"""ID пользователя в сервисе."""
 	limiter: Limiter
 	"""Лимитер для этого сервиса."""
+	preMessageCache: cachetools.TTLCache[str, int | None] = cachetools.TTLCache(150, 60) # 150 элементов, 60 секунд жизни.
+	"""Кэш сообщений и их ID, который создаётся перед отправкой сообщения в сервис. Используется в случае, если отправитель сообщения не является владельцем группы."""
 
 	def __init__(self, service_name: str, service_id: int, user: "TelehooperUser", limiter: Limiter = Limiter(RequestRate(1, 1), RequestRate(20, 60))) -> None:
 		"""
@@ -243,52 +246,57 @@ class BaseTelehooperServiceAPI:
 
 		raise NotImplementedError
 
-	async def handle_telegram_message(self, msg: Message, subgroup: "TelehooperSubGroup", attachments: list[PhotoSize | Video | Audio | Document | VideoNote]) -> None:
+	async def handle_telegram_message(self, msg: Message, subgroup: "TelehooperSubGroup", user: "TelehooperUser", attachments: list[PhotoSize | Video | Audio | Document | VideoNote]) -> None:
 		"""
 		Метод, вызываемый ботом, в случае получения нового сообщения в группе-диалоге (или топик-диалоге). Этот метод обрабатывает события, передавая их текст в сервис.
 
 		:param msg: Сообщение из Telegram. Если бот получил сразу кучу сообщений за раз (т.е., медиагруппу), то данная переменная будет равна первому сообщения из медиагруппы.
 		:param subgroup: Подгруппа, в которой было получено сообщение.
+		:param user: Пользователь, который отправил сообщение.
 		:param attachments: Вложения к сообщению.
 		"""
 
 		raise NotImplementedError
 
-	async def handle_telegram_message_delete(self, msg: Message, subgroup: "TelehooperSubGroup") -> None:
+	async def handle_telegram_message_delete(self, msg: Message, subgroup: "TelehooperSubGroup", user: "TelehooperUser") -> None:
 		"""
 		Метод, вызываемый ботом, в случае попытки удаления сообщения в группе-диалоге (или топик-диалоге) в боте при помощи команды `/delete`.
 
 		:param msg: Сообщение из Telegram, которое должно быть удалено. Должно являться ответом (reply) на сообщение вместо сообщения с командой.
 		:param subgroup: Подгруппа, в которой было получено сообщение.
+		:param user: Пользователь, который отправил сообщение.
 		"""
 
 		raise NotImplementedError
 
-	async def handle_telegram_message_edit(self, msg: Message, subgroup: "TelehooperSubGroup") -> None:
+	async def handle_telegram_message_edit(self, msg: Message, subgroup: "TelehooperSubGroup", user: "TelehooperUser") -> None:
 		"""
 		Метод, вызываемый ботом, в случае попытки редактирования сообщения в группе-диалоге (или топик-диалоге).
 
 		:param msg: Новое сообщение из Telegram.
 		:param subgroup: Подгруппа, в которой сообщение было отредактировано пользователем.
+		:param user: Пользователь, который отредактировал сообщение.
 		"""
 
 		raise NotImplementedError
 
-	async def handle_telegram_message_read(self, subgroup: "TelehooperSubGroup") -> None:
+	async def handle_telegram_message_read(self, subgroup: "TelehooperSubGroup", user: "TelehooperUser") -> None:
 		"""
 		Метод, вызываемый ботом, в случае прочтения сообщения в группе-диалоге (или топик-диалоге) в боте при помощи команды `/read` либо нажатия кнопки "прочитать".
 
 		:param subgroup: Подгруппа, в которой сообщение было прочитано.
+		:param user: Пользователь, который прочитал сообщение.
 		"""
 
 		raise NotImplementedError
 
-	async def handle_telegram_callback_button(self, msg: Message, subgroup: "TelehooperSubGroup") -> None:
+	async def handle_telegram_callback_button(self, msg: Message, subgroup: "TelehooperSubGroup", user: "TelehooperUser") -> None:
 		"""
 		Метод, вызываемый ботом при нажатии на кнопку в сообщении в группе-диалоге (или топик-диалоге). Данный метод вызывается только при нажатии на кнопки, которые были скопированы с сервиса.
 
 		:param msg: Сообщение из Telegram.
 		:param subgroup: Подгруппа, в которой сообщение было прочитано.
+		:param user: Пользователь, который прочитал сообщение.
 		"""
 
 		raise NotImplementedError

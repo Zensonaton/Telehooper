@@ -172,7 +172,7 @@ SETTINGS_TREE = {
 				"ButtonType": "bool",
 				"Default": True
 			},
-			"OtherUserMsgsForwarding": {
+			"OtherUsrMsgFwd": {
 				"Name": "Обработка чужих сообщений группы",
 				"Documentation": (
 					"Так как каждый «диалог» сервиса работает как отдельная «группы» в Telegram, Вы можете добавлять сторонних пользователей из Telegram в свою группу.\n"
@@ -414,8 +414,12 @@ class SettingsHandler:
 			if is_equal:
 				callback_data = None
 
+			btn_text = text.upper() if is_equal else text
+			if is_equal and setting["VerticalButtons"]:
+				btn_text = f"» {btn_text} «"
+
 			button = InlineKeyboardButton(
-				text=text.upper() if is_equal else text,
+				text=btn_text,
 				callback_data="do-nothing" if callback_data == None else f"/settings set {setting['Path']} {callback_data}"
 			)
 

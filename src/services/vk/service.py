@@ -10,7 +10,7 @@ import cachetools
 from aiocouch import Document
 from aiogram import Bot
 from aiogram.exceptions import TelegramForbiddenError
-from aiogram.types import Audio, BufferedInputFile
+from aiogram.types import Audio, BufferedInputFile, Chat
 from aiogram.types import Document as TelegramDocument
 from aiogram.types import (InlineKeyboardButton, InlineKeyboardMarkup,
                            InputFile, InputMediaAudio, InputMediaDocument,
@@ -238,9 +238,6 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 		logger.debug(f"[VK] Сообщение с текстом \"{event.text}\", для подгруппы \"{subgroup.service_dialogue_name}\"")
 
-		# Обновляем объект пользователя.
-		await self.user.refresh_document()
-
 		message_url = None
 		keyboard = None
 		try:
@@ -261,15 +258,20 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 			if is_outbox and not (ignore_outbox_debug or await self.user.get_setting("Services.VK.ViaServiceMessages")):
 				return
 
-			# Получаем информацию о отправленном сообщении.
-			#
-			# Небольшая задержка здесь нужна, потому что бот может получить сообщение раньше, чем оно будет сохранено в БД.
-			# Асинхронность - это весело! 🤡
-			await asyncio.sleep(0.2)
-			msg_saved = await subgroup.service.get_message_by_service_id(event.message_id)
+			# Проверяем, не было ли отправлено сообщение через бота.
+			if event.text in self.preMessageCache:
+				sent_via_bot = True
+			else:
+				# Получаем информацию о отправленном сообщении.
+				#
+				# Небольшая задержка здесь нужна, потому что бот может получить сообщение раньше, чем оно будет сохранено в БД.
+				# Асинхронность - это весело! 🤡
+				await asyncio.sleep(0.2)
 
-			# Проверяем, не было ли отправлено сообщение самим ботом.
-			sent_via_bot = msg_saved and msg_saved.sent_via_bot
+				msg_saved = await subgroup.service.get_message_by_service_id(event.message_id)
+
+				sent_via_bot = msg_saved and msg_saved.sent_via_bot
+
 			if sent_via_bot and not ignore_outbox_debug:
 				return
 
@@ -983,7 +985,32 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 		return await self.vkAPI.messages_send(peer_id=chat_id, message=text, reply_to=reply_to_message, attachment=attachments, lat=latitude, long=longitude)
 
-	async def handle_telegram_message(self, msg: Message, subgroup: "TelehooperSubGroup", attachments: list[PhotoSize | Video | Audio | TelegramDocument | Voice | Sticker | VideoNote]) -> None:
+	async def find_real_chat_id(self, user: "TelehooperUser", subgroup: "TelehooperSubGroup") -> int | None:
+		"""
+		Возвращает реальный ID беседы в ВКонтакте, если пользователь не является её создателем.
+
+		:param user: Пользователь, для которого нужно найти реальный ID беседы.
+		:param subgroup: Подгруппа, для которой нужно найти реальный ID беседы.
+		"""
+
+		logger.debug("Сообщение отправил не владелец этой группы, пытаюсь узнать ID группы относительно отправителя...")
+
+		# TODO: Каким-то хитрым образом кэшировать этот ID?
+
+		for chat in await self.get_list_of_dialogues():
+			if not chat.is_multiuser:
+				continue
+
+			if chat.name != subgroup.service_dialogue_name:
+				continue
+
+			logger.debug(f"Найден реальный ID беседы: {chat.id}")
+
+			return chat.id
+
+		return None
+
+	async def handle_telegram_message(self, msg: Message, subgroup: "TelehooperSubGroup", user: "TelehooperUser", attachments: list[PhotoSize | Video | Audio | TelegramDocument | Voice | Sticker | VideoNote]) -> None:
 		from api import TelehooperAPI
 
 
@@ -997,11 +1024,23 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 			return
 
+		# Обрабатываем "ответы" на сообщение.
 		reply_message_id = None
 		if msg.reply_to_message:
 			saved_message = await self.get_message_by_telegram_id(msg.reply_to_message.message_id)
 
 			reply_message_id = saved_message.service_message_ids[0] if saved_message else None
+
+		# Получаем ID беседы. Используется, если отправитель сообщения - не владелец группы.
+		peer_id = subgroup.service_chat_id
+		sent_by_owner = True
+
+		if subgroup.parent.creatorID != user.telegramUser.id:
+			peer_id = await self.find_real_chat_id(user, subgroup)
+			sent_by_owner = False
+
+			if not peer_id:
+				return
 
 		attachments_to_send: str | None = None
 		if attachments:
@@ -1028,12 +1067,12 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 					upload_url: str | None = None
 					ext: str | None = None
 					if attch_type == "PhotoSize":
-						upload_url = (await self.vkAPI.photos_getMessagesUploadServer(peer_id=subgroup.service_chat_id))["upload_url"]
+						upload_url = (await self.vkAPI.photos_getMessagesUploadServer(peer_id=peer_id))["upload_url"]
 						ext = "jpg"
 					elif attch_type == "Voice":
 						assert len(attachments) == 1, "Вложение типа Voice не может быть отправлено вместе с другими вложениями"
 
-						upload_url = (await self.vkAPI.docs_getMessagesUploadServer(type="audio_message", peer_id=subgroup.service_chat_id))["upload_url"]
+						upload_url = (await self.vkAPI.docs_getMessagesUploadServer(type="audio_message", peer_id=peer_id))["upload_url"]
 						ext = "ogg"
 					elif attch_type in ["Video", "VideoNote"]:
 						upload_url = (await self.vkAPI.video_save(name="Video message", is_private=True, wallpost=False))["upload_url"]
@@ -1046,10 +1085,10 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 						attachment_value = await TelehooperAPI.get_attachment("VK", sticker_cache_name)
 
 						if not attachment_value:
-							upload_url = (await self.vkAPI.docs_getMessagesUploadServer(type="graffiti", peer_id=subgroup.service_chat_id))["upload_url"]
+							upload_url = (await self.vkAPI.docs_getMessagesUploadServer(type="graffiti", peer_id=peer_id))["upload_url"]
 							ext = "png"
 					elif attch_type == "Document":
-						upload_url = (await self.vkAPI.docs_getMessagesUploadServer(type="doc", peer_id=subgroup.service_chat_id))["upload_url"]
+						upload_url = (await self.vkAPI.docs_getMessagesUploadServer(type="doc", peer_id=peer_id))["upload_url"]
 
 						for file_same_type in attchs_of_same_type_part:
 							filenames.append(cast(TelegramDocument, file_same_type).file_name or "unknown-filename.txt")
@@ -1167,13 +1206,19 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 		# Делаем статус "печати" и прочитываем сообщение.
 		if await self.user.get_setting("Services.VK.WaitToType") and len(message_text) > 3:
 			# TODO: Использовать здесь execute для ускорения.
-			await asyncio.gather(self.read_message(subgroup.service_chat_id), self.start_chat_activity(subgroup.service_chat_id))
+			await asyncio.gather(self.read_message(peer_id), self.start_chat_activity(peer_id))
 
 			await asyncio.sleep(0.6 if len(message_text) <= 15 else 1)
 
 		# Отправляем сообщение.
+		#
+		# Перед отправкой, мы сохраняем текст сообщения, дабы бот знал, что сообщение было и вправду отправлено через бота.
+		# Пояснение: Иногда, longpoll возвращает событие о новом сообщении раньше, чем messages.send возвращает ID отправленного сообщения.
+		if sent_by_owner:
+			self.preMessageCache[message_text] = None
+
 		vk_message_id = await self.send_message(
-			chat_id=subgroup.service_chat_id,
+			chat_id=peer_id,
 			text=message_text,
 			reply_to_message=reply_message_id,
 			attachments=attachments_to_send,
@@ -1185,9 +1230,17 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 		if not vk_message_id:
 			return
 
-		await TelehooperAPI.save_message("VK", msg.message_id, vk_message_id, True)
+		# Если же сообщение было отправлено владельцем страницы, то всё ок.
+		# В ином случае, мы работаем с ID такого сообщения, который относителен не владельцу группы.
+		if sent_by_owner:
+			await TelehooperAPI.save_message("VK", msg.message_id, vk_message_id, True)
+		else:
+			# Сохраняем в кэш информацию о том, что в эту же подгруппу было отправлено сообщение
+			# с определённым текстом и указанным ID.
 
-	async def handle_telegram_message_delete(self, msg: Message, subgroup: "TelehooperSubGroup") -> None:
+			self.preMessageCache[message_text] = vk_message_id
+
+	async def handle_telegram_message_delete(self, msg: Message, subgroup: "TelehooperSubGroup", user: "TelehooperUser") -> None:
 		from api import TelehooperAPI
 
 
@@ -1229,7 +1282,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 			saved_message.service_message_ids
 		)
 
-	async def handle_telegram_message_edit(self, msg: Message, subgroup: "TelehooperSubGroup") -> None:
+	async def handle_telegram_message_edit(self, msg: Message, subgroup: "TelehooperSubGroup", user: "TelehooperUser") -> None:
 		logger.debug(f"[TG] Обработка редактирования сообщения в Telegram: \"{msg.text}\" в \"{subgroup}\"")
 
 		saved_message = await self.get_message_by_telegram_id(msg.message_id)
@@ -1245,10 +1298,21 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 			return
 
+		# Получаем ID беседы. Используется, если тот, кто отредактировал сообщение - не владелец группы.
+		peer_id = subgroup.service_chat_id
+		sent_by_owner = True
+
+		if subgroup.parent.creatorID != user.telegramUser.id:
+			peer_id = await self.find_real_chat_id(user, subgroup)
+			sent_by_owner = False
+
+			if not peer_id:
+				return
+
 		try:
 			await self.vkAPI.messages_edit(
 				message_id=saved_message.service_message_ids[0],
-				peer_id=subgroup.service_chat_id,
+				peer_id=peer_id,
 				message=msg.text or "[пустой текст сообщения]"
 			)
 		except AccessDeniedException:
@@ -1259,10 +1323,21 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 				silent=True
 			)
 
-	async def handle_telegram_message_read(self, subgroup: "TelehooperSubGroup") -> None:
+	async def handle_telegram_message_read(self, subgroup: "TelehooperSubGroup", user: "TelehooperUser") -> None:
 		logger.debug(f"[TG] Обработка прочтения сообщения в Telegram в \"{subgroup}\"")
 
-		await self.read_message(subgroup.service_chat_id)
+		# Получаем ID беседы. Используется, если тот, кто прочитал сообщение - не владелец группы.
+		peer_id = subgroup.service_chat_id
+		sent_by_owner = True
+
+		if subgroup.parent.creatorID != user.telegramUser.id:
+			peer_id = await self.find_real_chat_id(user, subgroup)
+			sent_by_owner = False
+
+			if not peer_id:
+				return
+
+		await self.read_message(peer_id)
 
 	async def get_message_by_telegram_id(self, message_id: int, bypass_cache: bool = False) -> Optional["TelehooperMessage"]:
 		from api import TelehooperAPI

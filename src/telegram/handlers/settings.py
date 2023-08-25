@@ -131,7 +131,7 @@ async def settings_set_inline_handler(query: CallbackQuery, msg: Message, user: 
 	elif value in ["True", "False"]:
 		value_parsed = value == "True"
 	else:
-		raise ValueError(f"Задано значение \"{value}\" для настройки \"{path}\", которое не может быть преобразовано.")
+		pass
 
 	try:
 		setting = settings.get_setting(path)

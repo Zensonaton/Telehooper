@@ -830,6 +830,99 @@ class TelehooperSubGroup:
 
 		await self.service.send_message(chat_id=self.parent.chat.id, text=text)
 
+	async def get_service_by_sender(self, sender: TelehooperUser) -> BaseTelehooperServiceAPI | None:
+		"""
+		Возвращает ассоциированный с данным пользователем ServiceAPI. Вывод зависит от настройки `OtherUsrMsgFwd` сервиса.
+
+		:param sender: Пользователь, для которого нужно получить ServiceAPI.
+		"""
+
+		# Обновляем объект пользователя, что бы получить актуальную информацию о настройках.
+		await self.parent.creator.refresh_document()
+
+		# Тот, кто отправил сообщение - создатель группы.
+		if sender.telegramUser.id == self.parent.creator.telegramUser.id:
+			return self.service
+
+		setting_value = cast(Literal["ignore", "as-owner", "as-self"], await self.parent.creator.get_setting(f"Services.{self.service.service_name}.OtherUsrMsgFwd"))
+
+		if setting_value == "ignore":
+			return None
+		elif setting_value == "as-owner":
+			return self.service
+		else:
+			return sender._get_connection(self.service.service_name)
+
+	async def handle_telegram_message(self, msg: Message, user: TelehooperUser, attachments: list[PhotoSize | Video | Audio | TelegramDocument | VideoNote]) -> None:
+		"""
+		Метод, вызываемый ботом, в случае получения нового сообщения в группе-диалоге (или топик-диалоге). Этот метод обрабатывает события, передавая их текст в сервис.
+
+		:param msg: Сообщение из Telegram. Если бот получил сразу кучу сообщений за раз (т.е., медиагруппу), то данная переменная будет равна первому сообщения из медиагруппы.
+		:param user: Пользователь, который отправил сообщение.
+		:param attachments: Вложения к сообщению.
+		"""
+
+		serviceAPI = await self.get_service_by_sender(user)
+		if not serviceAPI:
+			return
+
+		await serviceAPI.handle_telegram_message(msg, self, user, attachments)
+
+	async def handle_telegram_message_delete(self, msg: Message, user: TelehooperUser) -> None:
+		"""
+		Метод, вызываемый ботом, в случае попытки удаления сообщения в группе-диалоге (или топик-диалоге) в боте при помощи команды `/delete`.
+
+		:param msg: Сообщение из Telegram, которое должно быть удалено. Должно являться ответом (reply) на сообщение вместо сообщения с командой.
+		:param user: Пользователь, который пытается удалить сообщение.
+		"""
+
+		serviceAPI = await self.get_service_by_sender(user)
+		if not serviceAPI:
+			return
+
+		await serviceAPI.handle_telegram_message_delete(msg, self, user)
+
+	async def handle_telegram_message_edit(self, msg: Message, user: TelehooperUser) -> None:
+		"""
+		Метод, вызываемый ботом, в случае попытки редактирования сообщения в группе-диалоге (или топик-диалоге).
+
+		:param msg: Новое сообщение из Telegram.
+		:param user: Пользователь, который пытается отредактировать сообщение.
+		"""
+
+		serviceAPI = await self.get_service_by_sender(user)
+		if not serviceAPI:
+			return
+
+		await serviceAPI.handle_telegram_message_edit(msg, self, user)
+
+	async def handle_telegram_message_read(self, user: TelehooperUser) -> None:
+		"""
+		Метод, вызываемый ботом, в случае прочтения сообщения в группе-диалоге (или топик-диалоге) в боте при помощи команды `/read` либо нажатия кнопки "прочитать".
+
+		:param user: Пользователь, который прочитал сообщение.
+		"""
+
+		serviceAPI = await self.get_service_by_sender(user)
+		if not serviceAPI:
+			return
+
+		await serviceAPI.handle_telegram_message_read(self, user)
+
+	async def handle_telegram_callback_button(self, msg: Message, user: TelehooperUser) -> None:
+		"""
+		Метод, вызываемый ботом при нажатии на кнопку в сообщении в группе-диалоге (или топик-диалоге). Данный метод вызывается только при нажатии на кнопки, которые были скопированы с сервиса.
+
+		:param msg: Сообщение из Telegram.
+		:param user: Пользователь, который нажал на кнопку.
+		"""
+
+		serviceAPI = await self.get_service_by_sender(user)
+		if not serviceAPI:
+			return
+
+		await serviceAPI.handle_telegram_callback_button(msg, self, user)
+
 	def __repr__(self) -> str:
 		return f"<{self.service.service_name} TelehooperSubGroup for {self.service_dialogue_name}>"
 

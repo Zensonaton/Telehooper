@@ -4,15 +4,15 @@ import asyncio
 from typing import cast
 
 from aiogram import Bot, F, Router
-from aiogram.filters import (ADMINISTRATOR, CREATOR, IS_MEMBER, IS_NOT_MEMBER,
-                             JOIN_TRANSITION, KICKED, LEAVE_TRANSITION, MEMBER,
-                             RESTRICTED, ChatMemberUpdatedFilter, Text)
+from aiogram.filters import (ADMINISTRATOR, CREATOR, JOIN_TRANSITION, KICKED,
+                             LEAVE_TRANSITION, MEMBER, RESTRICTED,
+                             ChatMemberUpdatedFilter, Text)
 from aiogram.types import (CallbackQuery, ChatMemberUpdated,
                            InlineKeyboardButton, InlineKeyboardMarkup, Message)
 from loguru import logger
 
 import utils
-from api import TelehooperAPI, TelehooperSubGroup, TelehooperUser
+from api import TelehooperAPI
 from DB import get_db, get_default_group, get_group
 from telegram.handlers.this import group_convert_message
 
@@ -166,7 +166,7 @@ async def on_other_member_add_handler(event: ChatMemberUpdated, bot: Bot) -> Non
 			"Вы добавили иного пользователя в данную группу!\n"
 			"Это не запрещено ботом, однако так делать <b>не рекомендуется</b>, поскольку другой пользователь может читать Ваши сообщения, а так же бот может нестабильно работать в случаях присутствия «чужих» пользователей в группе.\n"
 			"\n"
-			"Будьте осторожны! 🙈"
+			f"ℹ️ Вы можете настроить бота так, что бы сообщения от других пользователей отправлялись от Вашего, либо от их собственного имени, либо что бы их сообщения полностью игнорировались. Зайдите в <a href=\"{utils.create_command_url('/s Services')}\">настройки сервисов</a> и найдите соответствующую настройку для изменения поведения в таких случаях."
 		)
 	)
 
