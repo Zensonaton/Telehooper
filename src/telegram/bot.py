@@ -154,7 +154,19 @@ async def reconnect_services() -> None:
 
 		# Все сервисы переподключены, возвращаем диалоги.
 		try:
-			async for group in db.docs([f"group_{i}" for i in user["Groups"]]):
+			async for group in db.docs([f"group_{i}" for i in user["Groups"]], create=True):
+				# Если нам не удалось получить информацию о группе, то мы получим "пустой" документ.
+				# В таком случае, нужно просто удалить группу из списка групп пользователя.
+				if not group.exists:
+					group_id = int(group.id.split("_")[1])
+
+					logger.warning(f"У пользователя была обнаружена ссылка на несуществующую Telegram-группу с ID {group_id}, она будет удалена.")
+
+					user["Groups"].remove(group_id)
+					await user.save()
+
+					continue
+
 				group_id = group["ID"]
 
 				try:
