@@ -33,6 +33,7 @@ SETTINGS_TREE = {
 				"Выключив эту опцию, <b>Вы повысите безопасность подключённых сервисов</b> в случае взлома базы данных бота, однако, после своей перезагрузки Telehooper не сумеет переподключиться ко всем сервисам, что были подключены ранее, и поэтому Вам придётся снова производить процедуру авторизации.\n"
 				"Изменение данной настройки не поменяет состояние уже подключённых сервисов."
 			),
+			"ButtonType": "bool",
 			"Default": True
 		},
 		"MediaCache": {
@@ -45,6 +46,7 @@ SETTINGS_TREE = {
                 "\n"
 				"О безопасности: Даже при взломе базы данных бота получить доступ к медиа невозможно. При получении нового медиа, например, стикера, бот отправляет медиа как сообщение в Telegram, после чего у бота появляется несколько технических полей: <code>FileID</code> (Telegram) и <code>attachment</code> (ВКонтакте). Бот сохраняет в БД SHA-256 хэш FileID как ключ, и использует зашифрованный attachment, используя FileID как ключ шифрования."
 			),
+			"ButtonType": "bool",
 			"Default": True
 		},
 		"GetChatURL": {
@@ -56,6 +58,7 @@ SETTINGS_TREE = {
 				"\n"
 				"Даже если данная настройка выключена, Telehooper будет пытаться получать ссылку на чат альтернативными методами, однако они работают не всегда."
 			),
+			"ButtonType": "bool",
 			"Default": True
 		}
 	},
@@ -73,6 +76,7 @@ SETTINGS_TREE = {
 					"\n"
 					"Telegram-боты не могут увидеть то, как Вы печатаете, поэтому, выключив данную настройку, Ваш собеседник не будет видеть анимацию «пользователь печатает», но зато сообщения будут отправляться мгновенно."
 				),
+				"ButtonType": "bool",
 				"Default": False
 			},
 			"SetOnline": {
@@ -82,6 +86,7 @@ SETTINGS_TREE = {
 					"\n"
 					"Боты в Telegram не имеют доступа к статусу «онлайн» их пользователей, поэтому Вы можете быть «невидимыми», если эта настройка выключена."
 				),
+				"ButtonType": "bool",
 				"Default": True
 			},
 			"ViaServiceMessages": {
@@ -94,6 +99,7 @@ SETTINGS_TREE = {
 					"\n"
 					"Такие сообщения отправляются без уведомлений."
 				),
+				"ButtonType": "bool",
 				"Default": True
 			},
 			"HDVideo": {
@@ -104,6 +110,7 @@ SETTINGS_TREE = {
 					"Учтите, что бот отправит только то видео, размер которого не превышает 50 МБ.\n"
 					"Помимо этого, учтите, что включение данной настройки может значительно увеличить задержку между отправкой видео."
 				),
+				"ButtonType": "bool",
 				"Default": False
 			},
 			"CleanupAfterUse": {
@@ -111,6 +118,7 @@ SETTINGS_TREE = {
 				"Documentation": (
 					"Указывает, стоит ли боту «подчищать» сообщения с командами <code>/read</code>, <code>/delete</code> после их выполнения."
 				),
+				"ButtonType": "bool",
 				"Default": True
 			},
 			"MobileVKURLs": {
@@ -125,6 +133,7 @@ SETTINGS_TREE = {
 					"Если Вы включите данную настройку, то Telehooper будет использовать ссылку на мобильную версию ВКонтакте (<code>m.vk.com</code>), в ином случае будет использовать полную версию сайта (<code>vk.com</code>).\n"
 					"Мобильная версия ВКонтакте намного «легче»: Страницы мобильной версии намного быстрее загружаются и требуют меньшего количества ресурсов."
 				),
+				"ButtonType": "bool",
 				"Default": True
 			},
 			"FWDAsReply": {
@@ -136,6 +145,7 @@ SETTINGS_TREE = {
 					"\n"
 					"Именно для первого случая и сделана эта настройка; Если данная настройка включена, то в случае, если Ваш собеседник лишь одного сообщения, то тогда Telehooper будет отображать сообщение не как «пересланное», а как «ответ»."
 				),
+				"ButtonType": "bool",
 				"Default": True
 			},
 			"CompactNames": {
@@ -147,6 +157,7 @@ SETTINGS_TREE = {
 					"Однако, не всегда есть необходимость в полном отображении фамилии человека, поэтому Вы можете включить данную настройку, после чего Telehooper будет использовать более компактный префикс сообщений:\n"
 					"[<b>Имя Ф.</b>]: Текст сообщения."
 				),
+				"ButtonType": "bool",
 				"Default": True
 			},
 			"SyncGroupInfo": {
@@ -158,7 +169,33 @@ SETTINGS_TREE = {
 					" • Описание диалога,\n"
 					" • <i>... и, возможно, другие.</i>"
 				),
+				"ButtonType": "bool",
 				"Default": True
+			},
+			"OtherUserMsgsForwarding": {
+				"Name": "Обработка чужих сообщений группы",
+				"Documentation": (
+					"Так как каждый «диалог» сервиса работает как отдельная «группы» в Telegram, Вы можете добавлять сторонних пользователей из Telegram в свою группу.\n"
+					"\n"
+					"Данная настройка диктует то, как Telehooper будет работать в случаях, если Вы добавили в группу-диалог стороннего Telegram-пользователя.\n"
+					"\n"
+					"Значение «не пересылать»:\n"
+					" • Telehooper не будет пересылать сообщения от «чужого» пользователя, который был добавлен в группу.\n"
+					"\n"
+					"Значение «от имени владельца группы»:\n"
+					" • Telehooper будет пересылать любые сообщения отправленные в группе (в том числе и от «чужих» пользователей) от имени Вашей страницы. Не рекомендуется включать.\n"
+					"\n"
+					"Значение «от имени отправившего»:\n"
+					" • Telehooper будет пересылать сообщение от имени того человека, который и отправил сообщение. Данная настройка работает только в том случае, если у пользователя, который отправил сообщение, есть подключение к сервису, в ином случае сообщение будет тихо проигнорировано."
+				),
+				"ButtonType": "enum",
+				"Default": "as-self",
+				"EnumValues": {
+					"ignore": "Не пересылать",
+					"as-owner": "От имени владельца группы",
+					"as-self": "От имени отправившего"
+				},
+				"VerticalButtons": True
 			}
 		}
 	}
@@ -175,6 +212,7 @@ if config.debug:
 				"Documentation": (
 					"При включении данной настройки, Telehooper будет пересылать отправленные Вами сообщения с помощью бота. Используется для отладки работы бота без использования сервиса."
 				),
+				"ButtonType": "bool",
 				"Default": False
 			},
 			"ShowSettingPaths": {
@@ -182,6 +220,7 @@ if config.debug:
 				"Documentation": (
 					"При включении данной настройки, Telehooper будет показывать полные пути на настройки в самом верху сообщения."
 				),
+				"ButtonType": "bool",
 				"Default": False
 			},
 			"DebugTitleForDialogues": {
@@ -190,6 +229,7 @@ if config.debug:
 					"При включении данной настройки, Telehooper будет добавлять префикс следующего вида в название подключённых к сервису группам:\n"
 					"[DEBUG] Имя группы"
 				),
+				"ButtonType": "bool",
 				"Default": False
 			}
 		}
@@ -221,7 +261,8 @@ class SettingsHandler:
 		SETTINGS_KEYS = {
 			"Name": str,
 			"Documentation": str,
-			"Default": None
+			"Default": None, # Любой тип.
+			"ButtonType": str
 		}
 
 		def _check(check: dict) -> None:
@@ -236,10 +277,35 @@ class SettingsHandler:
 				if is_value:
 					for name, key_type in SETTINGS_KEYS.items():
 						if name not in value:
-							raise ValueError(f"Настройка {name} не содержит свойство {name}.")
+							raise ValueError(f"Настройка \"{value['Name']}\" не содержит свойство {name}.")
 
 						if key_type and type(value[name]) != key_type:
-							raise ValueError(f"Значение настройки {name} не является {key_type}.")
+							raise ValueError(f"Значение настройки \"{value['Name']}\" не является {key_type}.")
+
+					button_type = value["ButtonType"]
+					default_value = value["Default"]
+
+					if button_type not in ["bool", "range", "enum"]:
+						raise ValueError(f"Настройка имеет неизвестный тип: {value['ButtonType']}")
+
+					default_setting_value_types = {
+						"bool": bool,
+						"range": int,
+						"enum": str
+					}
+
+					if not isinstance(default_value, default_setting_value_types[button_type]):
+						raise ValueError(f"Значение настройки \"{value['Name']}\" не является типом \"{default_setting_value_types[button_type]}\", оно равно типу \"{default_value.__class__.__name__}\"")
+
+					if button_type == "enum":
+						if not "EnumValues" in value:
+							raise ValueError(f"Настройка \"{value['Name']}\" не содержит свойство EnumValues.")
+
+						if type(value["EnumValues"]) != dict:
+							raise ValueError(f"Свойство EnumValues настройки \"{value['Name']}\" не является словарём.")
+
+						if len(value["EnumValues"]) == 0:
+							raise ValueError(f"Свойство EnumValues настройки \"{value['Name']}\" пусто.")
 				else:
 					_check(value)
 
@@ -250,18 +316,18 @@ class SettingsHandler:
 		Добавляет следующие поля в древо настроек для более простой работы с ними.
 
 		Root-объект:
-		 1. `Paths` — лист всех существующих настроек в древе.
+		- `Paths` — лист всех существующих настроек в древе.
 
 		Все объекты:
-		 1. `IsValue` — является ли настройка значением (True) или папкой (False),
-		 2. `IsFolder` — является ли настройка папкой (True) или значением (False),
-		 3. `ParentPath` — путь к родительской папке,
-		 4. `Path` — полный путь к настройке.
-		 5. `PathSplitted` — список путей к настройке, разделённый по точкам.
+		- `IsValue` — является ли настройка значением (True) или папкой (False),
+		- `IsFolder` — является ли настройка папкой (True) или значением (False),
+		- `ParentPath` — путь к родительской папке,
+		- `Path` — полный путь к настройке.
+		- `PathSplitted` — список путей к настройке, разделённый по точкам.
 
 		Настройки (`IsValue`):
-		 1. `DependsOn` — список зависимостей настройки. (если не существовал)
-		 2. `ButtonType` — тип кнопок для изменения этой настройки. (если не существовал; тип определяется из поля `Default`)
+		- `DependsOn` — список зависимостей настройки. (если не существовал)
+		- `VerticalButtons` — являются ли кнопки настройки вертикальными (True) или горизонтальными (False). (если не существовал)
 		"""
 
 		known_paths = []
@@ -272,11 +338,14 @@ class SettingsHandler:
 				if type(value) != dict:
 					continue
 
+				if key == "EnumValues":
+					continue
+
 				is_value = "Documentation" in value
 				is_folder = not is_value
 				new_path = f"{path}.{key}" if path else key
 
-				logger.debug(f"Обрабатываю {'папку' if is_folder else 'настройку'} {new_path}.")
+				logger.debug(f"Обрабатываю {'папку с настройками' if is_folder else 'настройку'} {new_path}.")
 
 				value["IsValue"] = is_value
 				value["IsFolder"] = is_folder
@@ -288,11 +357,8 @@ class SettingsHandler:
 					if "DependsOn" not in value:
 						value["DependsOn"] = []
 
-					if "ButtonType" not in value:
-						if type(value["Default"]) != bool:
-							raise ValueError(f"Не удалось определить тип кнопок (ButtonType) для настройки {new_path}. Значение Default={value['Default']}.")
-
-						value["ButtonType"] = "bool"
+					if "VerticalButtons" not in value:
+						value["VerticalButtons"] = False
 
 				known_paths.append(new_path)
 
@@ -327,12 +393,17 @@ class SettingsHandler:
 			step = setting.get("Step", 1)
 
 			buttons = {
-				"⏪": setting["Min"],
+				"⏪": setting["Min"] if current_value != setting["Min"] else None,
 				"◀️": None if current_value - step < setting["Min"] else current_value - step,
 				str(current_value): None,
 				"▶️": None if current_value + step > setting["Max"] else current_value + step,
-				"⏩": setting["Max"]
+				"⏩": setting["Max"] if current_value != setting["Max"] else None
 			}
+		elif setting["ButtonType"] == "enum":
+			current_value = cast(int, current_value)
+
+			for key, value in setting["EnumValues"].items():
+				buttons[value] = key if value != current_value else None
 		else:
 			raise ValueError(f"Неизвестный тип кнопок для настройки {setting['Path']}.")
 
@@ -343,12 +414,12 @@ class SettingsHandler:
 			if is_equal:
 				callback_data = None
 
-			return_list.append(
-				InlineKeyboardButton(
-					text=text.upper() if is_equal else text,
-					callback_data="do-nothing" if callback_data == None else f"/settings set {setting['Path']} {callback_data}"
-				)
+			button = InlineKeyboardButton(
+				text=text.upper() if is_equal else text,
+				callback_data="do-nothing" if callback_data == None else f"/settings set {setting['Path']} {callback_data}"
 			)
+
+			return_list.append(button)
 
 		return return_list
 
@@ -391,9 +462,9 @@ class SettingsHandler:
 			settings_caseins = CaseInsensitiveDict(setting)
 
 		if setting.get("IsValue"):
-			keyboard_buttons.append(
-				self.get_buttons_by_setting_type(setting, user_settings.get(path, setting["Default"]))
-			)
+			setting_buttons = self.get_buttons_by_setting_type(setting, user_settings.get(path, setting["Default"]))
+
+			keyboard_buttons = [[button] for button in setting_buttons] if setting["VerticalButtons"] else [setting_buttons]
 		else:
 			for value in setting.values():
 				if not isinstance(value, dict):

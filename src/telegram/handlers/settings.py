@@ -33,8 +33,8 @@ async def settings_command_message(msg: Message, user: TelehooperUser, edit_mess
 	else:
 		setting_selected = setting["IsValue"]
 
-	settings_rendered = settings.get_keyboard(path, user.settingsOverriden)
 	tree_rendered = settings.render_tree(path)
+	settings_keyboard = settings.get_keyboard(path, user.settingsOverriden)
 
 	debug_setting_paths = ""
 	if config.debug and await user.get_setting("Debug.ShowSettingPaths"):
@@ -57,9 +57,13 @@ async def settings_command_message(msg: Message, user: TelehooperUser, edit_mess
 		setting = cast(dict, setting)
 		value = await user.get_setting(path)
 
-		value_str = str(value)
-		if isinstance(value, bool):
-			value_str = "✔️ Включено" if value else "✖️ Выключено"
+		current_value = "  • "
+		if setting["ButtonType"] == "bool":
+			current_value += f"Состояние: {'✔️ Включено' if value else '✖️ Выключено'}"
+		elif setting["ButtonType"] == "range":
+			current_value += f"Значение: {value}"
+		elif setting["ButtonType"] == "enum":
+			current_value += f"Значение: {setting['EnumValues'][value]}"
 
 		_text = (
 			f"<b>⚙️ Изменение настройки \"{setting['Name']}\"</b>.\n"
@@ -72,14 +76,14 @@ async def settings_command_message(msg: Message, user: TelehooperUser, edit_mess
 			f"{setting['Documentation']}\n"
 			"\n"
 			f"<b>⚙️ Текущее значение у настройки</b>:\n"
-			f"  • {'Состояние' if type(value) is bool else 'Значение'}: {value_str}."
+			f"{current_value}."
 		)
 
 	await TelehooperAPI.edit_or_resend_message(
 		text=_text,
 		chat_id=msg.chat.id,
 		message_to_edit=msg if edit_message else None,
-		reply_markup=settings_rendered,
+		reply_markup=settings_keyboard,
 		disable_web_page_preview=True
 	)
 
