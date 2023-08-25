@@ -372,7 +372,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 									# В случаях, если видео помечено как "доступно только подписчикам", ВК не даёт ссылок на скачивание.
 									# В таких случаях мы просто отображаем видео как ссылку на него.
 
-									attachment_items.append(f"<a href=\"{'m.' if use_mobile_vk else ''}vk.com/wall{video['owner_id']}_{attachment['id']}\">📹 Видео «{attachment['title']}», доступное только подписчикам</a>")
+									attachment_items.append(f"<a href=\"{'m.' if use_mobile_vk else ''}vk.com/wall{video['owner_id']}_{attachment['id']}\">📹 Видео с закрытым доступом</a>")
 
 									continue
 
