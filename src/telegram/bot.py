@@ -8,7 +8,7 @@ from types import ModuleType
 
 from aiocouch import Document
 from aiogram import Bot, Dispatcher
-from aiogram.exceptions import TelegramForbiddenError
+from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
 from aiogram.types import (BotCommand, BotCommandScopeAllGroupChats,
                            BotCommandScopeDefault)
 from loguru import logger
@@ -128,7 +128,13 @@ async def reconnect_services() -> None:
 		Функция для `asyncio.Task`, которая переподключает пользователя.
 		"""
 
-		telegram_user = (await bot.get_chat_member(user["ID"], user["ID"])).user
+		try:
+			telegram_user = (await bot.get_chat_member(user["ID"], user["ID"])).user
+		except TelegramBadRequest:
+			logger.error(f"Боту не удалось получить информацию о Telegram-пользователе с ID {user['ID']}, поэтому данный пользователь будет пропущен.")
+
+			return
+
 		telehooper_user = TelehooperUser(user, telegram_user)
 		service_apis = {}
 
