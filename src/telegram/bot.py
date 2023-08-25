@@ -131,7 +131,10 @@ async def reconnect_services() -> None:
 		try:
 			telegram_user = (await bot.get_chat_member(user["ID"], user["ID"])).user
 		except TelegramBadRequest:
-			logger.error(f"Боту не удалось получить информацию о Telegram-пользователе с ID {user['ID']}, поэтому данный пользователь будет пропущен.")
+			logger.error(f"Боту не удалось получить информацию о Telegram-пользователе с ID {user['ID']}, поэтому данный пользователь будет помечен как BotBanned.")
+
+			user["BotBanned"] = True
+			await user.save()
 
 			return
 
@@ -183,6 +186,9 @@ async def reconnect_services() -> None:
 			return
 
 	async for user in db.docs(prefix="user_"):
+		if user["BotBanned"]:
+			continue
+
 		tasks.append(asyncio.create_task(_reconnect(user)))
 
 	await asyncio.gather(*tasks)
