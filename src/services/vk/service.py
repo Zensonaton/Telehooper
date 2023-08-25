@@ -367,7 +367,16 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 							is_video_note = attachments.get(f"attach{attch_index + 1}_kind") == "video_message"
 
 							async with ChatActionSender(chat_id=subgroup.parent.chat.id, action="upload_video", bot=subgroup.parent.bot):
-								video = (await self.vkAPI.video_get(videos=f"{attachment['owner_id']}_{attachment['id']}_{attachment['access_key']}"))["items"][0]["files"]
+								video = (await self.vkAPI.video_get(videos=f"{attachment['owner_id']}_{attachment['id']}_{attachment['access_key']}"))["items"][0]
+								if "files" not in video:
+									# В случаях, если видео помечено как "доступно только подписчикам", ВК не даёт ссылок на скачивание.
+									# В таких случаях мы просто отображаем видео как ссылку на него.
+
+									attachment_items.append(f"<a href=\"{'m.' if use_mobile_vk else ''}vk.com/wall{video['owner_id']}_{attachment['id']}\">📹 Видео «{attachment['title']}», доступное только подписчикам</a>")
+
+									continue
+
+								video = video["files"]
 
 								video_quality_list = ["mp4_720", "mp4_480", "mp4_360", "mp4_240", "mp4_144"]
 
