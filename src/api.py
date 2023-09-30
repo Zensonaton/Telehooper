@@ -662,6 +662,8 @@ class TelehooperMessage:
 
 	service: str
 	"""Название сервиса, через который было отправлено сообщение."""
+	service_owner_id: int
+	"""ID пользователя сервиса, который связан с этим сообщением."""
 	telegram_message_ids: list[int]
 	"""Список ID сообщений в Telegram. Может быть несколько, если сообщение является альбомом."""
 	service_message_ids: list[int]
@@ -669,17 +671,19 @@ class TelehooperMessage:
 	sent_via_bot: bool
 	"""Отправлено ли сообщение через бота."""
 
-	def __init__(self, service: str, telegram_mids: int | list[int], service_mids: int | list[int], sent_via_bot: bool = False) -> None:
+	def __init__(self, service: str, service_owner_id: int, telegram_mids: int | list[int], service_mids: int | list[int], sent_via_bot: bool = False) -> None:
 		"""
 		Инициализирует объект сообщения.
 
 		:param service: Название сервиса, через который было отправлено сообщение.
+		:param service_owner_id: ID пользователя сервиса, который связан с этим сообщением.
 		:param telegram_mids: ID сообщения(-ий) в Telegram.
 		:param service_mids: ID сообщения(-ий) в сервисе.
 		:param sent_via_bot: Отправлено ли сообщение через бота.
 		"""
 
 		self.service = service
+		self.service_owner_id = service_owner_id
 		self.telegram_message_ids = [telegram_mids] if isinstance(telegram_mids, int) else telegram_mids
 		self.service_message_ids = [service_mids] if isinstance(service_mids, int) else service_mids
 		self.sent_via_bot = sent_via_bot
@@ -1102,11 +1106,12 @@ class TelehooperAPI:
 		return None
 
 	@staticmethod
-	async def save_message(service_name: str, telegram_message_id: int | list[int], service_message_id: int | list[int], sent_via_bot: bool = True):
+	async def save_message(service_name: str, service_owner_id: int, telegram_message_id: int | list[int], service_message_id: int | list[int], sent_via_bot: bool = True):
 		"""
 		Сохраняет ID отправленного сообщения в БД.
 
 		:param service_name: Название сервиса, через который было отправлено сообщение.
+		:param service_owner_id: ID пользователя сервиса, который связан с этим сообщением.
 		:param telegram_message_id: ID сообщения(-ий) в Telegram.
 		:param service_message_id: ID сообщения(-ий) в сервисе.
 		:param sent_via_bot: Отправлено ли сообщение через бота.
@@ -1114,6 +1119,7 @@ class TelehooperAPI:
 
 		msg = TelehooperMessage(
 			service=service_name,
+			service_owner_id=service_owner_id,
 			telegram_mids=telegram_message_id,
 			service_mids=service_message_id,
 			sent_via_bot=sent_via_bot
@@ -1167,12 +1173,13 @@ class TelehooperAPI:
 		# TODO: Удалить из БД.
 
 	@staticmethod
-	async def get_message_by_telegram_id(service_name: str, message_id: int, bypass_cache: bool = False) -> TelehooperMessage | None:
+	async def get_message_by_telegram_id(service_name: str, message_id: int, service_owner_id: int, bypass_cache: bool = False) -> TelehooperMessage | None:
 		"""
 		Возвращает информацию о отправленном через бота сообщения по его ID в Telegram.
 
 		:param service_name: Название сервиса, через который было отправлено сообщение.
 		:param message_id: ID сообщения в Telegram.
+		:param service_owner_id: ID пользователя сервиса, который связан с этим сообщением.
 		:param bypass_cache: Игнорировать ли кэш. Если да, то бот будет искать сообщение только в БД.
 		"""
 
@@ -1182,20 +1189,26 @@ class TelehooperAPI:
 				if msg.service != service_name:
 					continue
 
-				if message_id in msg.telegram_message_ids:
-					return msg
+				if msg.service_owner_id != service_owner_id:
+					continue
+
+				if message_id not in msg.telegram_message_ids:
+					continue
+
+				return msg
 
 		# TODO: Извлечь информацию о сообщении из БД.
 
 		return None
 
 	@staticmethod
-	async def get_message_by_service_id(service_name: str, message_id: int, bypass_cache: bool = False) -> TelehooperMessage | None:
+	async def get_message_by_service_id(service_name: str, message_id: int, service_owner_id: int, bypass_cache: bool = False) -> TelehooperMessage | None:
 		"""
 		Возвращает информацию о отправленном через бота сообщения по его ID в сервисе.
 
 		:param service_name: Название сервиса, через который было отправлено сообщение.
 		:param message_id: ID сообщения в сервисе.
+		:param service_owner_id: ID пользователя сервиса, который связан с этим сообщением.
 		:param bypass_cache: Игнорировать ли кэш. Если да, то бот будет искать сообщение только в БД.
 		"""
 
@@ -1205,8 +1218,13 @@ class TelehooperAPI:
 				if msg.service != service_name:
 					continue
 
-				if message_id in msg.service_message_ids:
-					return msg
+				if msg.service_owner_id != service_owner_id:
+					continue
+
+				if message_id not in msg.service_message_ids:
+					continue
+
+				return msg
 
 		# TODO: Извлечь информацию о сообщении из БД.
 

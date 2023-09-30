@@ -301,20 +301,22 @@ class BaseTelehooperServiceAPI:
 
 		raise NotImplementedError
 
-	async def get_message_by_telegram_id(self, message_id: int, bypass_cache: bool = False) -> Optional["TelehooperMessage"]:
+	async def get_message_by_telegram_id(self, service_owner_id: int, message_id: int, bypass_cache: bool = False) -> Optional["TelehooperMessage"]:
 		"""
 		Возвращает информацию о отправленном через бота сообщения по его ID в Telegram.
 
+		:param service_owner_id: ID пользователя сервиса, который связан с этим сообщением.
 		:param message_id: ID сообщения в Telegram.
 		:param bypass_cache: Игнорировать ли кэш. Если да, то бот будет искать сообщение только в БД.
 		"""
 
 		raise NotImplementedError
 
-	async def get_message_by_service_id(self, message_id: int, bypass_cache: bool = False) -> Optional["TelehooperMessage"]:
+	async def get_message_by_service_id(self, service_owner_id: int, message_id: int, bypass_cache: bool = False) -> Optional["TelehooperMessage"]:
 		"""
 		Возвращает информацию о отправленном через бота сообщения по его ID в сервисе.
 
+		:param service_owner_id: ID пользователя сервиса, который связан с этим сообщением.
 		:param message_id: ID сообщения в сервисе.
 		:param bypass_cache: Игнорировать ли кэш. Если да, то бот будет искать сообщение только в БД.
 		"""

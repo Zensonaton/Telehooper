@@ -221,7 +221,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 					vk_message_id = (await self.vkAPI.messages_getByConversationMessageId(peer_id=event.peer_id, conversation_message_ids=event.source_chat_local_id))["items"][0]["id"]
 
-					telegram_message = await subgroup.service.get_message_by_service_id(vk_message_id)
+					telegram_message = await subgroup.service.get_message_by_service_id(self.service_user_id, vk_message_id)
 					if not telegram_message:
 						return
 
@@ -268,7 +268,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 				# Асинхронность - это весело! 🤡
 				await asyncio.sleep(0.2)
 
-				msg_saved = await subgroup.service.get_message_by_service_id(event.message_id)
+				msg_saved = await subgroup.service.get_message_by_service_id(self.service_user_id, event.message_id)
 
 				sent_via_bot = msg_saved and msg_saved.sent_via_bot
 
@@ -297,7 +297,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 					# Настоящий ID сообщения, на которое был дан ответ, получен. Получаем информацию о сообщении с БД бота.
 					if reply_vk_message_id:
-						telegram_message = await subgroup.service.get_message_by_service_id(reply_vk_message_id)
+						telegram_message = await subgroup.service.get_message_by_service_id(self.service_user_id, reply_vk_message_id)
 
 						# Если информация о данном сообщении есть, то мы можем получить ID сообщения в Telegram.
 						if telegram_message:
@@ -346,12 +346,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 					if not msg:
 						return
 
-					await TelehooperAPI.save_message(
-						"VK",
-						msg[0].message_id,
-						event.message_id,
-						False
-					)
+					await TelehooperAPI.save_message("VK", self.service_user_id, msg[0].message_id, event.message_id, False)
 
 					return
 
@@ -437,7 +432,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 											return
 
 										# Сохраняем в память.
-										await TelehooperAPI.save_message("VK", msg[0].message_id, event.message_id, False)
+										await TelehooperAPI.save_message("VK", self.service_user_id, msg[0].message_id, event.message_id, False)
 
 										assert msg[0].video_note, "Видеосообщение не было отправлено"
 
@@ -498,7 +493,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 							assert msg[0].sticker, "Стикер не был отправлен"
 
 							# Сохраняем в память.
-							await TelehooperAPI.save_message("VK", msg[0].message_id, event.message_id, False)
+							await TelehooperAPI.save_message("VK", self.service_user_id, msg[0].message_id, event.message_id, False)
 
 							# Кэшируем стикер, если настройка у пользователя это позволяет.
 							if await self.user.get_setting("Security.MediaCache"):
@@ -637,7 +632,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 				if not msg:
 					return
 
-				await TelehooperAPI.save_message("VK", msg, event.message_id, False)
+				await TelehooperAPI.save_message("VK", self.service_user_id, msg, event.message_id, False)
 
 			# Если у нас были вложения, то мы должны отправить сообщение с ними.
 			if attachment_media:
@@ -734,7 +729,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 		logger.debug(f"[VK] Событие редактирования сообщения для подгруппы \"{subgroup.service_dialogue_name}\"")
 
 		# Пытаемся получить ID сообщения в Telegram, которое нужно отредактировать.
-		telegram_message = await subgroup.service.get_message_by_service_id(event.message_id)
+		telegram_message = await subgroup.service.get_message_by_service_id(self.service_user_id, event.message_id)
 
 		if not telegram_message:
 			return
@@ -785,7 +780,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 		logger.debug(f"[VK] Событие удаления сообщения для подгруппы \"{subgroup.service_dialogue_name}\"")
 
 		# Пытаемся получить ID сообщения в Telegram, которое нужно отредактировать.
-		telegram_message = await subgroup.service.get_message_by_service_id(event.message_id)
+		telegram_message = await subgroup.service.get_message_by_service_id(self.service_user_id, event.message_id)
 
 		if not telegram_message:
 			return
@@ -1033,7 +1028,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 		# Обрабатываем "ответы" на сообщение.
 		reply_message_id = None
 		if msg.reply_to_message:
-			saved_message = await self.get_message_by_telegram_id(msg.reply_to_message.message_id)
+			saved_message = await self.get_message_by_telegram_id(self.service_user_id, msg.reply_to_message.message_id)
 
 			reply_message_id = saved_message.service_message_ids[0] if saved_message else None
 
@@ -1236,15 +1231,14 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 		if not vk_message_id:
 			return
 
-		# Если же сообщение было отправлено владельцем страницы, то всё ок.
-		# В ином случае, мы работаем с ID такого сообщения, который относителен не владельцу группы.
-		if sent_by_owner:
-			await TelehooperAPI.save_message("VK", msg.message_id, vk_message_id, True)
-		else:
-			# Сохраняем в кэш информацию о том, что в эту же подгруппу было отправлено сообщение
-			# с определённым текстом и указанным ID.
+		# Сохраняем в кэш информацию о том, что в эту же подгруппу было отправлено сообщение
+		# с определённым текстом и указанным ID.
+		#
+		# Это нужно, что бы защититься от повторной пересылки сообщения.
+		self.preMessageCache[message_text] = vk_message_id
 
-			self.preMessageCache[message_text] = vk_message_id
+		# Сохраняем ID сообщения.
+		await TelehooperAPI.save_message("VK", self.service_user_id, msg.message_id, vk_message_id, True)
 
 	async def handle_telegram_message_delete(self, msg: Message, subgroup: "TelehooperSubGroup", user: "TelehooperUser") -> None:
 		from api import TelehooperAPI
@@ -1252,7 +1246,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 		logger.debug(f"[TG] Обработка удаления сообщения в Telegram: \"{msg.text}\" в \"{subgroup}\"")
 
-		saved_message = await self.get_message_by_telegram_id(msg.message_id)
+		saved_message = await self.get_message_by_telegram_id(self.service_user_id, msg.message_id)
 
 		if not saved_message:
 			await subgroup.send_message_in(
@@ -1291,7 +1285,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 	async def handle_telegram_message_edit(self, msg: Message, subgroup: "TelehooperSubGroup", user: "TelehooperUser") -> None:
 		logger.debug(f"[TG] Обработка редактирования сообщения в Telegram: \"{msg.text}\" в \"{subgroup}\"")
 
-		saved_message = await self.get_message_by_telegram_id(msg.message_id)
+		saved_message = await self.get_message_by_telegram_id(self.service_user_id, msg.message_id)
 
 		if not saved_message:
 			await subgroup.send_message_in(
@@ -1345,15 +1339,15 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 		await self.read_message(peer_id)
 
-	async def get_message_by_telegram_id(self, message_id: int, bypass_cache: bool = False) -> Optional["TelehooperMessage"]:
+	async def get_message_by_telegram_id(self, service_owner_id: int, message_id: int, bypass_cache: bool = False) -> Optional["TelehooperMessage"]:
 		from api import TelehooperAPI
 
-		return await TelehooperAPI.get_message_by_telegram_id("VK", message_id, bypass_cache=bypass_cache)
+		return await TelehooperAPI.get_message_by_telegram_id("VK", message_id, service_owner_id, bypass_cache=bypass_cache)
 
-	async def get_message_by_service_id(self, message_id: int, bypass_cache: bool = False) -> Optional["TelehooperMessage"]:
+	async def get_message_by_service_id(self, service_owner_id: int, message_id: int, bypass_cache: bool = False) -> Optional["TelehooperMessage"]:
 		from api import TelehooperAPI
 
-		return await TelehooperAPI.get_message_by_service_id("VK", message_id, bypass_cache=bypass_cache)
+		return await TelehooperAPI.get_message_by_service_id("VK", message_id, service_owner_id, bypass_cache=bypass_cache)
 
 	@staticmethod
 	async def reconnect_on_restart(user: "TelehooperUser", db_user: Document, bot: Bot) -> "VKServiceAPI" | None:
