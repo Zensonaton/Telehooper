@@ -288,14 +288,20 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 				# Обрабатываем ответы (reply).
 				if "reply" in attachments or ("fwd_messages" in message_extended and len(message_extended["fwd_messages"]) == 1 and await self.user.get_setting("Services.VK.FWDAsReply")):
-					reply_vk_message_id = message_extended["reply_message"]["id"] if "reply" in attachments else message_extended["fwd_messages"][0]["id"]
+					reply_vk_message_id: int | None = message_extended["reply_message"].get("id") if "reply" in attachments else message_extended["fwd_messages"][0].get("id")
+
+					# В некоторых случаях ID reply отсутствует, и я не уверен почему.
+					# Если такое произошло, то просто логируем это.
+					if not reply_vk_message_id:
+						logger.warning(f"[VK] Пользователь сделал Reply на сообщение во ВКонтакте, однако API ВКонтакте не вернул ID сообщения, на который был сделан Reply. Сообщение: {message_extended}")
 
 					# Настоящий ID сообщения, на которое был дан ответ, получен. Получаем информацию о сообщении с БД бота.
-					telegram_message = await subgroup.service.get_message_by_service_id(reply_vk_message_id)
+					if reply_vk_message_id:
+						telegram_message = await subgroup.service.get_message_by_service_id(reply_vk_message_id)
 
-					# Если информация о данном сообщении есть, то мы можем получить ID сообщения в Telegram.
-					if telegram_message:
-						reply_to = telegram_message.telegram_message_ids[0]
+						# Если информация о данном сообщении есть, то мы можем получить ID сообщения в Telegram.
+						if telegram_message:
+							reply_to = telegram_message.telegram_message_ids[0]
 
 				# Обрабатываем клавиатуру.
 				if "keyboard" in message_extended:
