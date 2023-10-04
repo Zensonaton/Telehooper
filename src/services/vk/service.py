@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from typing import TYPE_CHECKING, Literal, Optional, cast
 
 import aiohttp
@@ -443,6 +444,9 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 									break
 								else:
+									logger.error(f"[VK] Для пользователя Telegram {utils.get_telegram_logging_info(self.user.telegramUser)} не удалось получить ссылку на видео для скачивания. API-ответ, поле files:")
+									logger.error(json.dumps(video))
+
 									raise Exception("Не удалось получить ссылку на видео")
 						elif attachment_type == "audio_message":
 							attachment_media.append(InputMediaAudio(type="audio", media=attachment["link_ogg"]))
