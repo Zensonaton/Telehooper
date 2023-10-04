@@ -14,6 +14,7 @@ from services.vk.utils import random_id
 
 
 ALL_USER_FIELDS = "activities, about, blacklisted, blacklisted_by_me, books, bdate, can_be_invited_group, can_post, can_see_all_posts, can_see_audio, can_send_friend_request, can_write_private_message, career, common_count, connections, contacts, city, country, crop_photo, domain, education, exports, followers_count, friend_status, has_photo, has_mobile, home_town, photo_100, photo_200, photo_200_orig, photo_400_orig, photo_50, sex, site, schools, screen_name, status, verified, games, interests, is_favorite, is_friend, is_hidden_from_feed, last_seen, maiden_name, military, movies, music, nickname, occupation, online, personal, photo_id, photo_max, photo_max_orig, quotes, relation, relatives, timezone, tv, universities"
+ALL_GROUP_FIELDS = "activity, ban_info, can_post, can_see_all_posts, city, contacts, counters, country, cover, description, finish_date, fixed_post, links, market, members_count, place, site, start_date, status, verified, photo_100, photo_200, photo_200_orig, photo_400_orig, photo_50"
 
 class VKAPI:
 	"""
@@ -435,3 +436,16 @@ class VKAPI:
 			"repeat": 1 if repeat else 0,
 			"compression": 1 if compression else 0
 		})
+
+	async def groups_getByID(self, user_ids: list[int] | None = None) -> dict:
+		"""
+		Получает информацию о группах с указанными ID. API: `groups.getById`.
+
+		:param user_ids: Список ID пользователей. Если не указано, то будет использован ID текущего пользователя.
+		"""
+
+		data: dict[str, Any] = {"fields": ALL_GROUP_FIELDS}
+		if user_ids:
+			data["group_ids"] = ",".join(map(str, user_ids))
+
+		return await self._post_("groups.getById", data)

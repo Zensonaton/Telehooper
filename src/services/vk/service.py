@@ -949,15 +949,38 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 		if not force_update and user_id in self._cachedUsersInfo:
 			return self._cachedUsersInfo[user_id]
 
-		user_info = (await self.vkAPI.users_get(user_ids=[user_id]))[0]
+		# Во ВКонтакте, пользователи имеют положительный ID,
+		# пока как группы (т.е., боты) имеют отрицательный.
+		#
+		# Здесь, в зависимости от знака ID используются разные API-запросы.
+		user_info_class: TelehooperServiceUserInfo
+		if user_id > 0:
+			# Пользователь.
 
-		user_info_class = TelehooperServiceUserInfo(
-			service_name=self.service_name,
-			id=user_info["id"],
-			name=f"{user_info['first_name']} {user_info['last_name']}",
-			profile_url=user_info.get("photo_max_orig"),
-			male=user_info.get("sex", 2) == 2 # Судя по документации ВК, может быть и третий вариант с ID 0, "пол не указан". https://dev.vk.com/ru/reference/objects/user#sex
-		)
+			user_info = (await self.vkAPI.users_get(user_ids=[user_id]))[0]
+			assert user_info, f"Данные о пользователе с ID {user_id} не были получены от API ВКонтакте, хотя обязаны были быть"
+
+			user_info_class = TelehooperServiceUserInfo(
+				service_name=self.service_name,
+				id=user_info["id"],
+				name=f"{user_info['first_name']} {user_info['last_name']}",
+				profile_url=user_info.get("photo_max_orig"),
+				male=user_info.get("sex", 2) == 2 # Судя по документации ВК, может быть и третий вариант с ID 0, "пол не указан". https://dev.vk.com/ru/reference/objects/user#sex
+			)
+		else:
+			# Группа (бот).
+
+			group_info = (await self.vkAPI.groups_getByID(user_ids=[abs(user_id)]))[0]
+			assert group_info, f"Данные о группе с ID {user_id} не были получены от API ВКонтакте, хотя обязаны были быть"
+
+			user_info_class = TelehooperServiceUserInfo(
+				service_name=self.service_name,
+				id=-group_info["id"],
+				name=group_info["name"],
+				profile_url=group_info.get("photo_200_orig"),
+				male=None
+			)
+
 		self._cachedUsersInfo[user_id] = user_info_class
 
 		return user_info_class
