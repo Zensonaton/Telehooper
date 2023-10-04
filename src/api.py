@@ -5,6 +5,7 @@ import base64
 from typing import Any, Literal, Sequence, cast
 
 import aiohttp
+import cachetools
 from aiocouch import Document, NotFoundError
 from aiogram import Bot
 from aiogram.exceptions import (TelegramAPIError, TelegramBadRequest,
@@ -30,6 +31,7 @@ from exceptions import DisallowedInDebugException
 from services.service_api_base import BaseTelehooperServiceAPI, ServiceDialogue
 from services.vk.service import VKServiceAPI
 from settings import SETTINGS_TREE, SettingsHandler
+
 
 # Да, я знаю что это плохой способ. Знаю. Ни к чему другому, адекватному я не пришёл.
 _saved_connections = {}
@@ -728,6 +730,8 @@ class TelehooperSubGroup:
 	"""API сервиса."""
 	service_chat_id: int
 	"""ID диалога в сервисе."""
+	preMessageCache: cachetools.TTLCache[str, int | None] = cachetools.TTLCache(150, 60) # 150 элементов, 60 секунд жизни.
+	"""Кэш сообщений и их ID, который создаётся перед отправкой сообщения в сервис. Используется в случае, если отправитель сообщения не является владельцем группы."""
 
 	def __init__(self, id: int, dialogue_name: str | None, service: BaseTelehooperServiceAPI, parent: TelehooperGroup, service_chat_id: int) -> None:
 		"""

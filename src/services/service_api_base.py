@@ -1,14 +1,13 @@
 # coding: utf-8
 
 from __future__ import annotations
-import asyncio
 
+import asyncio
 import enum
 from typing import TYPE_CHECKING, Literal, Optional
 
 from aiogram import Bot
 from aiogram.types import Audio, Document, Message, PhotoSize, Video, VideoNote
-import cachetools
 from pyrate_limiter import BucketFullException, Limiter, RequestRate
 
 if TYPE_CHECKING:
@@ -110,8 +109,6 @@ class BaseTelehooperServiceAPI:
 	"""ID пользователя в сервисе."""
 	limiter: Limiter
 	"""Лимитер для этого сервиса."""
-	preMessageCache: cachetools.TTLCache[str, int | None] = cachetools.TTLCache(150, 60) # 150 элементов, 60 секунд жизни.
-	"""Кэш сообщений и их ID, который создаётся перед отправкой сообщения в сервис. Используется в случае, если отправитель сообщения не является владельцем группы."""
 
 	def __init__(self, service_name: str, service_id: int, user: "TelehooperUser", limiter: Limiter = Limiter(RequestRate(1, 1), RequestRate(20, 60))) -> None:
 		"""

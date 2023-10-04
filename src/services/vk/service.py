@@ -260,7 +260,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 				return
 
 			# Проверяем, не было ли отправлено сообщение через бота.
-			if event.text in self.preMessageCache:
+			if event.text in subgroup.preMessageCache:
 				sent_via_bot = True
 			else:
 				# Получаем информацию о отправленном сообщении.
@@ -1243,7 +1243,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 		# Перед отправкой, мы сохраняем текст сообщения, дабы бот знал, что сообщение было и вправду отправлено через бота.
 		# Пояснение: Иногда, longpoll возвращает событие о новом сообщении раньше, чем messages.send возвращает ID отправленного сообщения.
 		if sent_by_owner:
-			self.preMessageCache[message_text] = None
+			subgroup.preMessageCache[message_text] = None
 
 		vk_message_id = await self.send_message(
 			chat_id=peer_id,
@@ -1261,8 +1261,8 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 		# Сохраняем в кэш информацию о том, что в эту же подгруппу было отправлено сообщение
 		# с определённым текстом и указанным ID.
 		#
-		# Это нужно, что бы защититься от повторной пересылки сообщения.
-		self.preMessageCache[message_text] = vk_message_id
+		# Это нужно, что бы защититься от повторной пересылки сообщения (с префиксом "Вы").
+		subgroup.preMessageCache[message_text] = vk_message_id
 
 		# Сохраняем ID сообщения.
 		await TelehooperAPI.save_message("VK", self.service_user_id, msg.message_id, vk_message_id, True)
