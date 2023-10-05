@@ -38,6 +38,10 @@ jobs:
             git checkout ${{ secrets.MAIN_BRANCH }}
             git fetch --all
             git reset --hard origin/$branch_name
+
+            source venv/bin/activate
+
             pip install -r requirements.txt
             systemctl --user restart ${{ secrets.SERVICE_NAME }}
+
             exit
