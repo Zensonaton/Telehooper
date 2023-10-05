@@ -11,3 +11,4 @@ cachetools
 pyrate-limiter
 Pillow
 pytest
+psutil

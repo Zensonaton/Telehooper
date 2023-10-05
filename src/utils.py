@@ -1,17 +1,20 @@
 # coding: utf-8
 
+import asyncio
 import base64
 import gzip
 import hashlib
 import io
 import os
 import re
+import subprocess
 import time
 
 from aiogram.exceptions import TelegramAPIError
 from aiogram.types import User as TelegramUser
 from cryptography.fernet import Fernet
 from loguru import logger
+import psutil
 
 from config import config
 
@@ -343,3 +346,42 @@ def time_since(timestamp: int) -> int:
 	"""
 
 	return get_timestamp() - timestamp
+
+COMMIT_HASH = None
+async def get_commit_hash() -> str | None:
+	"""
+	Возвращает строку хэша последнего коммита, либо None, если что-то пошло не так (например, `.git` не инициализирован).
+	"""
+
+	global COMMIT_HASH
+
+
+	if COMMIT_HASH is not None:
+		return COMMIT_HASH
+
+	try:
+		proc = await asyncio.create_subprocess_shell(
+			"git rev-parse --short HEAD",
+			stdout=subprocess.PIPE,
+			stderr=subprocess.PIPE
+		)
+
+		stdout, stderr = await proc.communicate()
+
+		if proc.returncode != 0:
+			return None
+
+		COMMIT_HASH = stdout.decode().strip()
+
+		return COMMIT_HASH
+	except Exception as e:
+		return None
+
+def get_ram_usage() -> float:
+	"""
+	Возвращает количество использованной ботом оперативной памяти.
+
+	Возвращает значение в мегабайтах.
+	"""
+
+	return psutil.Process().memory_info().rss / 1_000_000

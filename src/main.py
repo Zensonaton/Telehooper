@@ -4,6 +4,7 @@ import asyncio
 
 from loguru import logger
 
+import utils
 from config import config
 from DB import get_db
 from logger import init_logger
@@ -18,7 +19,7 @@ async def bot_init() -> None:
 	# Логирование.
 	init_logger(debug=config.debug)
 
-	logger.info("Привет, мир! Запускаем Telehooper...")
+	logger.info(f"Привет, мир! Запускаем Telehooper commit {await utils.get_commit_hash() or '<неизвестно>'}...")
 
 	# Проверяем на debug-режим.
 	if config.debug:
