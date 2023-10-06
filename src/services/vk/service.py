@@ -260,14 +260,14 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 				return
 
 			# Проверяем, не было ли отправлено сообщение через бота.
-			if event.text in subgroup.preMessageCache:
+			if False and event.text in subgroup.preMessageCache:
 				sent_via_bot = True
 			else:
 				# Получаем информацию о отправленном сообщении.
 				#
 				# Небольшая задержка здесь нужна, потому что бот может получить сообщение раньше, чем оно будет сохранено в БД.
 				# Асинхронность - это весело! 🤡
-				await asyncio.sleep(0.2)
+				await asyncio.sleep(0.4)
 
 				msg_saved = await subgroup.service.get_message_by_service_id(self.service_user_id, event.message_id)
 
