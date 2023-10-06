@@ -8,7 +8,7 @@ from types import ModuleType
 
 from aiocouch import Document
 from aiogram import Bot, Dispatcher
-from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
+from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError, TelegramBadRequest
 from aiogram.types import (BotCommand, BotCommandScopeAllGroupChats,
                            BotCommandScopeDefault)
 from loguru import logger
@@ -188,7 +188,9 @@ async def reconnect_services() -> None:
 								service_chat_id=chat["DialogueID"]
 							)
 						)
-				except TelegramForbiddenError:
+				except (TelegramForbiddenError, TelegramBadRequest):
+					logger.debug(f"Удаляю Telegram-группу {group_id} для пользователя {utils.get_telegram_logging_info(telegram_user)}, поскольку бот не смог получить о ней информацию.")
+
 					await TelehooperAPI.delete_group_data(group_id, fully_delete=True, bot=bot)
 				except Exception as error:
 					logger.exception(f"Не удалось переподключить группу {group_id} для пользователя {utils.get_telegram_logging_info(telegram_user)}:", error)
