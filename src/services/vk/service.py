@@ -260,7 +260,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 				return
 
 			# Проверяем, не было ли отправлено сообщение через бота.
-			if False and event.text in subgroup.preMessageCache:
+			if event.text in subgroup.preMessageCache:
 				sent_via_bot = True
 			else:
 				# Получаем информацию о отправленном сообщении.
