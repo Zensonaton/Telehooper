@@ -410,21 +410,21 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 										async with client.get(video[quality]) as response:
 											assert response.status == 200, f"Не удалось загрузить видео с качеством {quality}"
 
-											video_bytes = b""
+											audio_bytes = b""
 
 											while True:
 												chunk = await response.content.read(1024)
 												if not chunk:
 													break
 
-												video_bytes += chunk
+												audio_bytes += chunk
 
 												# Пытаемся найти самое большое видео, которое не превышает 50 МБ.
-												if len(video_bytes) > 50 * 1024 * 1024:
+												if len(audio_bytes) > 50 * 1024 * 1024:
 													if is_last:
 														raise Exception("Размер видео слишком большой")
 
-													logger.debug(f"Файл размером {quality} оказался слишком большой ({len(video_bytes)} байт).")
+													logger.debug(f"Файл размером {quality} оказался слишком большой ({len(audio_bytes)} байт).")
 
 													continue
 
@@ -432,7 +432,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 									if is_video_note:
 										# Отправляем видеосообщение.
 										msg = await subgroup.send_video_note(
-											input=BufferedInputFile(video_bytes, filename=f"VK video note {attachment['id']}.mp4"),
+											input=BufferedInputFile(audio_bytes, filename=f"VK video note {attachment['id']}.mp4"),
 											silent=is_outbox,
 											reply_to=reply_to
 										)
@@ -449,7 +449,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 										return
 
 									# Прикрепляем видео.
-									attachment_media.append(InputMediaVideo(type="video", media=BufferedInputFile(video_bytes, filename=f"{attachment['title'].strip()} {quality[4:]}p.mp4")))
+									attachment_media.append(InputMediaVideo(type="video", media=BufferedInputFile(audio_bytes, filename=f"{attachment['title'].strip()} {quality[4:]}p.mp4")))
 
 									break
 								else:
@@ -535,30 +535,38 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 								# Прикрепляем документ.
 								attachment_media.append(InputMediaDocument(type="document", media=BufferedInputFile(file=file_bytes, filename=attachment["title"])))
 						elif attachment_type == "audio":
-							# Загружаем аудио.
+							# Обрабатываем музыку.
+
+							# В некоторых случаях, ВК может не передавать ссылку на аудио.
+							# В таком случае, бот просто прикрепит музыку как текстовое вложение.
+							if "url" not in attachment:
+								attachment_items.append(f"<a href=\"{message_url}\">🎵 {attachment['artist']} - {attachment['title']}</a>")
+
+								continue
+
 							async with ChatActionSender(chat_id=subgroup.parent.chat.id, action="upload_audio", bot=subgroup.parent.bot):
 								async with aiohttp.ClientSession() as client:
 									async with client.get(attachment["url"]) as response:
 										assert response.status == 200, f"Не удалось загрузить аудио с ID {attachment['id']}"
 
-										video_bytes = b""
+										audio_bytes = b""
 
 										while True:
 											chunk = await response.content.read(1024)
 											if not chunk:
 												break
 
-											video_bytes += chunk
+											audio_bytes += chunk
 
-											if len(video_bytes) > 50 * 1024 * 1024:
-												logger.debug(f"Файл оказался слишком большой ({len(video_bytes)} байт).")
+											if len(audio_bytes) > 50 * 1024 * 1024:
+												logger.debug(f"Файл оказался слишком большой ({len(audio_bytes)} байт).")
 
 												raise Exception("Размер файла слишком большой")
 
 								attachment_media.append(InputMediaAudio(
 									type="audio",
 									media=BufferedInputFile(
-										file=video_bytes,
+										file=audio_bytes,
 										filename=f"{attachment['artist']} - {attachment['title']}.mp3"
 									),
 									title=attachment["title"],
