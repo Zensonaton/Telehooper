@@ -61,7 +61,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 	"""Задача, выполняющая longpoll."""
 	_lastOnlineStatus: int = 0
 	"""UNIX-timestamp последнего обновления статуса онлайна через бота. Используется для настройки `Security.StoreTokens`."""
-	_cachedUsersInfo: cachetools.TLRUCache[int, TelehooperServiceUserInfo] = cachetools.TLRUCache(maxsize=80, ttu=lambda _, value, now: now + 5 * 60) # 80 элементов, 5 минут хранения.
+	_cachedUsersInfo: cachetools.TLRUCache[int, TelehooperServiceUserInfo] # 80 элементов, 5 минут хранения.
 	"""Кэшированные данные о пользователях ВКонтакте для быстрого повторного получения."""
 
 	def __init__(self, token: SecretStr, vk_user_id: int, user: "TelehooperUser", limiter: Limiter = Limiter(RequestRate(2, 1), RequestRate(20, 60))) -> None:
@@ -73,6 +73,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 		self.vkAPI = VKAPI(self.token)
 
 		self.limiter = limiter
+		self._cachedUsersInfo = cachetools.TLRUCache(maxsize=80, ttu=lambda _, value, now: now + 5 * 60)
 
 	async def start_listening(self, bot: Bot | None = None) -> asyncio.Task:
 		async def handle_updates() -> None:
@@ -281,9 +282,12 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 			# Спонсор сегодняшних костылей - асинхронность.
 			if event.text in subgroup.preMessageCache:
 				sent_via_bot = True
+
+				# Удаляем сообщение из кэша, поскольку проверка уже была проведена.
+				subgroup.preMessageCache.pop(event.text)
 			else:
 				# Причина существования этого sleep описана выше.
-				await asyncio.sleep(0.4)
+				await asyncio.sleep(0.2)
 
 				# Проверяем на наличие сохранённого сообщения.
 				msg_saved = await subgroup.service.get_message_by_service_id(self.service_user_id, event.message_id)
