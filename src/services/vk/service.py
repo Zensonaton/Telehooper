@@ -310,12 +310,22 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 				# Обрабатываем ответы (reply).
 				if "reply" in attachments or ("fwd_messages" in message_extended and len(message_extended["fwd_messages"]) == 1 and await self.user.get_setting("Services.VK.FWDAsReply")):
-					reply_vk_message_id: int | None = message_extended["reply_message"].get("id") if "reply" in attachments else message_extended["fwd_messages"][0].get("id")
+					reply_vk_message_id: int | None = message_extended["reply_message"].get("id")
+					fwd_vk_message_id: int | None = message_extended["fwd_messages"][0].get("id") if "reply" not in attachments else None
+					fwd_vk_conversation_message_id: int | None = message_extended["fwd_messages"][0].get("conversation_message_id") if "reply" not in attachments else None
 
-					# В некоторых случаях ID reply отсутствует, и я не уверен почему.
-					# Если такое произошло, то просто логируем это.
-					if not reply_vk_message_id:
+					# В некоторых случаях ID reply может отсутствовать,
+					# вместо него либо ничего нет, либо есть conversation message id.
+					if not (reply_vk_message_id or fwd_vk_message_id or fwd_vk_conversation_message_id):
 						logger.warning(f"[VK] Пользователь сделал Reply на сообщение во ВКонтакте, однако API ВКонтакте не вернул ID сообщения, на который был сделан Reply. Сообщение: {message_extended}")
+					elif fwd_vk_conversation_message_id:
+						# Нам дан Conversation Message ID, ищем "реальный" ID сообщения.
+						message_data = (await self.vkAPI.messages_getByConversationMessageId(event.peer_id, fwd_vk_conversation_message_id))["items"][0]
+
+						reply_vk_message_id = message_data["id"]
+					elif fwd_vk_message_id:
+						# Была сделана пересылка сообщения, в таком случае используем ID данного сообщения.
+						reply_vk_message_id = fwd_vk_message_id
 
 					# Настоящий ID сообщения, на которое был дан ответ, получен. Получаем информацию о сообщении с БД бота.
 					if reply_vk_message_id:
