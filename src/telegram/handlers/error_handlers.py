@@ -44,7 +44,7 @@ async def message_error_handler(event: ErrorEvent, msg: Message, bot: Bot) -> No
 	if await handle_error(event, bot, msg.chat):
 		return
 
-	logger.exception(f"Ошибка при обработке сообщения от пользователя {utils.get_telegram_logging_info(msg.from_user)}:", event.exception)
+	logger.exception(f"Ошибка при обработке Telegram-сообщения от пользователя {utils.get_telegram_logging_info(msg.from_user)}:", event.exception)
 
 	await msg.answer(
 		"<b>⚠️ У бота произошла ошибка</b>.\n"
@@ -66,7 +66,7 @@ async def callback_query_error_handler(event: ErrorEvent, query: CallbackQuery, 
 	if query.message and await handle_error(event, bot, query.message.chat):
 		return
 
-	logger.exception(f"Ошибка при обработке callback query от пользователя {utils.get_telegram_logging_info(query.from_user)}:", event.exception)
+	logger.exception(f"Ошибка при обработке Telegram callback query от пользователя {utils.get_telegram_logging_info(query.from_user)}:", event.exception)
 
 	await query.answer(
 		"⚠️ Ошибка\n"

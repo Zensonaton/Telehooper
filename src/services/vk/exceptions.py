@@ -51,6 +51,18 @@ class TokenRevokedException(BaseVKAPIException):
 
 		super().__init__(error_code=error_code, message=message)
 
+class TooManyRequestsException(BaseVKAPIException):
+	"""
+	Исключение, которое вызывается, если API создал слишком много запросов за небольшой промежуток времени.
+	"""
+
+	def __init__(self, error_code: int = 6, message: str = "Слишком много действий в секунду.") -> None:
+		"""
+		Инициализация исключения.
+		"""
+
+		super().__init__(error_code=error_code, message=message)
+
 class CaptchaException(BaseVKAPIException):
 	"""
 	Исключение, которое вызывается, если требуется ввод капчи.
