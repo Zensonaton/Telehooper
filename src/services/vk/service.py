@@ -310,7 +310,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 				# Обрабатываем ответы (reply).
 				if "reply" in attachments or ("fwd_messages" in message_extended and len(message_extended["fwd_messages"]) == 1 and await self.user.get_setting("Services.VK.FWDAsReply")):
-					reply_vk_message_id: int | None = message_extended["reply_message"].get("id")
+					reply_vk_message_id: int | None = message_extended["reply_message"].get("id") if "reply" in attachments else None
 					fwd_vk_message_id: int | None = message_extended["fwd_messages"][0].get("id") if "reply" not in attachments else None
 					fwd_vk_conversation_message_id: int | None = message_extended["fwd_messages"][0].get("conversation_message_id") if "reply" not in attachments else None
 
