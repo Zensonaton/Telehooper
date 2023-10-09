@@ -343,7 +343,8 @@ class VKAPILongpoll:
 
 		while not self.is_stopped:
 			async for event in self.listen_for_raw_updates():
-				if not event["updates"]:
+				# Если нет никаких обновлений, то просто скипаем.
+				if event.get("updates") is None:
 					continue
 
 				for update in event["updates"]:
