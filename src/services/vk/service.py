@@ -573,7 +573,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 							# В некоторых случаях, ВК может не передавать ссылку на аудио.
 							# В таком случае, бот просто прикрепит музыку как текстовое вложение.
-							if "url" not in attachment:
+							if not attachment.get("url"):
 								attachment_items.append(f"<a href=\"{message_url}\">🎵 {attachment['artist']} - {attachment['title']}</a>")
 
 								continue
