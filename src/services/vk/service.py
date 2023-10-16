@@ -391,8 +391,6 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 						attachment_type = attachment["type"]
 						attachment = attachment[attachment["type"]]
 
-						attachment_key = get_attachment_key(attachment)
-
 						if attachment_type == "photo":
 							# Проходимся по всем размерам фотографии и выбираем самый большой.
 							sizes_sorted = sorted(attachment["sizes"], key=lambda size: size["width"] * size["height"], reverse=True)
@@ -407,7 +405,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 							is_video_note = attachments.get(f"attach{attch_index + 1}_kind") == "video_message"
 
 							async with ChatActionSender(chat_id=subgroup.parent.chat.id, action="upload_video", bot=subgroup.parent.bot):
-								video = (await self.vkAPI.video_get(videos=attachment_key))["items"][0]
+								video = (await self.vkAPI.video_get(videos=get_attachment_key(attachment)))["items"][0]
 								if "files" not in video:
 									# В случаях, если видео помечено как "доступно только подписчикам", ВК не даёт ссылок на скачивание.
 									# В таких случаях мы просто отображаем видео как ссылку на него.
