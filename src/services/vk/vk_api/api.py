@@ -80,22 +80,6 @@ class VKAPI:
 
 		return {key: value for key, value in data.items() if value is not None}
 
-	@staticmethod
-	def get_attachment_string(type: str, owner_id: int, id: int, access_key: str | None = None) -> str:
-		"""
-		Возвращает строку с вложением.
-
-		:param type: Тип вложения.
-		:param owner_id: ID владельца вложения.
-		:param id: ID вложения.
-		:param access_key: Ключ доступа к вложению.
-		"""
-
-		if access_key:
-			return f"{type}{owner_id}_{id}_{access_key}"
-
-		return f"{type}{owner_id}_{id}"
-
 	async def _get_(self, method: str, params: dict[str, str | int | bool | float | None] | None = None) -> dict:
 		"""
 		Выполняет GET-запрос к API ВКонтакте.

@@ -161,3 +161,23 @@ async def prepare_sticker(sticker: bytes) -> bytes:
 		return img_bytes.getvalue()
 
 	return await asyncio.to_thread(_inner)
+
+def get_attachment_key(attachment: dict, type: str | None = None, include_access_key: bool = True) -> str:
+	"""
+	Извлекает из объекта attachment данные о вложении, передавая строку вида `photo123456_123456_abcdefg`.
+
+	:param attachment: Объект вложения, из которого будет излекаться информация.
+	:param type: Тип вложения, который используется в самом начале. Если не указывать, то пропускается.
+	:param include_access_key: Указывает, будет ли данный метод добавлять поле access_key в итоговую строку. Иногда это поле отсутствует.
+	"""
+
+	output = ""
+	if type is not None:
+		output += type
+
+	output += f"{attachment['owner_id']}_{attachment['id']}"
+
+	if include_access_key and "access_key" in attachment:
+		output += f"_{attachment['access_key']}"
+
+	return output

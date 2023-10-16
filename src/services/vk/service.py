@@ -11,10 +11,10 @@ import cachetools
 from aiocouch import Document
 from aiogram import Bot
 from aiogram.exceptions import TelegramForbiddenError
-from aiogram.types import Audio, BufferedInputFile, Chat
+from aiogram.types import Audio, BufferedInputFile
 from aiogram.types import Document as TelegramDocument
 from aiogram.types import (InlineKeyboardButton, InlineKeyboardMarkup,
-                           InputFile, InputMediaAudio, InputMediaDocument,
+                           InputMediaAudio, InputMediaDocument,
                            InputMediaPhoto, InputMediaVideo, Message,
                            PhotoSize, Sticker, Video, VideoNote, Voice)
 from aiogram.utils.chat_action import ChatActionSender
@@ -29,8 +29,11 @@ from services.service_api_base import (BaseTelehooperServiceAPI,
                                        ServiceDialogue,
                                        ServiceDisconnectReason,
                                        TelehooperServiceUserInfo)
-from services.vk.exceptions import AccessDeniedException, TokenRevokedException, TooManyRequestsException
-from services.vk.utils import create_message_link, prepare_sticker
+from services.vk.exceptions import (AccessDeniedException,
+                                    TokenRevokedException,
+                                    TooManyRequestsException)
+from services.vk.utils import (create_message_link, get_attachment_key,
+                               prepare_sticker)
 from services.vk.vk_api.api import VKAPI
 from services.vk.vk_api.longpoll import (BaseVKLongpollEvent,
                                          LongpollMessageEditEvent,
@@ -388,6 +391,8 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 						attachment_type = attachment["type"]
 						attachment = attachment[attachment["type"]]
 
+						attachment_key = get_attachment_key(attachment)
+
 						if attachment_type == "photo":
 							# Проходимся по всем размерам фотографии и выбираем самый большой.
 							sizes_sorted = sorted(attachment["sizes"], key=lambda size: size["width"] * size["height"], reverse=True)
@@ -402,7 +407,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 							is_video_note = attachments.get(f"attach{attch_index + 1}_kind") == "video_message"
 
 							async with ChatActionSender(chat_id=subgroup.parent.chat.id, action="upload_video", bot=subgroup.parent.bot):
-								video = (await self.vkAPI.video_get(videos=f"{attachment['owner_id']}_{attachment['id']}_{attachment['access_key']}"))["items"][0]
+								video = (await self.vkAPI.video_get(videos=attachment_key))["items"][0]
 								if "files" not in video:
 									# В случаях, если видео помечено как "доступно только подписчикам", ВК не даёт ссылок на скачивание.
 									# В таких случаях мы просто отображаем видео как ссылку на него.
@@ -1235,17 +1240,17 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 								resp = await self.vkAPI.photos_saveMessagesPhoto(photo=attachment["photo"], server=attachment["server"], hash=attachment["hash"])
 
 								for saved_attch in resp:
-									attachment_str_list.append(VKAPI.get_attachment_string("photo", saved_attch["owner_id"], saved_attch["id"], saved_attch.get("access_key")))
+									attachment_str_list.append(get_attachment_key(saved_attch, type="photo"))
 							elif attch_type == "Voice":
 								saved_attch = (await self.vkAPI.docs_save(file=attachment["file"], title="Voice message"))["audio_message"]
 
-								attachment_str_list.append(VKAPI.get_attachment_string("doc", saved_attch["owner_id"], saved_attch["id"], saved_attch.get("access_key")))
+								attachment_str_list.append(get_attachment_key(saved_attch, type="doc"))
 							elif attch_type in ["Video", "VideoNote"]:
-								attachment_str_list.append(VKAPI.get_attachment_string("video", attachment["owner_id"], attachment["video_id"], attachment.get("access_key")))
+								attachment_str_list.append(get_attachment_key(attachment, type="video"))
 							elif attch_type == "Sticker":
 								saved_attch = (await self.vkAPI.docs_save(file=attachment["file"], title="Sticker"))["graffiti"]
 
-								attachment_str = VKAPI.get_attachment_string("doc", saved_attch["owner_id"], saved_attch["id"], saved_attch.get("access_key"))
+								attachment_str = get_attachment_key(saved_attch, type="doc")
 								attachment_str_list.append(attachment_str)
 
 								# Стикеры нам нужно кэшировать, если пользователь это разрешил.
@@ -1254,7 +1259,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 							elif attch_type == "Document":
 								saved_attch = (await self.vkAPI.docs_save(file=attachment["file"]))["doc"]
 
-								attachment_str_list.append(VKAPI.get_attachment_string("doc", saved_attch["owner_id"], saved_attch["id"], saved_attch.get("access_key")))
+								attachment_str_list.append(get_attachment_key(saved_attch, type="doc"))
 
 					# Теперь нам нужно заменить вложения в сообщении на те, что мы получили от ВК.
 					for index, attch in enumerate(attachments_vk):
