@@ -425,16 +425,23 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 									continue
 
-								video_quality_list = ["mp4_720", "mp4_480", "mp4_360", "mp4_240", "mp4_144"]
+								# Делаем список из возможных качеств для видео.
+								video_quality_list = ["mp4_1080", "mp4_720", "mp4_480", "mp4_360", "mp4_240", "mp4_144"]
+								video_hd_quality_list = ["mp4_1080"]
 
-								# Если пользователь разрешил использование видео в 1080p, то добавляем его в список.
-								if await self.user.get_setting("Services.VK.HDVideo"):
-									video_quality_list.insert(0, "mp4_1080")
+								# Составляем список качеств видео, которые были переданы ВКонтакте.
+								present_video_quality_list = [quality for quality in video_quality_list if quality in video]
 
-								for quality in video_quality_list:
-									is_last = quality == "mp4_144"
+								# Узнаём, разрешены ли HD-видео.
+								hd_video_allowed = await self.user.get_setting("Services.VK.HDVideo")
 
-									if quality not in video:
+								for quality in present_video_quality_list:
+									is_last = quality == present_video_quality_list[-1]
+									is_hd = quality in video_hd_quality_list
+
+									# Нам нужно убедиться, что если это HD видео, и есть видео другого качества,
+									# то в таком случае нужно пропустить такой формат.
+									if is_hd and not is_last and not hd_video_allowed:
 										continue
 
 									logger.debug(f"Найдено видео с качеством {quality}: {video[quality]}")
@@ -456,7 +463,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 												# Пытаемся найти самое большое видео, которое не превышает 50 МБ.
 												if len(audio_bytes) > 50 * 1024 * 1024:
 													if is_last:
-														raise Exception("Размер видео слишком большой")
+														raise Exception("Не было найдено видео меньшего размера")
 
 													logger.debug(f"Файл размером {quality} оказался слишком большой ({len(audio_bytes)} байт).")
 
@@ -487,10 +494,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 									break
 								else:
-									logger.error(f"[VK] Для пользователя Telegram {utils.get_telegram_logging_info(self.user.telegramUser)} не удалось получить ссылку на видео для скачивания. API-ответ, поле files:")
-									logger.error(json.dumps(video))
-
-									raise Exception("Не удалось получить ссылку на видео")
+									raise Exception("ВКонтакте не вернул ссылку на видео")
 						elif attachment_type == "audio_message":
 							attachment_media.append(InputMediaAudio(type="audio", media=attachment["link_ogg"]))
 						elif attachment_type == "sticker":
