@@ -175,7 +175,7 @@ def get_attachment_key(attachment: dict, type: str | None = None, include_access
 	if type is not None:
 		output += type
 
-	output += f"{attachment['owner_id']}_{attachment['id']}"
+	output += f"{attachment['owner_id']}_{attachment.get('id') or attachment.get('video_id')}"
 
 	if include_access_key and "access_key" in attachment:
 		output += f"_{attachment['access_key']}"
