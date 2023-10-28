@@ -323,9 +323,10 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 						logger.warning(f"[VK] Пользователь сделал Reply на сообщение во ВКонтакте, однако API ВКонтакте не вернул ID сообщения, на который был сделан Reply. Сообщение: {message_extended}")
 					elif fwd_vk_conversation_message_id:
 						# Нам дан Conversation Message ID, ищем "реальный" ID сообщения.
-						message_data = (await self.vkAPI.messages_getByConversationMessageId(event.peer_id, fwd_vk_conversation_message_id))["items"][0]
+						message_data = (await self.vkAPI.messages_getByConversationMessageId(event.peer_id, fwd_vk_conversation_message_id))["items"]
 
-						reply_vk_message_id = message_data["id"]
+						if message_data:
+							reply_vk_message_id = message_data[0]["id"]
 					elif fwd_vk_message_id:
 						# Была сделана пересылка сообщения, в таком случае используем ID данного сообщения.
 						reply_vk_message_id = fwd_vk_message_id
