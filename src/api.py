@@ -292,6 +292,15 @@ class TelehooperGroup:
 			else:
 				return True
 
+	def get_bucket_size(self, key: str) -> int:
+		"""
+		Возвращает 'заполненность' очереди по заданному имени.
+
+		:param key: Ключ, по которому нужно получить заполненность очереди.
+		"""
+
+		return self.limiter.get_current_volume(key)
+
 	async def convert_to_dialogue_group(self, user: TelehooperUser, dialogue: ServiceDialogue, pinned_message: Message, serviceAPI: BaseTelehooperServiceAPI) -> None:
 		"""
 		Конвертирует данную Telegram-группу в группу-диалог из сервиса. Данный метод изменяет название, фотографию, а так же описание группы. Помимо этого, она сохраняет информацию о созданной группе в БД.
@@ -542,13 +551,17 @@ class TelehooperGroup:
 
 		return message_ids
 
-	async def start_activity(self, type: Literal["typing", "upload_photo", "record_video", "upload_video", "record_audio", "upload_audio", "upload_document", "find_location", "record_video_note", "upload_video_note"] = "typing", topic: int = 0) -> None:
+	async def start_activity(self, type: Literal["typing", "upload_photo", "record_video", "upload_video", "record_audio", "upload_audio", "upload_document", "find_location", "record_video_note", "upload_video_note"] = "typing", topic: int = 0, bypass_queue: bool = False) -> None:
 		"""
 		Начинает событие в Telegram-группе по типу печати, записи голосового сообщения и подобных.
 
 		:param type: Тип события.
 		:param topic: ID диалога в сервисе, в который нужно отправить сообщение. Если не указано, то сообщение будет отправлено в главный диалог группы.
+		:param bypass_queue: Отправить ли событие печати без учёта лимитов.
 		"""
+
+		if not bypass_queue and not await self.try_acquire("message", max_delay=0.5):
+			return None
 
 		await self.bot.send_chat_action(
 			chat_id=self.chat.id,
@@ -556,13 +569,17 @@ class TelehooperGroup:
 			message_thread_id=topic
 		)
 
-	async def edit_message(self, new_text: str, id: int) -> None:
+	async def edit_message(self, new_text: str, id: int, bypass_queue: bool = False) -> None:
 		"""
 		Редактирует сообщение в Telegram-группе.
 
 		:param new_text: Новый текст сообщения.
 		:param id: ID сообщения, которое нужно отредактировать.
+		:param bypass_queue: Отправить ли событие печати без учёта лимитов.
 		"""
+
+		if not bypass_queue and not await self.try_acquire("message"):
+			return None
 
 		try:
 			await self.bot.edit_message_text(
