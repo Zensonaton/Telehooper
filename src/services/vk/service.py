@@ -94,7 +94,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 							text=(
 								"<b>⚠️ Потеряно соединение с ВКонтакте</b>.\n"
 								"\n"
-								f"Telehooper потерял соединение со страницей «ВКонтакте», поскольку владелец страницы отозвал доступ к ней через настройки «Приватности» страницы.\n"
+								"Telehooper потерял соединение со страницей «ВКонтакте», поскольку владелец страницы отозвал доступ к ней через настройки «Приватности» страницы.\n"
 								"\n"
 								"ℹ️ Вы можете повторно подключиться к «ВКонтакте», используя команду /connect.\n"
 							)
@@ -104,8 +104,29 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 				# Совершаем отключение.
 				await self.disconnect_service(ServiceDisconnectReason.ERRORED)
-			except Exception as e:
-				logger.exception(f"Глобальная ошибка (start_listening) обновления ВКонтакте, со связанным Telegram-пользователем {utils.get_telegram_logging_info(self.user.telegramUser)}:", e)
+			except Exception as error:
+				logger.exception(f"Глобальная ошибка (start_listening) обновления ВКонтакте, со связанным Telegram-пользователем {utils.get_telegram_logging_info(self.user.telegramUser)}:", error)
+
+				# Отправляем сообщение, если у нас есть объект бота.
+				if bot:
+					try:
+						await bot.send_message(
+							chat_id=self.user.telegramUser.id,
+							text=(
+								"<b>⚠️ Ошибка при работе с ВКонтакте</b>.\n"
+								"\n"
+								"Что-то пошло не так, и Telehooper потерял соединение с серверами сообщений «ВКонтакте», либо произошла другая необработанная ошибка.\n"
+								"Если бот отказывается пересылать сообщения из ВКонтакте в Telegram, то попробуйте вручную переподключить свою страницу ВКонтакте к боту.\n"
+								"\n"
+								"<b>Текст ошибки, если Вас попросили его отправить</b>:\n"
+								f"<code>{error.__class__.__name__}: {error}</code>.\n"
+								"\n"
+								f"ℹ️ Если проблема не проходит через время - попробуйте попросить помощи либо создать баг-репорт (Github Issue), по ссылке в команде <a href=\"{utils.create_command_url('/h 6')}\">/help</a>."
+
+							)
+						)
+					except:
+						pass
 
 		self._longPollTask = asyncio.create_task(handle_updates())
 		return self._longPollTask
