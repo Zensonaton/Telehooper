@@ -245,22 +245,26 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 				elif event_action in ["chat_pin_message", "chat_unpin_message"]:
 					assert event.source_chat_local_id, "ID сообщения, которое было прикреплено не было получено"
 
-					vk_message_id = (await self.vkAPI.messages_getByConversationMessageId(peer_id=event.peer_id, conversation_message_ids=event.source_chat_local_id))["items"][0]["id"]
+					# Пытаемся найти полную информацию о сообщении.
+					message_data = (await self.vkAPI.messages_getByConversationMessageId(peer_id=event.peer_id, conversation_message_ids=event.source_chat_local_id))["items"]
 
-					telegram_message = await subgroup.service.get_message_by_service_id(self.service_user_id, vk_message_id)
-					if not telegram_message:
-						return
+					if message_data:
+						vk_message_id = message_data[0]["id"]
 
-					if event_action == "chat_pin_message":
-						# Открепляем старое сообщение.
-						try:
-							await subgroup.parent.unpin_message()
-						except:
-							pass
+						telegram_message = await subgroup.service.get_message_by_service_id(self.service_user_id, vk_message_id)
+						if not telegram_message:
+							return
 
-						await subgroup.parent.pin_message(telegram_message.telegram_message_ids[0])
-					else:
-						await subgroup.parent.unpin_message(telegram_message.telegram_message_ids[0])
+						if event_action == "chat_pin_message":
+							# Открепляем старое сообщение.
+							try:
+								await subgroup.parent.unpin_message()
+							except:
+								pass
+
+							await subgroup.parent.pin_message(telegram_message.telegram_message_ids[0])
+						else:
+							await subgroup.parent.unpin_message(telegram_message.telegram_message_ids[0])
 
 		logger.debug(f"[VK] Сообщение с текстом \"{event.text}\", для подгруппы \"{subgroup.service_dialogue_name}\"")
 
