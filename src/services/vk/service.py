@@ -745,7 +745,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 					),
 					silent=True,
 					keyboard=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(
-						text="Прочитать во ВКонтакте",
+						text="Открыть сообщение во ВКонтакте",
 						url=message_url
 					)]])
 				)
