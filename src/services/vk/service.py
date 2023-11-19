@@ -705,21 +705,52 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 			# Отправляем готовое сообщение, и сохраняем его ID в БД бота.
 			async def _send_and_save() -> None:
 				# Высылаем сообщение.
-				msg = await subgroup.send_message_in(
+				#
+				# К сожалению, Telegram не позволяет отправлять сообщения с одновременно
+				# аудио и другими видами вложений. Что бы избежать ошибки,
+				# данный код отдельно отправляет сообщение без аудио, а потом - с аудио.
+				non_audio_attachments = [i for i in attachment_media if not isinstance(i, InputMediaAudio)]
+				audio_attachments = [i for i in attachment_media if isinstance(i, InputMediaAudio)]
+				separate_audio = non_audio_attachments and audio_attachments
+
+				sent_message_ids = []
+				msg_non_audio = await subgroup.send_message_in(
 					full_message_text,
-					attachments=attachment_media,
+					attachments=non_audio_attachments or audio_attachments, # type: ignore
 					silent=is_outbox,
 					reply_to=reply_to,
 					keyboard=keyboard
 				)
 
-				# Если произошёл rate limit, то msg будет None.
-				if not msg:
+				# Если произошёл rate limit, то ответ на отправку сообщений будет равен None.
+				if not msg_non_audio:
 					return
 
-				await TelehooperAPI.save_message("VK", self.service_user_id, msg, event.message_id, False)
+				sent_message_ids.extend(msg_non_audio)
 
-			# Если у нас были вложения, то мы должны отправить сообщение с ними.
+				# Если нам нужно по-отдельности отправить аудио, то отправляем их.
+				#
+				# Текст сообщения передаётся только в том случае, если
+				if separate_audio:
+					msg_audio = await subgroup.send_message_in(
+						"",
+						attachments=audio_attachments, # type: ignore
+						silent=is_outbox,
+						reply_to=msg_non_audio[0]
+					)
+
+					if msg_audio:
+						sent_message_ids.extend(msg_audio)
+
+				# Если произошёл rate limit, то бот не сможет выслать сообщения,
+				# и список из отправленных сообщений будет пуст.
+				if not sent_message_ids:
+					return
+
+				await TelehooperAPI.save_message("VK", self.service_user_id, sent_message_ids, event.message_id, False)
+
+			# Отправляем сообщения.
+			# Если у сообщения есть вложения, то нам нужно сделать "печать" во время отправки такового сообщения.
 			if attachment_media:
 				async with ChatActionSender.upload_document(chat_id=subgroup.parent.chat.id, bot=subgroup.parent.bot, initial_sleep=1):
 					await _send_and_save()
