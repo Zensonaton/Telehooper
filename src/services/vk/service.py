@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 from typing import TYPE_CHECKING, Literal, Optional, cast
+import PIL
 
 import aiohttp
 import cachetools
@@ -1301,7 +1302,10 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 									# Если нам дан стикер, то изменяем его размера.
 									if attch_type == "Sticker":
 										with utils.CodeTimer("Время на изменение размера стикера: {time}"):
-											file_bytes = await prepare_sticker(file_bytes)
+											try:
+												file_bytes = await prepare_sticker(file_bytes)
+											except PIL.UnidentifiedImageError as error:
+												raise Exception("Ошибка обработки стикера; анимированные стикеры не поддерживаются")
 
 									form_data.add_field(name=field_name, value=file_bytes, filename=f"file{index}.{ext}" if ext else filenames.pop(0))
 
