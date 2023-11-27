@@ -151,6 +151,46 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 		else:
 			logger.warning(f"[VK] Метод handle_update столкнулся с неизвестным событием {event.__class__.__name__}: {event.event_data}")
 
+	async def get_message_prefix(self, event: LongpollNewMessageEvent | LongpollMessageEditEvent, is_outbox: bool, sent_via_bot: bool = False) -> str:
+		"""
+		Возвращает префикс для отправляемого (или редактируемого) сообщения. Такой префикс выглядит как:
+		- `[Вы]: `.
+		- `[Имя Ф.]`
+		"""
+
+		use_compact_names = await self.user.get_setting("Services.VK.CompactNames")
+		ignore_outbox_debug = config.debug and await self.user.get_setting("Debug.SentViaBotInform")
+		is_convo = event.peer_id > 2e9
+		from_self = (not is_convo and is_outbox) or (is_convo and event.from_id and event.from_id == self.service_user_id)
+
+		# В случае, если мы находимся в ЛС, то префикс никакой не нужен.
+		if not (from_self or is_convo):
+			return ""
+
+		msg_prefix = "["
+
+		if from_self:
+			msg_prefix += "<b>Вы</b>"
+
+			if sent_via_bot and ignore_outbox_debug:
+				msg_prefix += " <i>debug-пересылка</i>"
+		elif is_convo:
+			assert event.from_id, "from_id не был получен, хотя должен присутствовать"
+
+			# Получаем информацию о пользователе, который отправил сообщение.
+			sent_user_info = await self.get_user_info(event.from_id)
+
+			msg_prefix += f"<b>{utils.compact_name(sent_user_info.name) if use_compact_names else sent_user_info.name}</b>"
+
+		msg_prefix += "]"
+
+		# Проверяем, указан ли текст сообщения. Если да, то для красоты добавляем символ ":":
+		# [Вы]: ...
+		if event.text if isinstance(event, LongpollNewMessageEvent) else event.new_text:
+			msg_prefix += ": "
+
+		return msg_prefix
+
 	async def handle_vk_message(self, event: LongpollNewMessageEvent) -> None:
 		"""
 		Обработчик полученных новых сообщений во ВКонтакте.
@@ -672,29 +712,8 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 			# Подготавливаем текст сообщения, который будет отправлен.
 			full_message_text = ""
-			msg_prefix = ""
+			msg_prefix = await self.get_message_prefix(event, is_outbox)
 			msg_suffix = ""
-
-			if from_self or is_convo:
-				msg_prefix = "["
-
-				if from_self:
-					msg_prefix += "<b>Вы</b>"
-
-					if sent_via_bot and ignore_outbox_debug:
-						msg_prefix += " <i>debug-пересылка</i>"
-				elif is_convo:
-					assert event.from_id, "from_id не был получен, хотя должен присутствовать"
-
-					# Получаем информацию о пользователе, который отправил сообщение.
-					sent_user_info = await self.get_user_info(event.from_id)
-
-					msg_prefix += f"<b>{utils.compact_name(sent_user_info.name) if use_compact_names else sent_user_info.name}</b>"
-
-				msg_prefix += "]"
-
-				if event.text:
-					msg_prefix += ": "
 
 			if attachment_items:
 				msg_suffix += "\n\n————————\n"
@@ -862,9 +881,16 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 			return
 
+		# Подготавливаем текст сообщения, который будет отправлен.
+		full_message_text = ""
+		msg_prefix = await self.get_message_prefix(event, is_outbox=event.flags.outbox)
+		msg_suffix = "   <i>(ред.)</i>"
+
+		full_message_text = msg_prefix + utils.telegram_safe_str(event.new_text) + msg_suffix
+
 		# Редактируем сообщение.
 		try:
-			await subgroup.edit_message(f"{event.new_text}   <i>(ред.)</i>", telegram_message.telegram_message_ids[0])
+			await subgroup.edit_message(full_message_text, telegram_message.telegram_message_ids[0])
 		except TelegramForbiddenError:
 			await TelehooperAPI.delete_group_data(subgroup.parent.chat.id, fully_delete=True, bot=subgroup.parent.bot)
 		except Exception:

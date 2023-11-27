@@ -75,7 +75,7 @@ class LongpollNewMessageEvent(BaseVKLongpollEvent):
 	text: str
 	"""Текст сообщения."""
 	from_id: int | None
-	"""ID пользователя, который отправил сообщение."""
+	"""ID пользователя, который отправил сообщение. В некоторых случаях может отсутствовать."""
 	source_act: str | None
 	"""Действие, которое было совершено с сообщением. Например, `chat_kick_user`."""
 	source_text: str | None
@@ -188,8 +188,8 @@ class LongpollMessageEditEvent(BaseVKLongpollEvent):
 
 	message_id: int
 	"""ID сообщения."""
-	mask: int
-	"""Маска сообщения."""
+	flags: VKLongpollMessageFlags
+	"""Флаги нового сообщения."""
 	peer_id: int
 	"""Чат, в котором было отправлено сообщение."""
 	timestamp: int
@@ -199,15 +199,17 @@ class LongpollMessageEditEvent(BaseVKLongpollEvent):
 	attachments: dict
 	"""Новые вложения сообщения."""
 	is_expired: bool | None
-	"""Истёк ли срок действия сообщения."""
+	"""Истёк ли срок действия сообщения. (если сообщение было самоуничтожающимся)"""
 	pinned_at: int | None
-	"""Время закрепления сообщения."""
+	"""Время закрепления сообщения. (если это закреплённое сообщение)"""
+	from_id: int | None
+	"""ID пользователя, который отправил сообщение. В некоторых случаях может отсутствовать."""
 
 	def __init__(self, event: list) -> None:
 		super().__init__(event)
 
 		self.message_id = self.event_data[0]
-		self.mask = self.event_data[1]
+		self.flags = VKLongpollMessageFlags(self.event_data[1])
 		self.peer_id = self.event_data[2]
 		self.timestamp = self.event_data[3]
 		self.new_text = self.event_data[4]
@@ -215,6 +217,9 @@ class LongpollMessageEditEvent(BaseVKLongpollEvent):
 		self.pinned_at = self.event_data[5].get("pinned_at")
 		if self.pinned_at:
 			self.pinned_at = int(self.pinned_at)
+		self.from_id = self.event_data[5].get("from")
+		if self.from_id:
+			self.from_id = int(self.from_id)
 		self.attachments = self.event_data[6]
 
 class LongpollMessageFlagsEdit(BaseVKLongpollEvent):
