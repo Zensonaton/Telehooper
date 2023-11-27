@@ -283,6 +283,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 			is_convo = event.peer_id > 2e9
 			is_user = not is_group and not is_convo
 			from_self = (not is_convo and is_outbox) or (is_convo and event.from_id and event.from_id == self.service_user_id)
+			message_text_stripped = event.text.lower().strip()
 
 			# Проверяем, стоит ли боту обрабатывать исходящие сообщения.
 			if is_outbox and not (ignore_outbox_debug or await self.user.get_setting("Services.VK.ViaServiceMessages")):
@@ -308,11 +309,11 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 			# выполняемый асинхронно, вернул ID сообщения.
 			#
 			# Спонсор сегодняшних костылей - асинхронность.
-			if event.text in subgroup.preMessageCache:
+			if message_text_stripped in subgroup.pre_message_cache:
 				sent_via_bot = True
 
 				# Удаляем сообщение из кэша, поскольку проверка уже была проведена.
-				subgroup.preMessageCache.pop(event.text)
+				subgroup.pre_message_cache.pop(message_text_stripped)
 			else:
 				# Причина существования этого sleep описана выше.
 				await asyncio.sleep(0.2)
@@ -1355,8 +1356,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 			#
 			# Перед отправкой, мы сохраняем текст сообщения, дабы бот знал, что сообщение было и вправду отправлено через бота.
 			# Пояснение: Иногда, longpoll возвращает событие о новом сообщении раньше, чем messages.send возвращает ID отправленного сообщения.
-			if sent_by_owner:
-				subgroup.preMessageCache[message_text] = None
+			subgroup.pre_message_cache[message_text] = None
 
 			vk_message_id = await self.send_message(
 				chat_id=peer_id,
@@ -1375,7 +1375,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 			# с определённым текстом и указанным ID.
 			#
 			# Это нужно, что бы защититься от повторной пересылки сообщения (с префиксом "Вы").
-			subgroup.preMessageCache[message_text] = vk_message_id
+			subgroup.pre_message_cache[message_text] = vk_message_id
 
 			# Сохраняем ID сообщения.
 			await TelehooperAPI.save_message("VK", self.service_user_id, msg.message_id, vk_message_id, True)
