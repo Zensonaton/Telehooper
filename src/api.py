@@ -207,6 +207,49 @@ class TelehooperUser:
 		self.settingsOverriden = self.document["SettingsOverriden"]
 		await self.document.save()
 
+	async def get_connected_groups(self, bot: Bot | None = None) -> list["TelehooperGroup"]:
+		"""
+		Возвращает список из всех подключённых TelehooperGroup, с которым связан данный пользователь.
+
+		Если, по какой-то причине, запись в БД у пользователя ссылается на несуществующую группу, то запись о таковой группе будет удалена.
+
+		:param bot: Объект бота. Если не передан, будет попытка извлечь его самостоятельно.
+		"""
+
+		db = await get_db()
+
+		if not bot:
+			bot = Bot.get_current()
+			assert bot
+
+		groups = []
+
+		async for group in db.docs([f"group_{i}" for i in self.document["Groups"]], create=True):
+			if not group.exists:
+				# Если нам не удалось получить информацию о группе, то мы получим "пустой" документ.
+				# В таком случае, нужно просто удалить группу из списка групп пользователя.=
+				group_id = int(group.id.split("_")[1])
+
+				logger.warning(f"У пользователя {utils.get_telegram_logging_info(self.telegramUser)} была обнаружена ссылка на несуществующую Telegram-группу с ID {group_id}, она будет удалена.")
+
+				self.document["Groups"].remove(group_id)
+				await self.document.save()
+
+				continue
+
+			# Создаём объект данной группы.
+			group_id = group["ID"]
+
+			try:
+				telegram_group = await bot.get_chat(group_id)
+				groups.append(TelehooperGroup(self, group, telegram_group, bot))
+			except (TelegramForbiddenError, TelegramBadRequest):
+				logger.debug(f"Удаляю Telegram-группу {group_id} для пользователя {utils.get_telegram_logging_info(self.telegramUser)}, поскольку бот не смог получить о ней информацию.")
+
+				await TelehooperAPI.delete_group_data(group_id, fully_delete=True, bot=bot)
+
+		return groups
+
 class TelehooperGroup:
 	"""
 	Класс с информацией о группе, которая связана с каким-либо сервисом.

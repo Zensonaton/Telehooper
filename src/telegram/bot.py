@@ -154,26 +154,9 @@ async def reconnect_services() -> None:
 
 		# Все сервисы переподключены, возвращаем диалоги.
 		try:
-			async for group in db.docs([f"group_{i}" for i in user["Groups"]], create=True):
-				# Если нам не удалось получить информацию о группе, то мы получим "пустой" документ.
-				# В таком случае, нужно просто удалить группу из списка групп пользователя.
-				if not group.exists:
-					group_id = int(group.id.split("_")[1])
-
-					logger.warning(f"У пользователя была обнаружена ссылка на несуществующую Telegram-группу с ID {group_id}, она будет удалена.")
-
-					user["Groups"].remove(group_id)
-					await user.save()
-
-					continue
-
-				group_id = group["ID"]
-
+			for group in await telehooper_user.get_connected_groups(bot=bot):
 				try:
-					telegram_group = await bot.get_chat(group_id)
-					telehooper_group = TelehooperGroup(telehooper_user, group, telegram_group, bot)
-
-					for chat in group["Chats"].values():
+					for chat in group.chats.values():
 						serviceAPI = service_apis.get(chat["Service"])
 
 						if not serviceAPI:
@@ -184,16 +167,16 @@ async def reconnect_services() -> None:
 								id=chat["ID"],
 								dialogue_name=chat["Name"],
 								service=serviceAPI,
-								parent=telehooper_group,
+								parent=group,
 								service_chat_id=chat["DialogueID"]
 							)
 						)
 				except (TelegramForbiddenError, TelegramBadRequest):
-					logger.debug(f"Удаляю Telegram-группу {group_id} для пользователя {utils.get_telegram_logging_info(telegram_user)}, поскольку бот не смог получить о ней информацию.")
+					logger.debug(f"Удаляю Telegram-группу {group.chat.id} для пользователя {utils.get_telegram_logging_info(telegram_user)}, поскольку бот не смог получить о ней информацию.")
 
-					await TelehooperAPI.delete_group_data(group_id, fully_delete=True, bot=bot)
+					await TelehooperAPI.delete_group_data(group.chat.id, fully_delete=True, bot=bot)
 				except Exception as error:
-					logger.exception(f"Не удалось переподключить группу {group_id} для пользователя {utils.get_telegram_logging_info(telegram_user)}:", error)
+					logger.exception(f"Не удалось переподключить группу {group.chat.id} для пользователя {utils.get_telegram_logging_info(telegram_user)}:", error)
 		except Exception as error:
 			logger.exception(f"Не удалось переподключить диалоги для пользователя {user['ID']}:", error)
 
