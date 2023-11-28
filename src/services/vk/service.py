@@ -63,8 +63,6 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 	"""Кэшированный список диалогов."""
 	_longPollTask: asyncio.Task | None = None
 	"""Задача, выполняющая longpoll."""
-	_lastOnlineStatus: int = 0
-	"""UNIX-timestamp последнего обновления статуса онлайна через бота. Используется для настройки `Security.StoreTokens`."""
 	_cachedUsersInfo: cachetools.TLRUCache[int, TelehooperServiceUserInfo] # 80 элементов, 5 минут хранения.
 	"""Кэшированные данные о пользователях ВКонтакте для быстрого повторного получения."""
 
@@ -1373,17 +1371,31 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 			# Пояснение: Иногда, longpoll возвращает событие о новом сообщении раньше, чем messages.send возвращает ID отправленного сообщения.
 			subgroup.pre_message_cache[message_text.lower().strip()] = None
 
-			# Делаем статус "онлайн", если он не был обновлён в течении минуты.
-			if utils.time_since(self._lastOnlineStatus) > 60 and await self.user.get_setting("Services.VK.SetOnline"):
-				self._lastOnlineStatus = utils.get_timestamp()
+			# Выполняем сразу несколько действий:
+			# A. Устанавливаем статус "онлайн". (настройка Services.VK.SetOnline)
+			# B. Прочитываем сообщение в чате. (настройка Services.VK.WaitToType)
+			# B. Начинаем статус "печати".
+			#
+			# Сначала мы создаём список из API-вызовов для API execute.
+			execute_code = []
 
-				asyncio.create_task(self.set_online())
+			# Если разрешено, то устанавливаем статус "онлайн".
+			if await self.user.get_setting("Services.VK.SetOnline"):
+				execute_code.append("API.account.setOnline()")
 
-			# Делаем статус "печати" и прочитываем сообщение.
+			# Если разрешено, то "прочитываем" сообщение, и начинаем "печатать".
+			wait_to_type = False
 			if await self.user.get_setting("Services.VK.WaitToType") and len(message_text) > 3:
-				# TODO: Использовать здесь execute для ускорения.
-				await asyncio.gather(self.read_message(peer_id), self.start_chat_activity(peer_id))
+				execute_code.extend([
+					f"API.messages.markAsRead({{\"peer_id\": {peer_id}, \"mark_conversation_as_read\": 1}})",
+					f"API.messages.setActivity({{\"peer_id\": {peer_id}, \"type\": \"typing\"}})"
+				])
+				wait_to_type = True
 
+			# Вызываем несколько API-методов используя execute.
+			await self.vkAPI.execute(";".join(execute_code) + ";")
+
+			if wait_to_type:
 				await asyncio.sleep(0.6 if len(message_text) <= 15 else 1)
 
 			# Отправляем сообщение.

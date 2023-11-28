@@ -85,7 +85,7 @@ class VKAPI:
 		Выполняет GET-запрос к API ВКонтакте.
 
 		:param method: Метод API.
-		:param params: Параметры запроса.
+		:param params: Параметры запроса.я
 		"""
 
 		if params is None:
@@ -435,3 +435,15 @@ class VKAPI:
 			data["group_ids"] = ",".join(map(str, user_ids))
 
 		return await self._post_("groups.getById", data)
+
+	async def execute(self, code: str) -> dict:
+		"""
+		Выполняет VKScript на серверах. API: `execute`.
+
+		:param code: Код, написанный на VKScript, что совместим с ECMAScript, который будет выполнен на серверах ВКонтакте.
+		"""
+
+		return await self._post_("execute", {
+			"code": code
+		})
+
