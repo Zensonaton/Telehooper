@@ -1437,6 +1437,9 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 				f"ℹ️ Пожалуйста, подождите, перед тем как попробовать снова. Если проблема не проходит через время - попробуйте попросить помощи либо создать баг-репорт (Github Issue), по ссылке в команде <a href=\"{utils.create_command_url('/h 6')}\">/help</a>."
 			)
 
+		# Сохраняем последнее время взаимодействия с сервисом.
+		await self.update_last_activity()
+
 	async def handle_telegram_message_delete(self, msg: Message, subgroup: "TelehooperSubGroup", user: "TelehooperUser") -> None:
 		from api import TelehooperAPI
 
@@ -1614,3 +1617,9 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 					"ℹ️ Вы можете повторно подключиться к сервису «ВКонтакте», используя команду /connect.\n"
 				)
 			)
+
+	async def update_last_activity(self) -> None:
+		await self.user.refresh_document()
+		self.user.document["Connections"]["VK"]["LastActivityAt"] = utils.get_timestamp()
+
+		await self.user.document.save()

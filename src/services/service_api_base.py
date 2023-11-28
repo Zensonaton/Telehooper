@@ -330,3 +330,10 @@ class BaseTelehooperServiceAPI:
 		"""
 
 		raise NotImplementedError
+
+	async def update_last_activity(self) -> None:
+		"""
+		Сохраняет в БД время последнего взаимодействия с данным сервисом (поле `LastActivityAt`).
+		"""
+
+		raise NotImplementedError
