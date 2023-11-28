@@ -3,16 +3,15 @@
 from __future__ import annotations
 
 import asyncio
-import json
 from typing import TYPE_CHECKING, Literal, Optional, cast
-import PIL
 
 import aiohttp
 import cachetools
+import PIL
 from aiocouch import Document
 from aiogram import Bot
 from aiogram.exceptions import TelegramForbiddenError
-from aiogram.types import Audio, BufferedInputFile
+from aiogram.types import Audio, BufferedInputFile, CallbackQuery
 from aiogram.types import Document as TelegramDocument
 from aiogram.types import (InlineKeyboardButton, InlineKeyboardMarkup,
                            InputMediaAudio, InputMediaDocument,
@@ -321,6 +320,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 			is_group = event.peer_id < 0
 			is_convo = event.peer_id > 2e9
 			is_user = not is_group and not is_convo
+			is_bot = (event.from_id or 0) < 0
 			from_self = (not is_convo and is_outbox) or (is_convo and event.from_id and event.from_id == self.service_user_id)
 			message_text_stripped = event.text.lower().strip()
 
@@ -370,7 +370,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 			# Парсим вложения.
 			message_extended = None
-			if event.attachments or is_group:
+			if event.attachments or is_group or is_bot:
 				attachments = event.attachments.copy()
 
 				# Добываем полную информацию о сообщении.
@@ -414,12 +414,43 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 						for button in row:
 							button_type = button["action"]["type"]
 
-							if button_type == "text":
-								current_row.append(InlineKeyboardButton(text=button["action"]["label"], callback_data=button["action"]["payload"] or "do-nothing"))
+							if button_type in ["text", "callback"]:
+								current_row.append(
+									InlineKeyboardButton(
+										text=button["action"]["label"],
+										callback_data=subgroup.create_callback_btn(button["action"]["payload"])
+									)
+								)
+							elif button_type == "open_link":
+								current_row.append(
+									InlineKeyboardButton(
+										text=button["action"]["label"],
+										url=button["action"]["link"]
+									)
+								)
+							elif button_type == "location":
+								current_row.append(
+									InlineKeyboardButton(
+										text=f"[отправка местоположения]",
+										url=message_url
+									)
+								)
+							elif button_type == "vkpay":
+								current_row.append(
+									InlineKeyboardButton(
+										text=f"[платёж VKPay]",
+										url=message_url
+									)
+								)
 							else:
 								logger.warning(f"[VK] Неизвестный тип action для кнопки: \"{button_type}\"")
 
-								current_row.append(InlineKeyboardButton(text=f"❔ Кнопка типа {button_type}", callback_data=button["action"]["payload"] or "do-nothing"))
+								current_row.append(
+									InlineKeyboardButton(
+										text=f"❔ Кнопка типа {button_type}",
+										url=message_url
+									)
+								)
 
 						buttons.append(current_row)
 
@@ -1145,6 +1176,9 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 	async def read_message(self, peer_id: int) -> None:
 		await self.vkAPI.messages_markAsRead(peer_id=peer_id)
 
+	async def send_callback(self, message_id: int, peer_id: int, data: str) -> None:
+		await self.vkAPI.messages_sendMessageEvent(message_id=message_id, peer_id=peer_id, payload=data)
+
 	async def send_message(self, chat_id: int, text: str, reply_to_message: int | None = None, attachments: list[str] | str | None = None, latitude: float | None = None, longitude: float | None = None, bypass_queue: bool = False) -> int | None:
 		if not bypass_queue and not await self.acquire_queue("message"):
 			return None
@@ -1538,6 +1572,44 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 				return
 
 		await self.read_message(peer_id)
+
+	async def handle_telegram_callback_button(self, query: CallbackQuery, subgroup: "TelehooperSubGroup", user: "TelehooperUser") -> None:
+		from api import TelehooperAPI
+
+		assert query.data, "Не были переданы данные Callback query"
+		assert query.message, "Не были переданы кнопка для Callback query"
+
+		logger.debug(f"[TG] Обработка Inline callback query сервиса в Telegram в \"{subgroup}\"")
+
+		# Получаем информацию о сообщении, в котором находится эта кнопка.
+		saved_message = await self.get_message_by_telegram_id(self.service_user_id, query.message.message_id)
+
+		# Пытаемся получить информацию о Inline callback query для сервиса.
+		service_callback_query = subgroup.get_callback_btn(query.data)
+
+		# Если такая кнопка не была найдена, то вызываем ошибку.
+		if not (saved_message and service_callback_query):
+			await query.answer(
+				"⚠️ Данные устарели.\n"
+				"\n"
+				"ℹ️ Попробуйте отправить сообщение с этой кнопкой ещё раз и попробуйте снова.",
+				show_alert=True
+			)
+
+			return
+
+		# Получаем ID беседы. Используется, если тот, кто отредактировал сообщение - не владелец группы.
+		peer_id = subgroup.service_chat_id
+		sent_by_owner = True
+
+		if subgroup.parent.creatorID != user.telegramUser.id:
+			peer_id = await self.find_real_chat_id(user, subgroup)
+			sent_by_owner = False
+
+			if not peer_id:
+				return
+
+		await self.send_callback(saved_message.service_message_ids[0], peer_id, service_callback_query)
 
 	async def get_message_by_telegram_id(self, service_owner_id: int, message_id: int, bypass_cache: bool = False) -> Optional["TelehooperMessage"]:
 		from api import TelehooperAPI

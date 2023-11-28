@@ -25,6 +25,14 @@ def test_getBotVersion():
 
 	assert isinstance(utils.get_bot_version(), int)
 
+def test_getUUID():
+	"""
+	`get_uuid()` возвращает случайный UUID v4.
+	"""
+
+	assert isinstance(utils.get_uuid(), str)
+	assert len(utils.get_uuid()) == 36
+
 def test_parseStrAsBoolean():
 	"""
 	`parse_str_boolean()` парсит строку в булевое значение, и в случае другого значения кидает ошибку.

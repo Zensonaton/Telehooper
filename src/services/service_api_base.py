@@ -7,7 +7,8 @@ import enum
 from typing import TYPE_CHECKING, Literal, Optional
 
 from aiogram import Bot
-from aiogram.types import Audio, Document, Message, PhotoSize, Video, VideoNote
+from aiogram.types import (Audio, CallbackQuery, Document, Message, PhotoSize,
+                           Video, VideoNote)
 from pyrate_limiter import BucketFullException, Limiter, RequestRate
 
 if TYPE_CHECKING:
@@ -228,6 +229,17 @@ class BaseTelehooperServiceAPI:
 
 		raise NotImplementedError
 
+	async def send_callback(self, message_id: int, peer_id: int, data: str) -> None:
+		"""
+		Отправляет Callback query событие при нажатии на кнопку.
+
+		:param message_id: ID сообщения, на котором была нажата кнопка.
+		:param peer_id: ID диалога.
+		:param data: Callback-данные.
+		"""
+
+		raise NotImplementedError
+
 	async def send_message(self, chat_id: int, text: str, reply_to_message: int | None = None, attachments: list[str] | str | None = None, latitude: float | None = None, longitude: float | None = None, bypass_queue: bool = False) -> None:
 		"""
 		Отправляет сообщение в диалог.
@@ -287,11 +299,11 @@ class BaseTelehooperServiceAPI:
 
 		raise NotImplementedError
 
-	async def handle_telegram_callback_button(self, msg: Message, subgroup: "TelehooperSubGroup", user: "TelehooperUser") -> None:
+	async def handle_telegram_callback_button(self, query: CallbackQuery, subgroup: "TelehooperSubGroup", user: "TelehooperUser") -> None:
 		"""
 		Метод, вызываемый ботом при нажатии на кнопку в сообщении в группе-диалоге (или топик-диалоге). Данный метод вызывается только при нажатии на кнопки, которые были скопированы с сервиса.
 
-		:param msg: Сообщение из Telegram.
+		:param query: Callback query из Telegram.
 		:param subgroup: Подгруппа, в которой сообщение было прочитано.
 		:param user: Пользователь, который прочитал сообщение.
 		"""

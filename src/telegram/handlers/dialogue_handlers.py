@@ -3,8 +3,8 @@
 import asyncio
 
 from aiogram import F, Router
-from aiogram.filters import Command
-from aiogram.types import Message
+from aiogram.filters import Command, Text
+from aiogram.types import CallbackQuery, Message
 from loguru import logger
 
 from api import (TelehooperSubGroup, TelehooperUser, get_mediagroup,
@@ -77,3 +77,11 @@ async def on_group_message(msg: Message, subgroup: TelehooperSubGroup, user: Tel
 	"""
 
 	await subgroup.handle_telegram_message(msg, user, mediagroup)
+
+@router.callback_query(Text(startswith="service-clbck:"), get_subgroup)
+async def service_inline_callback_handler(query: CallbackQuery, subgroup: TelehooperSubGroup, user: TelehooperUser) -> None:
+	"""
+	Inline Callback Handler для случая, если пользователь нажал на Inline Callback кнопку из сервиса.
+	"""
+
+	await subgroup.handle_telegram_callback_button(query, user)

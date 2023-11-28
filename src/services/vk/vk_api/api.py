@@ -231,6 +231,19 @@ class VKAPI:
 			"message_ids": ",".join(map(str, message_ids))
 		})
 
+	async def messages_sendMessageEvent(self, message_id: int, peer_id: int, payload: str) -> dict:
+		"""
+		Создаёт событие, указывающее, что была нажата Callback-кнопка. API: `messages.sendMessageEvent`.
+
+		:param message_id: ID сообщения, в котором была нажата кнопка.
+		"""
+
+		return await self._post_("messages.sendMessageEvent", {
+			"message_id": message_id,
+			"peer_id": peer_id,
+			"payload": payload
+		})
+
 	async def photos_getById(self, photos: str | list[str]) -> dict:
 		"""
 		Возвращает информацию о фотографиях. API: `photos.getById`.

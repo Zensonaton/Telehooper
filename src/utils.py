@@ -9,12 +9,13 @@ import os
 import re
 import subprocess
 import time
+import uuid
 
+import psutil
 from aiogram.exceptions import TelegramAPIError
 from aiogram.types import User as TelegramUser
 from cryptography.fernet import Fernet
 from loguru import logger
-import psutil
 
 from config import config
 
@@ -25,6 +26,13 @@ def get_timestamp() -> int:
 	"""
 
 	return int(time.time())
+
+def get_uuid() -> str:
+	"""
+	Возвращает случайный UUID v4.
+	"""
+
+	return str(uuid.uuid4())
 
 def get_bot_version() -> int:
 	"""
