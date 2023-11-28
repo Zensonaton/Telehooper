@@ -1369,6 +1369,10 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 			if not attachments_to_send and not message_text:
 				return
 
+			# Перед отправкой, мы сохраняем текст сообщения, дабы бот знал, что сообщение было и вправду отправлено через бота.
+			# Пояснение: Иногда, longpoll возвращает событие о новом сообщении раньше, чем messages.send возвращает ID отправленного сообщения.
+			subgroup.pre_message_cache[message_text.lower().strip()] = None
+
 			# Делаем статус "онлайн", если он не был обновлён в течении минуты.
 			if utils.time_since(self._lastOnlineStatus) > 60 and await self.user.get_setting("Services.VK.SetOnline"):
 				self._lastOnlineStatus = utils.get_timestamp()
@@ -1383,11 +1387,6 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 				await asyncio.sleep(0.6 if len(message_text) <= 15 else 1)
 
 			# Отправляем сообщение.
-			#
-			# Перед отправкой, мы сохраняем текст сообщения, дабы бот знал, что сообщение было и вправду отправлено через бота.
-			# Пояснение: Иногда, longpoll возвращает событие о новом сообщении раньше, чем messages.send возвращает ID отправленного сообщения.
-			subgroup.pre_message_cache[message_text] = None
-
 			vk_message_id = await self.send_message(
 				chat_id=peer_id,
 				text=message_text,
@@ -1400,12 +1399,6 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 			# В некоторых случаях сообщение может быть не отправлено из-за большой очереди.
 			if not vk_message_id:
 				return
-
-			# Сохраняем в кэш информацию о том, что в эту же подгруппу было отправлено сообщение
-			# с определённым текстом и указанным ID.
-			#
-			# Это нужно, что бы защититься от повторной пересылки сообщения (с префиксом "Вы").
-			subgroup.pre_message_cache[message_text] = vk_message_id
 
 			# Сохраняем ID сообщения.
 			await TelehooperAPI.save_message("VK", self.service_user_id, msg.message_id, vk_message_id, True)
