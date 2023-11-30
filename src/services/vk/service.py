@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from asyncio.exceptions import TimeoutError
 from typing import TYPE_CHECKING, Literal, Optional, cast
 
 import aiohttp
@@ -10,11 +11,11 @@ import cachetools
 import PIL
 from aiocouch import Document
 from aiogram import Bot
-from aiogram.exceptions import TelegramForbiddenError
+from aiogram.exceptions import TelegramForbiddenError, TelegramNetworkError
 from aiogram.types import Audio, BufferedInputFile, CallbackQuery
 from aiogram.types import Document as TelegramDocument
 from aiogram.types import (InlineKeyboardButton, InlineKeyboardMarkup,
-                           InputMediaAudio, InputMediaDocument,
+                           InputFile, InputMediaAudio, InputMediaDocument,
                            InputMediaPhoto, InputMediaVideo, Message,
                            PhotoSize, Sticker, Video, VideoNote, Voice)
 from aiogram.utils.chat_action import ChatActionSender
@@ -198,6 +199,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 		from api import TelehooperAPI
 
+
 		subgroup = TelehooperAPI.get_subgroup_by_service_dialogue(self.user, ServiceDialogue(service_name=self.service_name, id=event.peer_id))
 
 		# Проверяем, что у пользователя есть подгруппа, в которую можно отправить сообщение.
@@ -208,7 +210,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 			issuer_name_with_link = None
 			issuer_male = True
 			victim_name_with_link = None
-			victim_name = True
+			victim_male = True
 
 			if event.from_id:
 				issuer_info = await self.get_user_info(event.from_id)
@@ -753,14 +755,45 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 			full_message_text = msg_prefix + utils.telegram_safe_str(event.text) + msg_suffix
 
 			# Отправляем готовое сообщение, и сохраняем его ID в БД бота.
-			async def _send_and_save() -> None:
+			async def _send_and_save(force_manual_files_upload: bool = False) -> None:
+				"""
+				Высылает сообщение в Telegram, а так же сохраняет их ID в БД.
+
+				:param force_manual_files_upload: Если True, то вместо передачи прямого URL на вложения, бот будет их загружать вручную.
+				"""
+
+				attachment_media_downloaded = attachment_media
+
+				# Загружаем вложения вручную, если это указано.
+				if force_manual_files_upload:
+					logger.debug("Пытаюсь вручную загрузить вложения...")
+
+					for index, attachment in enumerate(attachment_media_downloaded):
+						if isinstance(attachment.media, InputFile):
+							continue
+
+						logger.debug(f"Вручную загружаю вложение {attachment}...")
+
+						# TODO: Сделать asyncio.gather() для загрузки всех вложений одновременно.
+						async with aiohttp.ClientSession() as session:
+							async with session.get(attachment.media) as response:
+								assert response.status == 200, f"Не удалось загрузить вложение с URL {attachment.media}"
+
+								attachment_bytes = await response.read()
+
+						# Вложение загружено, меняем в массиве с вложениями.
+						attachment_media_downloaded[index].media = BufferedInputFile(
+							file=attachment_bytes,
+							filename="Media"
+						)
+
 				# Высылаем сообщение.
 				#
 				# К сожалению, Telegram не позволяет отправлять сообщения с одновременно
 				# аудио и другими видами вложений. Что бы избежать ошибки,
 				# данный код отдельно отправляет сообщение без аудио, а потом - с аудио.
-				non_audio_attachments = [i for i in attachment_media if not isinstance(i, InputMediaAudio)]
-				audio_attachments = [i for i in attachment_media if isinstance(i, InputMediaAudio)]
+				non_audio_attachments = [i for i in attachment_media_downloaded if not isinstance(i, InputMediaAudio)]
+				audio_attachments = [i for i in attachment_media_downloaded if isinstance(i, InputMediaAudio)]
 				separate_audio = non_audio_attachments and audio_attachments
 
 				sent_message_ids = []
@@ -779,8 +812,6 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 				sent_message_ids.extend(msg_non_audio)
 
 				# Если нам нужно по-отдельности отправить аудио, то отправляем их.
-				#
-				# Текст сообщения передаётся только в том случае, если
 				if separate_audio:
 					msg_audio = await subgroup.send_message_in(
 						"",
@@ -799,13 +830,17 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 				await TelehooperAPI.save_message("VK", self.service_user_id, sent_message_ids, event.message_id, False)
 
-			# Отправляем сообщения.
-			# Если у сообщения есть вложения, то нам нужно сделать "печать" во время отправки такового сообщения.
-			if attachment_media:
-				async with ChatActionSender.upload_document(chat_id=subgroup.parent.chat.id, bot=subgroup.parent.bot, initial_sleep=1):
+			# Отправляем сообщения с вложениями.
+			# Для отображения прогресса отправки, бот должен показать пользователям надпись "Telehooper отправляет документ...".
+			async with ChatActionSender.upload_document(chat_id=subgroup.parent.chat.id, bot=subgroup.parent.bot, initial_sleep=1):
+				try:
 					await _send_and_save()
-			else:
-				await _send_and_save()
+				except (TelegramNetworkError, TimeoutError):
+					logger.debug("Таймаут при попытке отправить сообщения, пробую загрузить вложения вручную")
+
+					# Что-то пошло не так и произошёл таймаут.
+					# Пробуем выслать сообщения ещё раз, но в этот раз бот должен вручную загрузить вложения.
+					await _send_and_save(force_manual_files_upload=True)
 		except TelegramForbiddenError:
 			await TelehooperAPI.delete_group_data(subgroup.parent.chat.id, fully_delete=True, bot=subgroup.parent.bot)
 		except Exception as e:
