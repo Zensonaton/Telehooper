@@ -1219,7 +1219,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 			logger.debug(f"[TG] Обработка сообщения в Telegram: \"{message_text}\" в \"{subgroup}\" {'с вложениями' if attachments else ''}")
 
-			# Если это статусное сообщение, то обрабатываем его.
+			# Если это сервисное сообщение об удалении (кика) бота из группы, то обрабатываем это.
 			if msg.left_chat_member and msg.left_chat_member.id == subgroup.parent.bot.id:
 				await TelehooperAPI.delete_group_data(subgroup.parent.chat.id, fully_delete=True, bot=subgroup.parent.bot)
 
