@@ -1735,4 +1735,9 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 		await self.user.refresh_document()
 		self.user.document["Connections"]["VK"]["LastActivityAt"] = utils.get_timestamp()
 
-		await self.user.document.save()
+		# В некоторых случаях случается конфликт.
+		# Такая ошибка не очень страшна в данном контексте, поэтому тихо игнорируем её.
+		try:
+			await self.user.document.save()
+		except:
+			pass
