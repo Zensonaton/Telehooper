@@ -1372,7 +1372,13 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 											try:
 												file_bytes = await prepare_sticker(file_bytes)
 											except PIL.UnidentifiedImageError as error:
-												raise Exception("Ошибка обработки стикера; анимированные стикеры не поддерживаются")
+												await msg.reply(
+													"<b>⚠️ Ошибка пересылки сообщения</b>.\n"
+													"\n"
+													"Анимированные стикеры не поддерживаются."
+												)
+
+												return
 
 									form_data.add_field(name=field_name, value=file_bytes, filename=f"file{index}.{ext}" if ext else filenames.pop(0))
 
