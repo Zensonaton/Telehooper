@@ -1380,7 +1380,8 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 												await msg.reply(
 													"<b>⚠️ Ошибка пересылки сообщения</b>.\n"
 													"\n"
-													"Анимированные стикеры не поддерживаются."
+													"Анимированные стикеры не поддерживаются.",
+													allow_sending_without_reply=True
 												)
 
 												return
@@ -1498,7 +1499,8 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 				"\n"
 				"Сервера ВКонтакте передали ошибку о том, что Вы отправляете слишком часто. Пожалуйста, старайтесь отправлять сообщения реже.\n"
 				"\n"
-				"ℹ️ Отправленное Вами сообщение в Telegram, вероятнее всего, будет пропущено из-за этой ошибки."
+				"ℹ️ Отправленное Вами сообщение в Telegram, вероятнее всего, будет пропущено из-за этой ошибки.",
+				allow_sending_without_reply=True
 			)
 		except Exception as error:
 			logger.exception(f"[TG] Ошибка при пересылке Telegram-сообщения во ВКонтакте от пользователя {utils.get_telegram_logging_info(msg.from_user)}:", error)
@@ -1512,7 +1514,8 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 				"<b>Текст ошибки, если Вас попросили его отправить</b>:\n"
 				f"<code>{error.__class__.__name__}: {error}</code>.\n"
 				"\n"
-				f"ℹ️ Пожалуйста, подождите, перед тем как попробовать снова. Если проблема не проходит через время - попробуйте попросить помощи либо создать баг-репорт (Github Issue), по ссылке в команде <a href=\"{utils.create_command_url('/h 6')}\">/help</a>."
+				f"ℹ️ Пожалуйста, подождите, перед тем как попробовать снова. Если проблема не проходит через время - попробуйте попросить помощи либо создать баг-репорт (Github Issue), по ссылке в команде <a href=\"{utils.create_command_url('/h 6')}\">/help</a>.",
+				allow_sending_without_reply=True
 			)
 
 		# Сохраняем последнее время взаимодействия с сервисом.

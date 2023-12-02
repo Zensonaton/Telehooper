@@ -55,7 +55,8 @@ async def export_data_command_handler(msg: Message) -> None:
 		await msg.reply(
 			"<b>⚠️ Ошибка выполнения команды</b>.\n"
 			"\n"
-			"Данная команда может быть вызвана только в личных сообщениях с ботом.\n"
+			"Данная команда может быть вызвана только в личных сообщениях с ботом.",
+			allow_sending_without_reply=True
 		)
 
 		return
