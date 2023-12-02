@@ -12,7 +12,7 @@ class Configuration(BaseSettings):
 
 	telegram_token: SecretStr = Field(..., description="Токен для Telegram-бота, который можно получить у @BotFather", env="telegram_token")
 	"""Токен для Telegram-бота, который можно получить у @BotFather."""
-	minibot_tokens: SecretStr = Field(..., description="Список токенов для Telegram мини ботов, которые можно получить у @BotFather. Все эти токены должны разделяться запятой", env="minibot_tokens")
+	minibot_tokens: SecretStr = Field("", description="Список токенов для Telegram мини ботов, которые можно получить у @BotFather. Все эти токены должны разделяться запятой", env="minibot_tokens")
 	"""Список токенов для Telegram мини ботов, которые можно получить у @BotFather. Все эти токены должны разделяться запятой."""
 	couchdb_name: str = Field(..., description="Название базы данных CouchDB", env="couch_db_database")
 	"""Название базы данных CouchDB."""

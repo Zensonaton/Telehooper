@@ -231,7 +231,7 @@ async def connect_minibots(session: BaseSession) -> dict[str, Bot]:
 
 		return minibot
 
-	tasks = [_connect(token) for token in utils.get_minibot_tokens()]
+	tasks = [_connect(token) for token in utils.get_minibot_tokens() if token]
 	await asyncio.gather(*tasks)
 
 	# Делаем сортированную версию словаря, что бы @username'ы ботов были в правильном порядке.
