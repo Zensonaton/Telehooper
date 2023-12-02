@@ -22,6 +22,7 @@ from aiogram.utils.chat_action import ChatActionSender
 from loguru import logger
 from pydantic import SecretStr
 from pyrate_limiter import Limiter, RequestRate
+from consts import MAX_UPLOAD_FILE_SIZE_BYTES
 
 import utils
 from config import config
@@ -551,29 +552,26 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 										async with client.get(video[quality]) as response:
 											assert response.status == 200, f"Не удалось загрузить видео с качеством {quality}"
 
-											audio_bytes = b""
+											content_size = int(response.headers.get("Content-Length", "0"))
+											assert content_size, "Не был выдан размер файла для загрузки"
 
-											while True:
-												chunk = await response.content.read(1024)
-												if not chunk:
-													break
+											# Пытаемся найти самое большое видео, размер которого не превышает 50 МБ.
+											if content_size > MAX_UPLOAD_FILE_SIZE_BYTES:
+												if is_last:
+													raise Exception("Не было найдено видео меньшего размера")
 
-												audio_bytes += chunk
+												logger.debug(f"Файл качества {quality} оказался слишком большой ({content_size} байт).")
 
-												# Пытаемся найти самое большое видео, которое не превышает 50 МБ.
-												if len(audio_bytes) > 50 * 1024 * 1024:
-													if is_last:
-														raise Exception("Не было найдено видео меньшего размера")
+												continue
 
-													logger.debug(f"Файл размером {quality} оказался слишком большой ({len(audio_bytes)} байт).")
-
-													continue
+											# По-настоящему загружаем видео.
+											video_bytes = await response.read()
 
 									# Если мы получили видеосообщение (кружочек), то нужно отправить его как сообщение.
 									if is_video_note:
 										# Отправляем видеосообщение.
 										msg = await subgroup.send_video_note(
-											input=BufferedInputFile(audio_bytes, filename=f"VK video note {attachment['id']}.mp4"),
+											input=BufferedInputFile(video_bytes, filename=f"VK video note {attachment['id']}.mp4"),
 											silent=is_outbox,
 											reply_to=reply_to,
 											sender_id=event.from_id if event.from_id != self.service_user_id else None
@@ -591,7 +589,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 										return
 
 									# Прикрепляем видео.
-									attachment_media.append(InputMediaVideo(type="video", media=BufferedInputFile(audio_bytes, filename=f"{attachment['title'].strip()} {quality[4:]}p.mp4")))
+									attachment_media.append(InputMediaVideo(type="video", media=BufferedInputFile(video_bytes, filename=f"{attachment['title'].strip()} {quality[4:]}p.mp4")))
 
 									break
 								else:
@@ -659,18 +657,17 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 									async with client.get(attachment["url"]) as response:
 										assert response.status == 200, f"Не удалось загрузить документ с ID {attachment['id']}"
 
-										file_bytes = b""
-										while True:
-											chunk = await response.content.read(1024)
-											if not chunk:
-												break
+										content_size = int(response.headers.get("Content-Length", "0"))
+										assert content_size, "Не был выдан размер файла для загрузки"
 
-											file_bytes += chunk
+										# Проверяем, не превышает ли размер файла 50 МБ.
+										if content_size > MAX_UPLOAD_FILE_SIZE_BYTES:
+											logger.debug(f"Файл оказался слишком большой ({content_size} байт).")
 
-											if len(file_bytes) > 50 * 1024 * 1024:
-												logger.debug(f"Файл оказался слишком большой ({len(file_bytes)} байт).")
+											raise Exception("Размер файла слишком большой")
 
-												raise Exception("Размер файла слишком большой")
+										# По-настоящему загружаем документ.
+										file_bytes = await response.read()
 
 								# Прикрепляем документ.
 								attachment_media.append(InputMediaDocument(type="document", media=BufferedInputFile(file=file_bytes, filename=attachment["title"])))
@@ -689,24 +686,22 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 									async with client.get(attachment["url"]) as response:
 										assert response.status == 200, f"Не удалось загрузить аудио с ID {attachment['id']}"
 
-										audio_bytes = b""
+										content_size = int(response.headers.get("Content-Length", "0"))
+										assert content_size, "Не был выдан размер файла для загрузки"
 
-										while True:
-											chunk = await response.content.read(1024)
-											if not chunk:
-												break
+										# Проверяем, не превышает ли размер файла 50 МБ.
+										if content_size > MAX_UPLOAD_FILE_SIZE_BYTES:
+											logger.debug(f"Файл оказался слишком большой ({content_size} байт).")
 
-											audio_bytes += chunk
+											raise Exception("Размер файла слишком большой")
 
-											if len(audio_bytes) > 50 * 1024 * 1024:
-												logger.debug(f"Файл оказался слишком большой ({len(audio_bytes)} байт).")
-
-												raise Exception("Размер файла слишком большой")
+										# По-настоящему загружаем аудио.
+										file_bytes = await response.read()
 
 								attachment_media.append(InputMediaAudio(
 									type="audio",
 									media=BufferedInputFile(
-										file=audio_bytes,
+										file=file_bytes,
 										filename=f"{attachment['artist']} - {attachment['title']}.mp3"
 									),
 									title=attachment["title"],
