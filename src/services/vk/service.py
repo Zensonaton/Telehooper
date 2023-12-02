@@ -23,6 +23,7 @@ from loguru import logger
 from pydantic import SecretStr
 from pyrate_limiter import Limiter, RequestRate
 from consts import MAX_UPLOAD_FILE_SIZE_BYTES
+from services.vk.consts import VK_LONGPOLL_GLOBAL_ERRORS_AMOUNT
 
 import utils
 from config import config
@@ -66,6 +67,8 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 	"""Задача, выполняющая longpoll."""
 	_cachedUsersInfo: cachetools.TLRUCache[int, TelehooperServiceUserInfo] # 80 элементов, 5 минут хранения.
 	"""Кэшированные данные о пользователях ВКонтакте для быстрого повторного получения."""
+	_globalErrorAmount: int
+	"""Количество глобальных ошибок. При достижении определённого количества ошибок (см. `VK_LONGPOLL_GLOBAL_ERRORS_AMOUNT`), VK longpoll автоматически отключается от бота."""
 
 	def __init__(self, token: SecretStr, vk_user_id: int, user: "TelehooperUser", limiter: Limiter = Limiter(RequestRate(2, 1), RequestRate(20, 60))) -> None:
 		super().__init__("VK", vk_user_id, user)
@@ -77,56 +80,80 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 		self.limiter = limiter
 		self._cachedUsersInfo = cachetools.TLRUCache(maxsize=80, ttu=lambda _, value, now: now + 5 * 60)
+		self._globalErrorAmount = 0
 
 	async def start_listening(self, bot: Bot | None = None) -> asyncio.Task:
 		async def handle_updates() -> None:
-			try:
-				longpoll = VKAPILongpoll(self.vkAPI, user_id=self.service_user_id)
+			while self._globalErrorAmount < VK_LONGPOLL_GLOBAL_ERRORS_AMOUNT:
+				try:
+					longpoll = VKAPILongpoll(self.vkAPI, user_id=self.service_user_id)
 
-				async for event in longpoll.listen_for_updates():
-					await self.handle_longpoll_update(event)
-			except TokenRevokedException as e:
-				# Отправляем сообщение, если у нас есть объект бота.
-				if bot:
-					try:
-						await bot.send_message(
-							chat_id=self.user.telegramUser.id,
-							text=(
-								"<b>⚠️ Потеряно соединение с ВКонтакте</b>.\n"
-								"\n"
-								"Telehooper потерял соединение со страницей «ВКонтакте», поскольку владелец страницы отозвал доступ к ней через настройки «Приватности» страницы.\n"
-								"\n"
-								"ℹ️ Вы можете повторно подключиться к «ВКонтакте», используя команду /connect.\n"
+					async for event in longpoll.listen_for_updates():
+						await self.handle_longpoll_update(event)
+				except TokenRevokedException as e:
+					# Отправляем сообщение, если у нас есть объект бота.
+					if bot:
+						try:
+							await bot.send_message(
+								chat_id=self.user.telegramUser.id,
+								text=(
+									"<b>⚠️ Потеряно соединение с ВКонтакте</b>.\n"
+									"\n"
+									"Telehooper потерял соединение со страницей «ВКонтакте», поскольку владелец страницы отозвал доступ к ней через настройки «Приватности» страницы.\n"
+									"\n"
+									"ℹ️ Вы можете повторно подключиться к «ВКонтакте», используя команду /connect.\n"
+								)
 							)
-						)
-					except:
-						pass
+						except:
+							pass
 
-				# Совершаем отключение.
+					# Совершаем отключение.
+					await self.disconnect_service(ServiceDisconnectReason.EXTERNAL)
+
+					break
+				except Exception as error:
+					self._globalErrorAmount += 1
+					threshold_reached = self._globalErrorAmount >= VK_LONGPOLL_GLOBAL_ERRORS_AMOUNT
+					logger.exception(f"Глобальная ошибка #{self._globalErrorAmount}/{VK_LONGPOLL_GLOBAL_ERRORS_AMOUNT} обновления ВКонтакте, со связанным Telegram-пользователем {utils.get_telegram_logging_info(self.user.telegramUser)}:", error)
+
+					# Отправляем сообщение, если у нас есть объект бота.
+					if bot:
+						upper_text = (
+							"Ввиду произошедшей ошибки, какое-то из событий, произошедшее на стороне ВКонтакте могло быть пропущено. 😕\n"
+							"\n"
+							f"Учтите, бот будет вынужден принудительно отсоединить Вашу страницу от себя если подобная ошибка произойдёт ещё {VK_LONGPOLL_GLOBAL_ERRORS_AMOUNT - self._globalErrorAmount + 1} раз(-а)."
+						)
+						if threshold_reached:
+							upper_text = (
+								f"Поскольку Telehooper уже {VK_LONGPOLL_GLOBAL_ERRORS_AMOUNT} раз(-а) сталкивася с ошибками, бот будет вынужден отсоединить Вашу страницу ВКонтакте от себя с целью предотвращения дальнейших ошибок и предупреждений.\n"
+								"\n"
+								"<b>⚠️ Вы не будете получать новые сообщения в боте Telehooper</b> до тех пор, пока Вы не подключите свою страницу снова."
+							)
+
+						try:
+							await bot.send_message(
+								chat_id=self.user.telegramUser.id,
+								text=(
+									"<b>⚠️ Ошибка при работе с ВКонтакте</b>.\n"
+									"\n"
+									"Что-то пошло не так, и Telehooper столкнулся с серьёзной ошибкой при работе с «ВКонтакте».\n"
+									f"{upper_text}\n"
+									"\n"
+									"<b>Текст ошибки, если Вас попросили его отправить</b>:\n"
+									f"<code>{error.__class__.__name__}: {error}</code>.\n"
+									"\n"
+									f"ℹ️ Если проблема не проходит через время - попробуйте попросить помощи либо создать баг-репорт (Github Issue), по ссылке в команде <a href=\"{utils.create_command_url('/h 6')}\">/help</a>."
+
+								)
+							)
+						except:
+							pass
+
+			# Если было превышено количество ошибок, то делаем принудительное отключение страницы.
+			if self._globalErrorAmount >= VK_LONGPOLL_GLOBAL_ERRORS_AMOUNT:
+				logger.warning(f"Telegram-пользователь {utils.get_telegram_logging_info(self.user.telegramUser)} превысил порог в {VK_LONGPOLL_GLOBAL_ERRORS_AMOUNT} глобальных ошибок VK longpoll, совершаю принудительное отключение страницы")
+
 				await self.disconnect_service(ServiceDisconnectReason.ERRORED)
-			except Exception as error:
-				logger.exception(f"Глобальная ошибка (start_listening) обновления ВКонтакте, со связанным Telegram-пользователем {utils.get_telegram_logging_info(self.user.telegramUser)}:", error)
-
-				# Отправляем сообщение, если у нас есть объект бота.
-				if bot:
-					try:
-						await bot.send_message(
-							chat_id=self.user.telegramUser.id,
-							text=(
-								"<b>⚠️ Ошибка при работе с ВКонтакте</b>.\n"
-								"\n"
-								"Что-то пошло не так, и Telehooper потерял соединение с серверами сообщений «ВКонтакте», либо произошла другая необработанная ошибка.\n"
-								"Если бот отказывается пересылать сообщения из ВКонтакте в Telegram, то попробуйте вручную переподключить свою страницу ВКонтакте к боту.\n"
-								"\n"
-								"<b>Текст ошибки, если Вас попросили его отправить</b>:\n"
-								f"<code>{error.__class__.__name__}: {error}</code>.\n"
-								"\n"
-								f"ℹ️ Если проблема не проходит через время - попробуйте попросить помощи либо создать баг-репорт (Github Issue), по ссылке в команде <a href=\"{utils.create_command_url('/h 6')}\">/help</a>."
-
-							)
-						)
-					except:
-						pass
 
 		self._longPollTask = asyncio.create_task(handle_updates())
 		return self._longPollTask

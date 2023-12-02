@@ -23,3 +23,6 @@ VK_GROUP_DIALOGUE_COMMANDS = {
 VK_MESSAGES_API_RESTRICTION_DOCS_VK_URL = "https://dev.vk.com/reference/roadmap#Ограничение Messages API"
 """Ссылка на документацию ВКонтакте, описывающую ограничения Messages API."""
 VK_MESSAGES_API_RESTRICTION_DOCS_GITHUB_URL = "https://github.com/Zensonaton/Telehooper/blob/rewrite/src/services/vk/README.md#ограничения-messaging-api"
+"""Ссылка на Github-документацию об ограничении VK Messaging API."""
+VK_LONGPOLL_GLOBAL_ERRORS_AMOUNT = 5
+"""Максимальное количество глобальных ошибок VK Longpoll, при достижении которых автоматически отключается longpoll."""
