@@ -18,7 +18,7 @@ class Configuration(BaseSettings):
 	"""Хост базы данных CouchDB."""
 	couchdb_user: str = Field(..., description="Пользователь базы данных CouchDB", env="couch_db_user")
 	"""Пользователь базы данных CouchDB."""
-	couchdb_password: str = Field(..., description="Пароль базы данных CouchDB", env="couch_db_password")
+	couchdb_password: SecretStr = Field(..., description="Пароль базы данных CouchDB", env="couch_db_password")
 	"""Пароль базы данных CouchDB."""
 	token_encryption_key: SecretStr = Field(..., description="Ключ шифрования токенов в базе данных", env="token_encryption_key", min_length=6)
 	"""Ключ шифрования токенов в базе данных."""

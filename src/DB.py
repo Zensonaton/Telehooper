@@ -32,7 +32,7 @@ async def get_db(db_name: str | None = None, check_auth: bool = False, force_new
 		couchdb = CouchDB(
 			config.couchdb_host,
 			user=config.couchdb_user,
-			password=config.couchdb_password
+			password=config.couchdb_password.get_secret_value()
 		)
 
 
