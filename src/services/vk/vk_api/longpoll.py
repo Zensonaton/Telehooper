@@ -254,8 +254,6 @@ class VKAPILongpoll:
 	"""Время ожидания между запросами к longpoll-серверу. ВКонтакте автоматически 'завершает' свой ответ после данного значения."""
 	mode: int
 	"""Режим работы longpoll-сервера."""
-	user_id: int | None
-	"""ID пользователя, для которого будет работать longpoll. Если не указано, то будет использован ID текущего пользователя."""
 	is_stopped: bool = False
 	"""Остановлен ли longpoll. Если данное значение установить на True, то longpoll будет остановлен."""
 	version: int
@@ -266,7 +264,6 @@ class VKAPILongpoll:
 
 		self.wait = wait
 		self.mode = mode
-		self.user_id = user_id
 		self.version = version
 
 	def stop(self) -> None:
@@ -292,9 +289,6 @@ class VKAPILongpoll:
 		"""
 		Возвращает информацию о longpoll-сервере. API: `messages.getLongPollServer`.
 		"""
-
-		if self.user_id is None:
-			self.user_id = (await self.api.account_getProfileInfo())["id"]
 
 		return await self.api.messages_getLongPollServer()
 
