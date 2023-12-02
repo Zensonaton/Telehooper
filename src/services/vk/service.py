@@ -1468,7 +1468,9 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 				wait_to_type = True
 
 			# Вызываем несколько API-методов используя execute.
-			await self.vkAPI.execute(";".join(execute_code) + ";")
+			# Однако, вызывать такое стоит лишь в случае, если очередь не заполнена.
+			if self.limiter.get_current_volume("messages") < 10:
+				await self.vkAPI.execute(";".join(execute_code) + ";")
 
 			if wait_to_type:
 				await asyncio.sleep(0.6 if len(message_text) <= 15 else 1)
