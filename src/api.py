@@ -743,8 +743,8 @@ class TelehooperGroup:
 
 		bot = await self.get_associated_bot(sender_id)
 
-		for i in id:
-			await bot.delete_message(self.chat.id, message_id=i)
+		for message_id in id:
+			await bot.delete_message(self.chat.id, message_id=message_id)
 
 	async def set_title(self, title: str) -> None:
 		"""

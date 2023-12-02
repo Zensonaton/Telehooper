@@ -968,6 +968,8 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 		# Редактируем сообщение.
 		try:
+			logger.debug(f"Редактирую сообщение с ID0 {telegram_message.telegram_message_ids[0]}")
+
 			await subgroup.edit_message(
 				full_message_text,
 				telegram_message.telegram_message_ids[0],
@@ -988,19 +990,17 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 		from api import TelehooperAPI
 
 
-		if not event.new_flags.outbox:
-			return
-
-		if not event.new_flags.delete_for_all:
+		# Обрабатываем только события удаления сообщения.
+		if not (event.new_flags.delete_for_all or event.new_flags.deleted):
 			return
 
 		subgroup = TelehooperAPI.get_subgroup_by_service_dialogue(self.user, ServiceDialogue(service_name=self.service_name, id=event.peer_id))
 
-		# Проверяем, что у пользователя есть подгруппа, в которую можно отправить сообщение.
+		# Проверяем, что у пользователя есть подгруппа, из которой нужно удалить.
 		if not subgroup:
 			return
 
-		logger.debug(f"[VK] Событие удаления сообщения для подгруппы \"{subgroup.service_dialogue_name}\"")
+		logger.debug(f"[VK] Событие удаления сообщения с ID {event.message_id} для подгруппы \"{subgroup.service_dialogue_name}\"")
 
 		# Пытаемся получить ID сообщения в Telegram, которое нужно отредактировать.
 		telegram_message = await subgroup.service.get_message_by_service_id(self.service_user_id, event.message_id)
@@ -1010,7 +1010,12 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 		# Удаляем сообщение.
 		try:
-			await subgroup.delete_message(telegram_message.telegram_message_ids)
+			logger.debug(f"Удаляю сообщения с ID {telegram_message.telegram_message_ids}")
+
+			await subgroup.delete_message(
+				telegram_message.telegram_message_ids,
+				sender_id=subgroup.service.service_user_id if subgroup.service.service_user_id != self.service_user_id else None
+			)
 		except TelegramForbiddenError:
 			await TelehooperAPI.delete_group_data(subgroup.parent.chat.id, fully_delete=True, bot=subgroup.parent.bot)
 
