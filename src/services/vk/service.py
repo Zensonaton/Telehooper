@@ -788,16 +788,18 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 				# Высылаем сообщение.
 				#
 				# К сожалению, Telegram не позволяет отправлять сообщения с одновременно
-				# аудио и другими видами вложений. Что бы избежать ошибки,
+				# аудио/документами и другими видами вложений. Что бы избежать ошибки,
 				# данный код отдельно отправляет сообщение без аудио, а потом - с аудио.
-				non_audio_attachments = [i for i in attachment_media_downloaded if not isinstance(i, InputMediaAudio)]
 				audio_attachments = [i for i in attachment_media_downloaded if isinstance(i, InputMediaAudio)]
-				separate_audio = non_audio_attachments and audio_attachments
+				doc_attachments = [i for i in attachment_media_downloaded if isinstance(i, InputMediaDocument)]
+				normal_attachments = [i for i in attachment_media_downloaded if i not in audio_attachments and i not in doc_attachments]
+
+				separate_attachs = normal_attachments and (audio_attachments or doc_attachments)
 
 				sent_message_ids = []
-				msg_non_audio = await subgroup.send_message_in(
+				msg_special = await subgroup.send_message_in(
 					full_message_text,
-					attachments=non_audio_attachments or audio_attachments, # type: ignore
+					attachments=normal_attachments or audio_attachments or doc_attachments, # type: ignore
 					silent=is_outbox,
 					reply_to=reply_to,
 					keyboard=keyboard,
@@ -805,23 +807,36 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 				)
 
 				# Если произошёл rate limit, то ответ на отправку сообщений будет равен None.
-				if not msg_non_audio:
+				if not msg_special:
 					return
 
-				sent_message_ids.extend(msg_non_audio)
+				sent_message_ids.extend(msg_special)
 
-				# Если нам нужно по-отдельности отправить аудио, то отправляем их.
-				if separate_audio:
+				# В случае необходимости, отправляем "особые" виды вложений по-отдельности.
+				if separate_attachs:
+					# Аудио, если нужны:
 					msg_audio = await subgroup.send_message_in(
-						"",
+						"ℹ️ <i>Данное сообщение было разделено ввиду ограничений Telegram, данное сообщение — часть сообщения, на которое был сделан «ответ»</i>.",
 						attachments=audio_attachments, # type: ignore
 						silent=is_outbox,
-						reply_to=msg_non_audio[0],
+						reply_to=msg_special[0],
 						sender_id=event.from_id if event.from_id != self.service_user_id else None
 					)
 
 					if msg_audio:
 						sent_message_ids.extend(msg_audio)
+
+					# Документы, если нужны:
+					msg_docs = await subgroup.send_message_in(
+						"ℹ️ <i>Данное сообщение было разделено ввиду ограничений Telegram, данное сообщение — часть сообщения, на которое был сделан «ответ»</i>.",
+						attachments=doc_attachments, # type: ignore
+						silent=is_outbox,
+						reply_to=msg_special[0],
+						sender_id=event.from_id if event.from_id != self.service_user_id else None
+					)
+
+					if msg_docs:
+						sent_message_ids.extend(msg_docs)
 
 				# Если произошёл rate limit, то бот не сможет выслать сообщения,
 				# и список из отправленных сообщений будет пуст.
