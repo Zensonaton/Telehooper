@@ -76,7 +76,6 @@ async def me_vk_inline_handler(query: CallbackQuery, msg: Message, user: User) -
 				[
 					[InlineKeyboardButton(text="🔙 Назад", callback_data="/me")],
 					[
-						InlineKeyboardButton(text="🔑 Добавить токен", callback_data="/me vk multitokens"),
 						InlineKeyboardButton(text="⛔️ Отключить от бота", callback_data="/me vk disconnect"),
 					]
 				]
@@ -331,24 +330,6 @@ async def authorize_by_token(user: User, token: SecretStr) -> dict:
 	)
 
 	return user_info
-
-
-@router.callback_query(Text("/me vk multitokens"), F.message.as_("msg"))
-async def me_vk_multitokens_inline_handler(query: CallbackQuery, msg: Message) -> None:
-	"""
-	Inline Callback Handler для команды `/me`.
-
-	Вызывается при нажатии на кнопку "Добавить токен" в меню управления ВКонтакте.
-	"""
-
-	await TelehooperAPI.edit_or_resend_message(
-		"Данная опция ещё находится в разработке.",
-		message_to_edit=msg,
-		chat_id=msg.chat.id,
-		reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 Назад", callback_data="/me vk"), InlineKeyboardButton(text="🔝 В начало", callback_data="/me")]]),
-		disable_web_page_preview=True,
-		query=query
-	)
 
 @router.callback_query(Text("/me vk disconnect"), F.message.as_("msg"), F.from_user.as_("user"))
 async def me_vk_disconnect_inline_handler(query: CallbackQuery, msg: Message, user: User) -> None:

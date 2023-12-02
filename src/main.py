@@ -37,15 +37,21 @@ async def bot_init() -> None:
 	logger.info("Подготавливаюсь к запуску бота...")
 	bot.init_handlers()
 
-	# Восстанавливаем сессии сервисов.
-	logger.info("Восстанавливаю сессии сервисов...")
-	await bot.reconnect_services()
-
 	# Узнаём username бота.
 	bot_me = await bot.bot.get_me()
 	bot.username = bot_me.username
 
-	logger.debug(f"Username бота: @{bot.username}.")
+	logger.debug(f"Username главного бота: @{bot.username}.")
+
+	# Подключаем миниботов.
+	logger.info(f"Подключаю миниботов...")
+	await bot.connect_minibots(bot.bot.session)
+
+	logger.info(f"Успешно подключено {len(bot.get_minibots())} миниботов.")
+
+	# Восстанавливаем сессии сервисов.
+	logger.info("Восстанавливаю сессии сервисов...")
+	await bot.reconnect_services()
 
 	# Устанавливаем команды.
 	await bot.set_commands()

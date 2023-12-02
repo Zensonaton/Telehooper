@@ -36,10 +36,10 @@ def get_uuid() -> str:
 
 def get_bot_version() -> int:
 	"""
-	Возвращает версию бота.
+	Возвращает версию бота, используемая при хранении некоторых объектов в БД.
 	"""
 
-	return 2
+	return 3
 
 def parse_str_boolean(value: str | bool) -> bool:
 	"""
@@ -294,7 +294,6 @@ def create_command_url(command: str) -> str:
 
 	deeplink = base64.b64encode(command.encode()).decode()
 
-	# deeplink = html.escape(command)
 	if len(deeplink) > 64:
 		raise ValueError(f"Длина команды не может превышать 64 символа")
 
@@ -393,3 +392,10 @@ def get_ram_usage() -> float:
 	"""
 
 	return psutil.Process().memory_info().rss / 1_000_000
+
+def get_minibot_tokens() -> list[str]:
+	"""
+	Возвращает список Telegram Bot API токенов у миниботов.
+	"""
+
+	return config.minibot_tokens.get_secret_value().replace(" ", "").split(",")

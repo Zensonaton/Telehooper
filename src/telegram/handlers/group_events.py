@@ -8,16 +8,20 @@ from aiogram.filters import (ADMINISTRATOR, CREATOR, JOIN_TRANSITION, KICKED,
                              LEAVE_TRANSITION, MEMBER, RESTRICTED,
                              ChatMemberUpdatedFilter, Text)
 from aiogram.types import (CallbackQuery, ChatMemberUpdated,
-                           InlineKeyboardButton, InlineKeyboardMarkup, Message)
+                           InlineKeyboardButton, InlineKeyboardMarkup, Message,
+                           User)
+from cachetools import TTLCache
 from loguru import logger
 
 import utils
 from api import TelehooperAPI
 from DB import get_db, get_default_group, get_group
 from telegram.handlers.this import group_convert_message
+from telegram.bot import get_minibots
 
 
 _supergroup_converts = []
+_minibot_adds: TTLCache[int, list] = TTLCache(100, 60) # Максимум 100 элементов, 60 секунд хранения.
 
 router = Router()
 
@@ -135,6 +139,13 @@ async def on_telehooper_added_in_chat_handler(event: ChatMemberUpdated, bot: Bot
 
 	await group_db.save()
 
+async def on_minibot_add(user: User) -> None:
+	"""
+	Вызывается при добавлении минибота в группу, в которой находится бот Telehooper.
+	"""
+
+	logger.debug(f"Событие добавление минибота {utils.get_telegram_logging_info(user)} в группу...")
+
 @router.chat_member(ChatMemberUpdatedFilter(member_status_changed=JOIN_TRANSITION))
 async def on_other_member_add_handler(event: ChatMemberUpdated, bot: Bot) -> None:
 	"""
@@ -144,23 +155,27 @@ async def on_other_member_add_handler(event: ChatMemberUpdated, bot: Bot) -> Non
 	if await _supergroup_convert_check(event.chat.id):
 		return
 
-	# Добавили иного пользователя в группу.
-	if event.new_chat_member.user.is_bot:
-		return
-
-	# Проверяем, что это уведомление показано лишь один раз.
 	group = await get_group(event.chat)
 
 	# В некоторых edge-case'ах группа может быть не найдена в БД.
 	if not group:
 		return
 
-	if group["UserJoinedWarning"]:
-		return
+	# Проверяем, кого именно добавили в группу. Может быть несколько случаев:
+	#  - 1. Добавили обычного пользователя. В таком случае стоит отобразить
+	#       предупреждение о том, что добавлять "сторонних" юзеров не стоит.
+	#  - 2. Добавили стороннего бота, который не является миниботом.
+	#  - 3. Добавили минибота. В таком случае, событие об этом нужно сохранить в БД.
+	#
+	# Для начала, определяем, добавили ли минибота или нет.
+	is_minibot = any([i for i in get_minibots().values() if i.id == event.new_chat_member.user.id])
 
-	await bot.send_message(
-		chat_id=event.chat.id,
-		text=(
+	# Если пользователь добавил обычного пользователя или не минибота, то отображаем предупреждение:
+	if not event.new_chat_member.user.is_bot or not is_minibot:
+		if group["UserJoinedWarning"]:
+			return
+
+		text = (
 			"<b>🫂 Группа-диалог</b>\n"
 			"\n"
 			"Вы добавили иного пользователя в данную группу!\n"
@@ -168,12 +183,66 @@ async def on_other_member_add_handler(event: ChatMemberUpdated, bot: Bot) -> Non
 			"\n"
 			f"ℹ️ Вы можете настроить бота так, что бы сообщения от других пользователей отправлялись от Вашего, либо от их собственного имени, либо что бы их сообщения полностью игнорировались. Зайдите в <a href=\"{utils.create_command_url('/s Services')}\">настройки сервисов</a> и найдите соответствующую настройку для изменения поведения в таких случаях."
 		)
+
+		if not is_minibot:
+			minibots_str = "\n".join([f" • @{minibot}." for minibot in get_minibots().keys()])
+
+			text = (
+				"<b>🫂 Группа-диалог</b>\n"
+				"\n"
+				"Вы добавили стороннего бота в данную группу! Хотя это и не запрещено ботом, так делать <b>не рекомендуется</b>.\n"
+				"Несмотря на то, что даже при повышении прав, <a href=\"https://core.telegram.org/bots/faq#why-doesn-39t-my-bot-see-messages-from-other-bots\">добавленный Вами бот не сможет читать сообщения от чужих ботов</a>, он может создавать неудобства при общении с собеседником из сервиса.\n"
+				"\n"
+				f"ℹ️ Вы пытались добавить «минибота»? Если да, то Вы добавили не того бота. Вот список миниботов, которых можно добавлять:\n"
+				f"{minibots_str}"
+			)
+
+		await bot.send_message(chat_id=event.chat.id, text=text, disable_web_page_preview=True)
+
+		# Сохраняем то, что мы предупредили пользователя.
+		group["UserJoinedWarning"] = True
+		await group.save()
+
+		return
+
+	# Пользователь добавил минибота. Нужно сохранить информацию об этом в БД.
+	minibot_username = event.new_chat_member.user.username
+
+	logger.debug(f"Добавление минибота @{minibot_username} в группу \"{event.chat.full_name}\"")
+
+	# Что бы предотвратить флуд сообщения об успешном добавлении, нужно отправить сообщение об этом лишь раз.
+	first_add = False
+	if event.chat.id not in _minibot_adds:
+		_minibot_adds[event.chat.id] = []
+
+		first_add = True
+
+	_minibot_adds[event.chat.id].append(minibot_username)
+
+	# Если это не первое добавление, то ничего больше не делаем и не сохраняем.
+	if not first_add:
+		return
+
+	await asyncio.sleep(1)
+
+	await bot.send_message(
+		chat_id=event.chat.id,
+		text=(
+			"<b>🫂 Группа-диалог</b>\n"
+			"\n"
+			f"Минибот @{minibot_username} {('(и ещё ' + str(len(_minibot_adds[event.chat.id]) - 1) + ' других) ') if len(_minibot_adds[event.chat.id]) > 1 else ''}был успешно подключён к данной группе! 🎉\n"
+			"Если данная группа Telegram связана с беседой сервиса, то Telehooper автоматически определит то, с каким пользователем беседы должен быть связан данный минибот.\n"
+			"\n"
+			"Давать права администратора миниботам нет никакой необходимости.\n"
+			"\n"
+			"ℹ️ Вы можете просмотреть список добавленных миниботов и другую информацию о данной группе в команде /this."
+		)
 	)
 
-	# Сохраняем то, что мы предупредили пользователя.
-	group["UserJoinedWarning"] = True
-
+	group["Minibots"].extend(i for i in _minibot_adds[event.chat.id] if i not in group["Minibots"])
 	await group.save()
+
+	del _minibot_adds[event.chat.id]
 
 @router.callback_query(Text("/this showAdminTips"), F.message.as_("msg"))
 async def show_platform_admin_steps_inline_handler(query: CallbackQuery, msg: Message) -> None:

@@ -473,7 +473,8 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 						latitude=attachment["coordinates"]["latitude"],
 						longitude=attachment["coordinates"]["longitude"],
 						silent=is_outbox,
-						reply_to=reply_to
+						reply_to=reply_to,
+						sender_id=event.from_id if event.from_id != self.service_user_id else None
 					)
 
 					# Если произошёл rate limit, то msg будет None.
@@ -574,7 +575,8 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 										msg = await subgroup.send_video_note(
 											input=BufferedInputFile(audio_bytes, filename=f"VK video note {attachment['id']}.mp4"),
 											silent=is_outbox,
-											reply_to=reply_to
+											reply_to=reply_to,
+											sender_id=event.from_id if event.from_id != self.service_user_id else None
 										)
 
 										# Если произошёл rate limit, то msg будет None.
@@ -633,7 +635,8 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 									filename="sticker.tgs" if is_animated else f"VK sticker {attachment['sticker_id']}.png"
 								),
 								silent=is_outbox,
-								reply_to=reply_to
+								reply_to=reply_to,
+								sender_id=event.from_id if event.from_id != self.service_user_id else None
 							)
 
 							# Если произошёл rate limit, то msg будет None.
@@ -802,7 +805,8 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 					attachments=non_audio_attachments or audio_attachments, # type: ignore
 					silent=is_outbox,
 					reply_to=reply_to,
-					keyboard=keyboard
+					keyboard=keyboard,
+					sender_id=event.from_id if event.from_id != self.service_user_id else None
 				)
 
 				# Если произошёл rate limit, то ответ на отправку сообщений будет равен None.
@@ -817,7 +821,8 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 						"",
 						attachments=audio_attachments, # type: ignore
 						silent=is_outbox,
-						reply_to=msg_non_audio[0]
+						reply_to=msg_non_audio[0],
+						sender_id=event.from_id if event.from_id != self.service_user_id else None
 					)
 
 					if msg_audio:
@@ -891,8 +896,6 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 		except TelegramForbiddenError:
 			await TelehooperAPI.delete_group_data(subgroup.parent.chat.id, fully_delete=True, bot=subgroup.parent.bot)
 
-		# TODO: Если пользователей несколько, и в группе несколько Telehooper-ботов, то начать событие печати от имени разных ботов.
-
 	async def handle_vk_message_edit(self, event: LongpollMessageEditEvent) -> None:
 		"""
 		Обработчик события редактирования сообщения во ВКонтакте.
@@ -955,13 +958,15 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 		# Редактируем сообщение.
 		try:
-			await subgroup.edit_message(full_message_text, telegram_message.telegram_message_ids[0])
+			await subgroup.edit_message(
+				full_message_text,
+				telegram_message.telegram_message_ids[0],
+				sender_id=event.from_id if event.from_id != subgroup.service.service_user_id else None
+			)
 		except TelegramForbiddenError:
 			await TelehooperAPI.delete_group_data(subgroup.parent.chat.id, fully_delete=True, bot=subgroup.parent.bot)
 		except Exception:
 			pass
-
-		# TODO: При редактировании сообщения теряются префиксы и суфиксы от Telehooper.
 
 	async def handle_vk_message_flags_change(self, event: LongpollMessageFlagsEdit) -> None:
 		"""
@@ -1468,10 +1473,6 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 				wait_to_type = True
 
 			# Вызываем несколько API-методов используя execute.
-			# Однако, вызывать такое стоит лишь в случае, если очередь не заполнена.
-			if self.limiter.get_current_volume("messages") < 10:
-				await self.vkAPI.execute(";".join(execute_code) + ";")
-
 			if wait_to_type:
 				await asyncio.sleep(0.6 if len(message_text) <= 15 else 1)
 
@@ -1671,7 +1672,6 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 		# Проверка, что токен установлен.
 		# Токен может отсутствовать, если настройка Security.StoreTokens была выставлена в значение «выключено».
 		if not db_user["Connections"]["VK"]["Token"]:
-			# Удаляем сервис из БД.
 			db_user["Connections"].pop("VK")
 			await db_user.save()
 
@@ -1735,6 +1735,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 	async def update_last_activity(self) -> None:
 		await self.user.refresh_document()
+
 		self.user.document["Connections"]["VK"]["LastActivityAt"] = utils.get_timestamp()
 
 		# В некоторых случаях случается конфликт.

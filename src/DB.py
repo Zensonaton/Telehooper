@@ -105,7 +105,6 @@ async def get_user(user: User, create_by_default: bool = True) -> Document:
 	await user_db.save()
 	return user_db
 
-
 async def get_global(create_by_default: bool = True) -> Document:
 	"""
 	Возвращает глобальную запись из БД.
@@ -169,10 +168,28 @@ async def get_group(chat: int | Chat) -> Document | None:
 
 	db = await get_db()
 
-	try:
-		return await db[f"group_{chat.id if isinstance(chat, Chat) else chat}"]
-	except NotFoundError:
-		return None
+	async def _get():
+		try:
+			return await db[f"group_{chat.id if isinstance(chat, Chat) else chat}"]
+		except NotFoundError:
+			return None
+
+	group_db = await _get()
+	if group_db is None or group_db["DocVer"] == utils.get_bot_version():
+		return group_db
+
+	while group_db["DocVer"] < utils.get_bot_version():
+		ver = group_db["DocVer"]
+		logger.debug(f"Делаю обновление объекта группы {group_db.id} с версии {ver} до версии {ver + 1}")
+
+		if ver == 2:
+			group_db["Minibots"] = []
+			group_db["AssociatedMinibots"] = {}
+
+		group_db["DocVer"] += 1
+
+	await group_db.save()
+	return group_db
 
 def get_default_group(chat: Chat, creator: User, status_message: Message, admin_rights: bool = False, topics_enabled: bool = False, version: int = utils.get_bot_version()) -> dict:
 	"""
@@ -190,6 +207,8 @@ def get_default_group(chat: Chat, creator: User, status_message: Message, admin_
 		"StatusMessageID": status_message.message_id, # ID (статусного) сообщения, которое было отправлено при добавлении бота в группу.
 		"AdminRights": admin_rights, # Были ли боту выданы права администратора?
 		"TopicsEnabled": topics_enabled, # Включены ли темы (топики) в группе?
+		"Minibots": [], # Список @username добавленных миниботов этой группы.
+		"AssociatedMinibots": {}, # Ассоциированные @username миниботов и пользователей из сервиса.
 		"Chats": { # Информация о подключённых чатах/группах в данной группе.
 
 		},

@@ -2,6 +2,7 @@
 
 import asyncio
 import base64
+import random
 from typing import Any, Literal, Sequence, cast
 
 import aiohttp
@@ -224,11 +225,11 @@ class TelehooperUser:
 
 		groups = []
 
-		async for group in db.docs([f"group_{i}" for i in self.document["Groups"]], create=True):
-			if not group.exists:
+		for index, group in enumerate([await get_group(i) for i in self.document["Groups"]]):
+			if not group:
 				# Если нам не удалось получить информацию о группе, то мы получим "пустой" документ.
-				# В таком случае, нужно просто удалить группу из списка групп пользователя.=
-				group_id = int(group.id.split("_")[1])
+				# В таком случае, нужно просто удалить группу из списка групп пользователя.
+				group_id = self.document["Groups"][index]
 
 				logger.warning(f"У пользователя {utils.get_telegram_logging_info(self.telegramUser)} была обнаружена ссылка на несуществующую Telegram-группу с ID {group_id}, она будет удалена.")
 
@@ -255,6 +256,8 @@ class TelehooperGroup:
 	Класс с информацией о группе, которая связана с каким-либо сервисом.
 	"""
 
+	id: int
+	"""ID данной группы в Telegram."""
 	creatorID: int
 	"""ID пользователя Telegram, который является создателем (администратором) данной группы."""
 	createdAt: int
@@ -267,6 +270,10 @@ class TelehooperGroup:
 	"""ID статусного сообщения, которое было закреплено в группе."""
 	adminRights: bool
 	"""Имеет ли бот права администратора в группе."""
+	minibots: list[str]
+	"""@username добавленных миниботов данной группы."""
+	associatedMinibots: dict[str, str]
+	"""Словарь, состоящий из связи ID пользователей сервиса и @username минибота в Telegram."""
 	chats: dict
 	"""Список диалогов в группе."""
 	services: dict
@@ -279,7 +286,7 @@ class TelehooperGroup:
 	chat: Chat
 	"""Объект группы в Telegram."""
 	bot: Bot
-	"""Объект бота в Telegram."""
+	"""Объект "главного" бота Telehooper в Telegram."""
 
 	limiter: Limiter
 	"""Лимитер для этой группы."""
@@ -299,19 +306,43 @@ class TelehooperGroup:
 		self.chat = chat
 		self.bot = bot
 
-		self.creatorID = document["Creator"]
-		self.createdAt = document["CreatedAt"]
-		self.lastActivityAt = document["LastActivityAt"]
-		self.userJoinedWarning = document["UserJoinedWarning"]
-		self.statusMessageID = document["StatusMessageID"]
-		self.adminRights = document["AdminRights"]
-		self.chats = document["Chats"]
-		self.services = document["Services"]
+		self._parse_document(document)
 
 		# 1 сообщение в секунду,
 		# 20 сообщений в минуту.
-		# TODO: Хранить информацию о лимитах в CouchDB.
 		self.limiter = Limiter(RequestRate(1, 1), RequestRate(20, 60))
+
+	def _parse_document(self, group: Document) -> None:
+		"""
+		Парсит значение документа группы в объект группы.
+
+		:param group: Документ группы в БД.
+		"""
+
+		self.id = group["ID"]
+		self.creatorID = group["Creator"]
+		self.createdAt = group["CreatedAt"]
+		self.lastActivityAt = group["LastActivityAt"]
+		self.userJoinedWarning = group["UserJoinedWarning"]
+		self.statusMessageID = group["StatusMessageID"]
+		self.adminRights = group["AdminRights"]
+		self.minibots = group["Minibots"]
+		self.associatedMinibots = group["AssociatedMinibots"]
+		self.chats = group["Chats"]
+		self.services = group["Services"]
+
+	async def refresh_document(self) -> Document:
+		"""
+		Изменяет значения переменных данного класа, что бы соответствовать документу в БД.
+		"""
+
+		group_db = await get_group(self.id)
+		assert group_db, "Данные об объекте группы не были получены из БД"
+
+		self.document = group_db
+		self._parse_document(self.document)
+
+		return self.document
 
 	async def try_acquire(self, key: str, max_delay: int | float | None = None) -> bool:
 		"""
@@ -469,7 +500,49 @@ class TelehooperGroup:
 		await user.document.save()
 		await self.document.save()
 
-	async def send_sticker(self, sticker: BufferedInputFile | InputFile | str, reply_to: int | None = None, topic: int = 0, silent: bool = False, bypass_queue: bool = False) -> list[Message] | None:
+	async def get_associated_bot(self, sender_id: int | None = None) -> Bot:
+		"""
+		Возвращает объект Telegram-бота, ассоциированный с указанным по его ID пользователем. Используется в группах, связанных с беседами из сервисов, где добавлены миниботы. Если ассоциированный минибот не найден, то тогда будет возвращён объект "основного" бота.
+
+		:param sender_id: ID пользователя, с которым должен быть найден ассоциированный минибот.
+		"""
+
+		from telegram.bot import get_minibots
+
+
+		# Если нам не передан ID отправителя, то просто возвращаем "главного" бота.
+		if not sender_id:
+			return self.bot
+
+		sender_id_str = str(sender_id)
+
+		# Получаем словарь тех миниботов, которые есть в этой группе.
+		available_minibots = {username: bot for username, bot in get_minibots().items() if username in self.minibots}
+		free_minibots = {username: bot for username, bot in available_minibots.items() if username not in self.associatedMinibots.values()}
+
+		# Если нет ни одного минибота, то просто возвращаем "главного" бота.
+		if not available_minibots:
+			return self.bot
+
+		# Если такого пользователя нет в списке ассоциированных, то присваиваем случайного.
+		if not sender_id_str in self.associatedMinibots:
+			# Получаем рандомного бота.
+			# Если возможно, рандомно выбираем того, который ещё не использовался.
+			# В ином случае, берём из общего пула.
+			random_minibot_username = random.choice(list((free_minibots or available_minibots).keys()))
+
+			self.document["AssociatedMinibots"][sender_id_str] = random_minibot_username
+			self.associatedMinibots = self.document["AssociatedMinibots"]
+			await self.document.save()
+
+			await self.refresh_document()
+
+		# Извлекаем объект минибота по его @username.
+		minibot = available_minibots.get(self.associatedMinibots[sender_id_str])
+
+		return minibot or self.bot
+
+	async def send_sticker(self, sticker: BufferedInputFile | InputFile | str, reply_to: int | None = None, topic: int = 0, silent: bool = False, sender_id: int | None = None, bypass_queue: bool = False) -> list[Message] | None:
 		"""
 		Отправляет стикер в Telegram-группу.
 
@@ -477,13 +550,16 @@ class TelehooperGroup:
 		:param reply_to: ID сообщения, на которое нужно ответить.
 		:param topic: ID диалога в сервисе, в который нужно отправить сообщение. Если не указано, то сообщение будет отправлено в главный диалог группы.
 		:param silent: Отправить ли сообщение без уведомления.
+		:param sender_id: ID пользователя, с которым должен быть найден ассоциированный минибот.
 		:param bypass_queue: Отправить ли сообщение без учёта лимитов.
 		"""
 
 		if not bypass_queue and not await self.try_acquire("message"):
 			return None
 
-		return [await self.bot.send_sticker(
+		bot = await self.get_associated_bot(sender_id)
+
+		return [await bot.send_sticker(
 			chat_id=self.chat.id,
 			sticker=sticker,
 			message_thread_id=topic,
@@ -492,7 +568,7 @@ class TelehooperGroup:
 			allow_sending_without_reply=True
 		)]
 
-	async def send_geo(self, latitude: float, longitude: float, reply_to: int | None = None, topic: int = 0, silent: bool = False, bypass_queue: bool = False) -> list[Message] | None:
+	async def send_geo(self, latitude: float, longitude: float, reply_to: int | None = None, topic: int = 0, silent: bool = False, sender_id: int | None = None, bypass_queue: bool = False) -> list[Message] | None:
 		"""
 		Отправляет геолокацию в Telegram-группу.
 
@@ -501,13 +577,16 @@ class TelehooperGroup:
 		:param reply_to: ID сообщения, на которое нужно ответить.
 		:param topic: ID диалога в сервисе, в который нужно отправить сообщение. Если не указано, то сообщение будет отправлено в главный диалог группы.
 		:param silent: Отправить ли сообщение без уведомления.
+		:param sender_id: ID пользователя, с которым должен быть найден ассоциированный минибот.
 		:param bypass_queue: Отправить ли сообщение без учёта лимитов.
 		"""
 
 		if not bypass_queue and not await self.try_acquire("message"):
 			return None
 
-		return [await self.bot.send_location(
+		bot = await self.get_associated_bot(sender_id)
+
+		return [await bot.send_location(
 			chat_id=self.chat.id,
 			latitude=latitude,
 			longitude=longitude,
@@ -517,7 +596,7 @@ class TelehooperGroup:
 			allow_sending_without_reply=True
 		)]
 
-	async def send_video_note(self, video_note: BufferedInputFile | InputFile | str, reply_to: int | None = None, topic: int = 0, silent: bool = False, bypass_queue: bool = False) -> list[Message] | None:
+	async def send_video_note(self, video_note: BufferedInputFile | InputFile | str, reply_to: int | None = None, topic: int = 0, silent: bool = False, sender_id: int | None = None, bypass_queue: bool = False) -> list[Message] | None:
 		"""
 		Отправляет видео-сообщение (кружочек) в Telegram-группу.
 
@@ -525,13 +604,16 @@ class TelehooperGroup:
 		:param reply_to: ID сообщения, на которое нужно ответить.
 		:param topic: ID диалога в сервисе, в который нужно отправить сообщение. Если не указано, то сообщение будет отправлено в главный диалог группы.
 		:param silent: Отправить ли сообщение без уведомления.
+		:param sender_id: ID пользователя, с которым должен быть найден ассоциированный минибот.
 		:param bypass_queue: Отправить ли сообщение без учёта лимитов.
 		"""
 
 		if not bypass_queue and not await self.try_acquire("message"):
 			return None
 
-		return [await self.bot.send_video_note(
+		bot = await self.get_associated_bot(sender_id)
+
+		return [await bot.send_video_note(
 			chat_id=self.chat.id,
 			video_note=video_note,
 			message_thread_id=topic,
@@ -540,7 +622,7 @@ class TelehooperGroup:
 			allow_sending_without_reply=True
 		)]
 
-	async def send_message(self, text: str, attachments: list[InputMediaAudio | InputMediaDocument | InputMediaPhoto | InputMediaVideo] | None = None, reply_to: int | None = None, topic: int = 0, silent: bool = False, keyboard: InlineKeyboardMarkup | None = None, disable_web_preview: bool = False, bypass_queue: bool = False) -> list[int] | None:
+	async def send_message(self, text: str, attachments: list[InputMediaAudio | InputMediaDocument | InputMediaPhoto | InputMediaVideo] | None = None, reply_to: int | None = None, topic: int = 0, silent: bool = False, keyboard: InlineKeyboardMarkup | None = None, disable_web_preview: bool = False, sender_id: int | None = None, bypass_queue: bool = False) -> list[int] | None:
 		"""
 		Отправляет сообщение в группу. Возвращает ID отправленного(-ых) сообщений.
 
@@ -551,6 +633,7 @@ class TelehooperGroup:
 		:param silent: Отправить ли сообщение без уведомления.
 		:param keyboard: Клавиатура, которую нужно прикрепить к сообщению.
 		:param disable_web_preview: Отключить ли превью ссылок в сообщении.
+		:param sender_id: ID пользователя, с которым должен быть найден ассоциированный минибот.
 		:param bypass_queue: Отправить ли сообщение без учёта лимитов.
 		"""
 
@@ -567,10 +650,12 @@ class TelehooperGroup:
 		if attachments:
 			attachments[0].caption = text
 
+		bot = await self.get_associated_bot(sender_id)
+
 		if attachments:
 			# У нас есть хотя бы одно вложение, отправляем как медиа-группу.
 
-			message_ids = [i.message_id for i in await self.bot.send_media_group(
+			message_ids = [i.message_id for i in await bot.send_media_group(
 				chat_id=self.chat.id,
 				media=attachments,
 				message_thread_id=topic,
@@ -581,7 +666,7 @@ class TelehooperGroup:
 		else:
 			# Вложений нету.
 
-			message_ids = [(await self.bot.send_message(
+			message_ids = [(await bot.send_message(
 				chat_id=self.chat.id,
 				message_thread_id=topic,
 				reply_to_message_id=reply_to,
@@ -594,38 +679,44 @@ class TelehooperGroup:
 
 		return message_ids
 
-	async def start_activity(self, type: Literal["typing", "upload_photo", "record_video", "upload_video", "record_audio", "upload_audio", "upload_document", "find_location", "record_video_note", "upload_video_note"] = "typing", topic: int = 0, bypass_queue: bool = False) -> None:
+	async def start_activity(self, type: Literal["typing", "upload_photo", "record_video", "upload_video", "record_audio", "upload_audio", "upload_document", "find_location", "record_video_note", "upload_video_note"] = "typing", topic: int = 0, sender_id: int | None = None, bypass_queue: bool = False) -> None:
 		"""
 		Начинает событие в Telegram-группе по типу печати, записи голосового сообщения и подобных.
 
 		:param type: Тип события.
 		:param topic: ID диалога в сервисе, в который нужно отправить сообщение. Если не указано, то сообщение будет отправлено в главный диалог группы.
+		:param sender_id: ID пользователя, с которым должен быть найден ассоциированный минибот.
 		:param bypass_queue: Отправить ли событие печати без учёта лимитов.
 		"""
 
 		if not bypass_queue and not await self.try_acquire("message", max_delay=0.5):
 			return None
 
-		await self.bot.send_chat_action(
+		bot = await self.get_associated_bot(sender_id)
+
+		await bot.send_chat_action(
 			chat_id=self.chat.id,
 			action=type,
 			message_thread_id=topic
 		)
 
-	async def edit_message(self, new_text: str, id: int, bypass_queue: bool = False) -> None:
+	async def edit_message(self, new_text: str, id: int, sender_id: int | None = None, bypass_queue: bool = False) -> None:
 		"""
 		Редактирует сообщение в Telegram-группе.
 
 		:param new_text: Новый текст сообщения.
 		:param id: ID сообщения, которое нужно отредактировать.
+		:param sender_id: ID пользователя, с которым должен быть найден ассоциированный минибот.
 		:param bypass_queue: Отправить ли событие печати без учёта лимитов.
 		"""
 
 		if not bypass_queue and not await self.try_acquire("message"):
 			return None
 
+		bot = await self.get_associated_bot(sender_id)
+
 		try:
-			await self.bot.edit_message_text(
+			await bot.edit_message_text(
 				text=new_text,
 				chat_id=self.chat.id,
 				message_id=id
@@ -633,24 +724,27 @@ class TelehooperGroup:
 		except TelegramBadRequest:
 			# Если мы пытаемся отредачить сообщение с медиа (к примеру, фото), то нужно использовать метод `edit_message_caption`.
 
-			await self.bot.edit_message_caption(
+			await bot.edit_message_caption(
 				caption=new_text,
 				chat_id=self.chat.id,
 				message_id=id
 			)
 
-	async def delete_message(self, id: list[int] | int) -> None:
+	async def delete_message(self, id: list[int] | int, sender_id: int | None = None) -> None:
 		"""
 		Удаляет одно или несколько сообщений в Telegram-группе.
 
 		:param id: ID сообщения(-ий), которое нужно удалить.
+		:param sender_id: ID пользователя, с которым должен быть найден ассоциированный минибот.
 		"""
 
 		if isinstance(id, int):
 			id = [id]
 
+		bot = await self.get_associated_bot(sender_id)
+
 		for i in id:
-			await self.bot.delete_message(self.chat.id, message_id=i)
+			await bot.delete_message(self.chat.id, message_id=i)
 
 	async def set_title(self, title: str) -> None:
 		"""
@@ -814,19 +908,27 @@ class TelehooperSubGroup:
 		self.pre_message_cache = cachetools.TTLCache(150, 60)
 		self.callback_buttons_info = cachetools.TTLCache(150, 20 * 60)
 
-	async def send_sticker(self, sticker: BufferedInputFile | InputFile | str, reply_to: int | None = None, silent: bool = False, bypass_queue: bool = False) -> list[Message] | None:
+	async def send_sticker(self, sticker: BufferedInputFile | InputFile | str, reply_to: int | None = None, silent: bool = False, sender_id: int | None = None, bypass_queue: bool = False) -> list[Message] | None:
 		"""
 		Отправляет стикер в Telegram-группу.
 
 		:param sticker: Стикер.
 		:param reply_to: ID сообщения, на которое нужно ответить.
 		:param silent: Отправить ли сообщение без уведомления.
+		:param sender_id: ID пользователя, с которым должен быть найден ассоциированный минибот.
 		:param bypass_queue: Отправить ли сообщение без учёта лимитов.
 		"""
 
-		return await self.parent.send_sticker(sticker, reply_to=reply_to, topic=self.id, silent=silent, bypass_queue=bypass_queue)
+		return await self.parent.send_sticker(
+			sticker,
+			reply_to=reply_to,
+			topic=self.id,
+			silent=silent,
+			sender_id=sender_id,
+			bypass_queue=bypass_queue
+		)
 
-	async def send_geo(self, latitude: float, longitude: float, reply_to: int | None = None, silent: bool = False, bypass_queue: bool = False) -> list[Message] | None:
+	async def send_geo(self, latitude: float, longitude: float, reply_to: int | None = None, silent: bool = False, sender_id: int | None = None, bypass_queue: bool = False) -> list[Message] | None:
 		"""
 		Отправляет геолокацию в Telegram-группу.
 
@@ -834,24 +936,41 @@ class TelehooperSubGroup:
 		:param longitude: Долгота.
 		:param reply_to: ID сообщения, на которое нужно ответить.
 		:param silent: Отправить ли сообщение без уведомления.
+		:param sender_id: ID пользователя, с которым должен быть найден ассоциированный минибот.
 		:param bypass_queue: Отправить ли сообщение без учёта лимитов.
 		"""
 
-		return await self.parent.send_geo(latitude, longitude, reply_to=reply_to, topic=self.id, silent=silent, bypass_queue=bypass_queue)
+		return await self.parent.send_geo(
+			latitude,
+			longitude,
+			reply_to=reply_to,
+			topic=self.id,
+			silent=silent,
+			sender_id=sender_id,
+			bypass_queue=bypass_queue
+		)
 
-	async def send_video_note(self, input: BufferedInputFile | InputFile | str, reply_to: int | None = None, silent: bool = False, bypass_queue: bool = False) -> list[Message] | None:
+	async def send_video_note(self, input: BufferedInputFile | InputFile | str, reply_to: int | None = None, silent: bool = False, sender_id: int | None = None, bypass_queue: bool = False) -> list[Message] | None:
 		"""
 		Отправляет видео-сообщение (кружочек) в Telegram-группу.
 
 		:param video_note: Видео-сообщение.
 		:param reply_to: ID сообщения, на которое нужно ответить.
 		:param silent: Отправить ли сообщение без уведомления.
+		:param sender_id: ID пользователя, с которым должен быть найден ассоциированный минибот.
 		:param bypass_queue: Отправить ли сообщение без учёта лимитов.
 		"""
 
-		return await self.parent.send_video_note(input, reply_to=reply_to, topic=self.id, silent=silent, bypass_queue=bypass_queue)
+		return await self.parent.send_video_note(
+			input,
+			reply_to=reply_to,
+			topic=self.id,
+			silent=silent,
+			sender_id=sender_id,
+			bypass_queue=bypass_queue
+		)
 
-	async def send_message_in(self, text: str, attachments: list[InputMediaAudio | InputMediaDocument | InputMediaPhoto | InputMediaVideo] | None = None, reply_to: int | None = None, silent: bool = False, keyboard: InlineKeyboardMarkup | None = None, disable_web_preview: bool = False, bypass_queue: bool = False) -> list[int] | None:
+	async def send_message_in(self, text: str, attachments: list[InputMediaAudio | InputMediaDocument | InputMediaPhoto | InputMediaVideo] | None = None, reply_to: int | None = None, silent: bool = False, keyboard: InlineKeyboardMarkup | None = None, disable_web_preview: bool = False, sender_id: int | None = None, bypass_queue: bool = False) -> list[int] | None:
 		"""
 		Отправляет сообщение в Telegram-группу.
 
@@ -861,37 +980,68 @@ class TelehooperSubGroup:
 		:param silent: Отправить ли сообщение без уведомления.
 		:param keyboard: Клавиатура, которую нужно прикрепить к сообщению.
 		:param disable_web_preview: Отключить ли превью ссылок.
+		:param sender_id: ID пользователя, с которым должен быть найден ассоциированный минибот.
 		:param bypass_queue: Отправить ли сообщение без учёта лимитов.
 		"""
 
-		return await self.parent.send_message(text, attachments=attachments, topic=self.id, silent=silent, reply_to=reply_to, keyboard=keyboard, disable_web_preview=disable_web_preview, bypass_queue=bypass_queue)
+		return await self.parent.send_message(
+			text,
+			attachments=attachments,
+			topic=self.id,
+			silent=silent,
+			reply_to=reply_to,
+			keyboard=keyboard,
+			disable_web_preview=disable_web_preview,
+			sender_id=sender_id,
+			bypass_queue=bypass_queue
+		)
 
-	async def start_activity(self, type: Literal["typing", "upload_photo", "record_video", "upload_video", "record_audio", "upload_audio", "upload_document", "find_location", "record_video_note", "upload_video_note"] = "typing") -> None:
+	async def start_activity(self, type: Literal["typing", "upload_photo", "record_video", "upload_video", "record_audio", "upload_audio", "upload_document", "find_location", "record_video_note", "upload_video_note"] = "typing", sender_id: int | None = None, bypass_queue: bool = False) -> None:
 		"""
 		Начинает событие в Telegram-группе по типу печати, записи голосового сообщения и подобных.
 
 		:param type: Тип события.
+		:param topic: ID диалога в сервисе, в который нужно отправить сообщение. Если не указано, то сообщение будет отправлено в главный диалог группы.
+		:param sender_id: ID пользователя, с которым должен быть найден ассоциированный минибот.
+		:param bypass_queue: Отправить ли событие печати без учёта лимитов.
 		"""
 
-		return await self.parent.start_activity(type, topic=self.id)
+		return await self.parent.start_activity(
+			type,
+			topic=self.id,
+			sender_id=sender_id,
+			bypass_queue=bypass_queue
+		)
 
-	async def edit_message(self, new_text: str, id: int) -> None:
+	async def edit_message(self, new_text: str, id: int, sender_id: int | None = None, bypass_queue: bool = False) -> None:
 		"""
-		Начинает событие в Telegram-группе по типу печати, записи голосового сообщения и подобных.
+		Редактирует сообщение в Telegram-группе.
 
-		:param type: Тип события.
+		:param new_text: Новый текст сообщения.
+		:param id: ID сообщения, которое нужно отредактировать.
+		:param sender_id: ID пользователя, с которым должен быть найден ассоциированный минибот.
+		:param bypass_queue: Отправить ли событие печати без учёта лимитов.
 		"""
 
-		return await self.parent.edit_message(new_text, id)
+		return await self.parent.edit_message(
+			new_text,
+			id=id,
+			sender_id=sender_id,
+			bypass_queue=bypass_queue
+		)
 
-	async def delete_message(self, id: list[int] | int) -> None:
+	async def delete_message(self, id: list[int] | int, sender_id: int | None = None) -> None:
 		"""
-		Удаляет одно или несколько сообщений сервиса.
+		Удаляет одно или несколько сообщений Telegram.
 
 		:param id: ID сообщения(-ий).
+		:param sender_id: ID пользователя, с которым должен быть найден ассоциированный минибот.
 		"""
 
-		await self.parent.delete_message(id)
+		await self.parent.delete_message(
+			id,
+			sender_id=sender_id
+		)
 
 	async def send_message_out(self, text: str) -> None:
 		"""
@@ -900,7 +1050,10 @@ class TelehooperSubGroup:
 		:param text: Текст сообщения.
 		"""
 
-		await self.service.send_message(chat_id=self.parent.chat.id, text=text)
+		await self.service.send_message(
+			chat_id=self.parent.chat.id,
+			text=text
+		)
 
 	async def get_service_by_sender(self, sender: TelehooperUser) -> BaseTelehooperServiceAPI | None:
 		"""

@@ -4,11 +4,14 @@ import asyncio
 import importlib
 import os
 import pkgutil
+import re
 from types import ModuleType
+from typing import Tuple, cast
 
 from aiocouch import Document
 from aiogram import Bot, Dispatcher
-from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError, TelegramBadRequest
+from aiogram.client.session.base import BaseSession
+from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
 from aiogram.types import (BotCommand, BotCommandScopeAllGroupChats,
                            BotCommandScopeDefault)
 from loguru import logger
@@ -29,6 +32,8 @@ bot = Bot(
 dispatcher = Dispatcher()
 username: str | None
 
+minibots: dict[str, Bot] = {}
+
 def get_bot() -> Bot:
 	"""
 	Возвращает экземпляр Telegram-бота.
@@ -42,6 +47,13 @@ def get_dispatcher() -> Dispatcher:
 	"""
 
 	return dispatcher
+
+def get_minibots() -> dict[str, Bot]:
+	"""
+	Возвращает словарь всех подключённых миниботов.
+	"""
+
+	return minibots
 
 def init_handlers() -> None:
 	"""
@@ -189,3 +201,40 @@ async def reconnect_services() -> None:
 		tasks.append(asyncio.create_task(_reconnect(user)))
 
 	await asyncio.gather(*tasks)
+
+async def connect_minibots(session: BaseSession) -> dict[str, Bot]:
+	"""
+	Подключает миниботов. В данном методе polling для таких ботов не запускается.
+
+	Возвращает словарь объектов класса `Bot` подключённых ботов, где ключ - @username, а значение - сам объект класса `Bot`.
+
+	После подключения, можно воспользоваться методом `get_minibots()` для извлечения списка всех подключённых миниботов.
+	"""
+
+	global minibots
+
+	async def _connect(token: str) -> Bot:
+		"""
+		Функция для `asyncio.Task`, которая делает проверки, связанные с указанным токеном минибота.
+		"""
+
+		minibot = Bot(
+			token,
+			session=session,
+			parse_mode="HTML"
+		)
+		username = (await minibot.get_me()).username
+		assert username, "Для минибота не был получен @username"
+
+		logger.debug(f"Username для бота {minibot.id}: @{username}")
+		minibots[username] = minibot
+
+		return minibot
+
+	tasks = [_connect(token) for token in utils.get_minibot_tokens()]
+	await asyncio.gather(*tasks)
+
+	# Делаем сортированную версию словаря, что бы @username'ы ботов были в правильном порядке.
+	minibots = dict(sorted(minibots.items(), key=lambda item: [int(s) if s.isdigit() else s.lower() for s in re.split(r"([0-9]+)", item[0])]))
+
+	return minibots
