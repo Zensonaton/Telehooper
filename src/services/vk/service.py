@@ -989,7 +989,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 		# Подготавливаем текст сообщения, который будет отправлен.
 		full_message_text = ""
 		msg_prefix = await self.get_message_prefix(event, is_outbox=event.flags.outbox)
-		msg_suffix = "   <i>(ред.)</i>"
+		msg_suffix = " <i>(ред.)</i>"
 
 		full_message_text = msg_prefix + utils.telegram_safe_str(event.new_text) + msg_suffix
 
