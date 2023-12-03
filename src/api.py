@@ -517,6 +517,8 @@ class TelehooperGroup:
 		sender_id_str = str(sender_id)
 
 		# Получаем словарь тех миниботов, которые есть в этой группе.
+		await self.refresh_document()
+
 		available_minibots = {username: bot for username, bot in get_minibots().items() if username in self.minibots}
 		free_minibots = {username: bot for username, bot in available_minibots.items() if username not in self.associatedMinibots.values()}
 
@@ -533,8 +535,6 @@ class TelehooperGroup:
 
 			self.document["AssociatedMinibots"][sender_id_str] = random_minibot_username
 			await self.document.save()
-
-			await self.refresh_document()
 
 		# Извлекаем объект минибота по его @username.
 		minibot = available_minibots.get(self.associatedMinibots[sender_id_str])
