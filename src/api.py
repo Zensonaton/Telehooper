@@ -532,7 +532,6 @@ class TelehooperGroup:
 			random_minibot_username = random.choice(list((free_minibots or available_minibots).keys()))
 
 			self.document["AssociatedMinibots"][sender_id_str] = random_minibot_username
-			self.associatedMinibots = self.document["AssociatedMinibots"]
 			await self.document.save()
 
 			await self.refresh_document()
