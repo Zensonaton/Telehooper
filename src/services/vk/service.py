@@ -1419,12 +1419,19 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 											try:
 												file_bytes = await prepare_sticker(file_bytes)
 											except PIL.UnidentifiedImageError as error:
-												await msg.reply(
+												error_message = await msg.reply(
 													"<b>⚠️ Ошибка пересылки сообщения</b>.\n"
 													"\n"
 													"Анимированные стикеры не поддерживаются.",
 													allow_sending_without_reply=True
 												)
+
+												# Удаляем сообщение об ошибке через время.
+												await asyncio.sleep(60)
+												try:
+													await error_message.delete()
+												except:
+													pass
 
 												return
 
@@ -1572,12 +1579,20 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 		saved_message = await self.get_message_by_telegram_id(self.service_user_id, msg.message_id)
 
 		if not saved_message:
-			await subgroup.send_message_in(
+			error_message = await subgroup.send_message_in(
 				"<b>⚠️ Ошибка удаления сообщения</b>.\n"
 				"\n"
 				"Сообщение не было найдено ботом, поэтому оно не было удалено.",
 				silent=True
 			)
+
+			# Удаляем сообщение об ошибке через время.
+			if error_message:
+				await asyncio.sleep(60)
+				try:
+					await subgroup.delete_message(error_message)
+				except:
+					pass
 
 			return
 
@@ -1590,12 +1605,20 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 			if not saved_message.sent_via_bot:
 				reason = "Вы попытались удалить сообщение, отправленное Вашим собедеседником, либо же Вы не являетесь Администратором в беседе."
 
-			await subgroup.send_message_in(
+			error_message = await subgroup.send_message_in(
 				"<b>⚠️ Ошибка удаления сообщения</b>.\n"
 				"\n"
 				f"{reason}",
 				silent=True
 			)
+
+			# Удаляем сообщение об ошибке через время.
+			if error_message:
+				await asyncio.sleep(60)
+				try:
+					await subgroup.delete_message(error_message)
+				except:
+					pass
 
 			return
 
@@ -1611,13 +1634,21 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 		saved_message = await self.get_message_by_telegram_id(self.service_user_id, msg.message_id)
 
 		if not saved_message:
-			await subgroup.send_message_in(
+			error_message = await subgroup.send_message_in(
 				"<b>⚠️ Ошибка редактирования сообщения</b>.\n"
 				"\n"
 				"Сообщение не было найдено ботом, поэтому оно не было отредактировано.",
 				silent=True,
 				reply_to=msg.message_id
 			)
+
+			# Удаляем сообщение об ошибке через время.
+			if error_message:
+				await asyncio.sleep(60)
+				try:
+					await subgroup.delete_message(error_message)
+				except:
+					pass
 
 			return
 
@@ -1639,12 +1670,20 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 				message=msg.text or "[пустой текст сообщения]"
 			)
 		except AccessDeniedException:
-			await subgroup.send_message_in(
+			error_message = await subgroup.send_message_in(
 				"<b>⚠️ Ошибка редактирования сообщения</b>.\n"
 				"\n"
 				f"Сообщение слишком старое что бы его редактировать.",
 				silent=True
 			)
+
+			# Удаляем сообщение об ошибке через время.
+			if error_message:
+				await asyncio.sleep(60)
+				try:
+					await subgroup.delete_message(error_message)
+				except:
+					pass
 
 	async def handle_telegram_message_read(self, subgroup: "TelehooperSubGroup", user: "TelehooperUser") -> None:
 		logger.debug(f"[TG] Обработка прочтения сообщения в Telegram в \"{subgroup}\"")
