@@ -1316,6 +1316,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 			# Получаем ID беседы. Используется, если отправитель сообщения - не владелец группы.
 			peer_id = subgroup.service_chat_id
+			is_multiuser_chat = peer_id > 2000000000
 			sent_by_owner = True
 
 			if subgroup.parent.creatorID != user.telegramUser.id:
@@ -1540,8 +1541,27 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 			if not vk_message_id:
 				return
 
+			# Если сообщение было отправлено в беседу, то мы можем получить ConversationMID для хранения в памяти.
+			conversation_mid = None
+			if is_multiuser_chat:
+				try:
+					message_data = await self.vkAPI.messages_getById(vk_message_id)
+					if message_data and message_data["items"]:
+						message_data = message_data["items"][0]
+
+					conversation_mid = message_data["conversation_message_id"]
+				except:
+					pass
+
 			# Сохраняем ID сообщения.
-			await TelehooperAPI.save_message("VK", self.service_user_id, msg.message_id, vk_message_id, True)
+			await TelehooperAPI.save_message(
+				"VK",
+				self.service_user_id,
+				msg.message_id,
+				vk_message_id,
+				conversation_mid,
+				sent_via_bot=True
+			)
 		except TooManyRequestsException:
 			await msg.reply(
 				"<b>⚠️ Вы отправляете сообщения слишком быстро</b>.\n"

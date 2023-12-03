@@ -1349,7 +1349,7 @@ class TelehooperAPI:
 		return None
 
 	@staticmethod
-	async def save_message(service_name: str, service_owner_id: int, telegram_message_id: int | list[int], service_message_id: int | list[int], sent_via_bot: bool = True):
+	async def save_message(service_name: str, service_owner_id: int, telegram_message_id: int | list[int], service_message_id: int | list[int], service_conv_mids: int | list[int] | None = None, sent_via_bot: bool = True):
 		"""
 		Сохраняет ID отправленного сообщения в БД.
 
@@ -1357,6 +1357,7 @@ class TelehooperAPI:
 		:param service_owner_id: ID пользователя сервиса, который связан с этим сообщением.
 		:param telegram_message_id: ID сообщения(-ий) в Telegram.
 		:param service_message_id: ID сообщения(-ий) в сервисе.
+		:param service_conv_mids: ID сообщения(-ий) в сервисе относительно беседы.
 		:param sent_via_bot: Отправлено ли сообщение через бота.
 		"""
 
@@ -1365,6 +1366,7 @@ class TelehooperAPI:
 			service_owner_id=service_owner_id,
 			telegram_mids=telegram_message_id,
 			service_mids=service_message_id,
+			service_conv_mids=service_conv_mids,
 			sent_via_bot=sent_via_bot
 		)
 
