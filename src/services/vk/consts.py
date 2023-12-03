@@ -3,7 +3,7 @@
 from consts import COMMANDS_USERS_GROUPS_CONVERTED
 
 
-VK_OAUTH_URL = "https://oauth.vk.com/authorize?client_id=2685278&scope=200706&redirect_uri=https://oauth.vk.com/blank.html&display=page&response_type=token&revoke=1"
+VK_OAUTH_URL = "https://oauth.vk.com/authorize?client_id=2685278&scope=69634&redirect_uri=https://oauth.vk.com/blank.html&display=page&response_type=token&revoke=1"
 """OAuth-ссылка для получения токена ВКонтакте."""
 VK_USERS_GET_AUTOUPDATE_SECS = 12 * 60 * 60 # 12 часов.
 """Время в секундах, отображающее интервал для автообновления информации о пользователях."""
