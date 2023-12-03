@@ -823,10 +823,12 @@ class TelehooperMessage:
 	"""Список ID сообщений в Telegram. Может быть несколько, если сообщение является альбомом."""
 	service_message_ids: list[int]
 	"""Список ID сообщений в сервисе. Может быть несколько, если сообщение является альбомом."""
+	service_conversation_message_ids: list[int] | None
+	"""Список ID сообщений в сервисе относительно беседы, а не текущего пользователя. Может быть несколько, если сообщение является альбомом."""
 	sent_via_bot: bool
 	"""Отправлено ли сообщение через бота."""
 
-	def __init__(self, service: str, service_owner_id: int, telegram_mids: int | list[int], service_mids: int | list[int], sent_via_bot: bool = False) -> None:
+	def __init__(self, service: str, service_owner_id: int, telegram_mids: int | list[int], service_mids: int | list[int], service_conv_mids: int | list[int] | None = None, sent_via_bot: bool = False) -> None:
 		"""
 		Инициализирует объект сообщения.
 
@@ -834,6 +836,7 @@ class TelehooperMessage:
 		:param service_owner_id: ID пользователя сервиса, который связан с этим сообщением.
 		:param telegram_mids: ID сообщения(-ий) в Telegram.
 		:param service_mids: ID сообщения(-ий) в сервисе.
+		:param service_conv_mids: ID сообщения(-ий) в сервисе относительно беседы.
 		:param sent_via_bot: Отправлено ли сообщение через бота.
 		"""
 
@@ -841,6 +844,7 @@ class TelehooperMessage:
 		self.service_owner_id = service_owner_id
 		self.telegram_message_ids = [telegram_mids] if isinstance(telegram_mids, int) else telegram_mids
 		self.service_message_ids = [service_mids] if isinstance(service_mids, int) else service_mids
+		self.service_conversation_message_ids = [service_conv_mids] if isinstance(service_conv_mids, int) else service_conv_mids
 		self.sent_via_bot = sent_via_bot
 
 class TelehooperCachedAttachment:
