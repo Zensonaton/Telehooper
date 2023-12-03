@@ -1525,7 +1525,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 			# Вызываем несколько API-методов используя execute.
 			if wait_to_type:
-				await asyncio.sleep(0.6 if len(message_text) <= 15 else 1)
+				await asyncio.sleep(1 if len(message_text) <= 15 else 2)
 
 			# Отправляем сообщение.
 			vk_message_id = await self.send_message(
