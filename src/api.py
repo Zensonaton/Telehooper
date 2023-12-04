@@ -1520,6 +1520,29 @@ class TelehooperAPI:
 		return None
 
 	@staticmethod
+	async def delete_attachment(service_name: str, key: str) -> None:
+		"""
+		Удаляет вложение указанного сервиса по его уникальному ключу.
+
+		:param service_name: Название сервиса, через который было отправлено сообщение.
+		:param key: Уникальный ключ вложения. Не должен быть хэширован.
+		"""
+
+		# Проходим по вложениям, ищем наше вложение.
+		for index, attachment in enumerate(_cached_attachments):
+			if attachment.service_name != service_name:
+				continue
+
+			if attachment.key != utils.sha256_hash(key):
+				continue
+
+			del _cached_attachments[index]
+
+			return
+
+		# TODO: Удалить вложение из БД.
+
+	@staticmethod
 	async def edit_or_resend_message(text: str, chat_id: int, message_to_edit: Message | int | None, thread_id: int | None = None, reply_markup: InlineKeyboardMarkup | ReplyKeyboardMarkup | ReplyKeyboardRemove | ForceReply | None = None, disable_web_page_preview: bool = False, allow_sending_without_reply: bool = False, bot: Bot | None = None, query: CallbackQuery | None = None) -> Message | int | None:
 		"""
 		Пытается отредактировать либо отправить сообщение в группу. Возвращает объект сообщения.

@@ -11,7 +11,8 @@ import cachetools
 import PIL
 from aiocouch import Document
 from aiogram import Bot
-from aiogram.exceptions import TelegramForbiddenError, TelegramNetworkError
+from aiogram.exceptions import (TelegramBadRequest, TelegramForbiddenError,
+                                TelegramNetworkError)
 from aiogram.types import Audio, BufferedInputFile, CallbackQuery
 from aiogram.types import Document as TelegramDocument
 from aiogram.types import (InlineKeyboardButton, InlineKeyboardMarkup,
@@ -22,16 +23,16 @@ from aiogram.utils.chat_action import ChatActionSender
 from loguru import logger
 from pydantic import SecretStr
 from pyrate_limiter import Limiter, RequestRate
-from consts import MAX_UPLOAD_FILE_SIZE_BYTES
-from services.vk.consts import VK_LONGPOLL_GLOBAL_ERRORS_AMOUNT
 
 import utils
 from config import config
+from consts import MAX_UPLOAD_FILE_SIZE_BYTES
 from DB import get_user
 from services.service_api_base import (BaseTelehooperServiceAPI,
                                        ServiceDialogue,
                                        ServiceDisconnectReason,
                                        TelehooperServiceUserInfo)
+from services.vk.consts import VK_LONGPOLL_GLOBAL_ERRORS_AMOUNT
 from services.vk.exceptions import (AccessDeniedException,
                                     TokenRevokedException,
                                     TooManyRequestsException)
@@ -654,15 +655,33 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 									sticker_bytes = await utils.convert_to_tgs_sticker(sticker_bytes)
 
 							# Отправляем стикер.
-							msg = await subgroup.send_sticker(
-								sticker=cached_sticker if cached_sticker else BufferedInputFile(
-									file=cast(bytes, sticker_bytes),
-									filename="sticker.tgs" if is_animated else f"VK sticker {attachment['sticker_id']}.png"
-								),
-								silent=is_outbox,
-								reply_to=reply_to,
-								sender_id=event.from_id if event.from_id != self.service_user_id else None
-							)
+							# Иногда стикеры, сохранённые в кэше ломаются. Если такое происходит, то бот удаляет стикер из кэша.
+							try:
+								msg = await subgroup.send_sticker(
+									sticker=cached_sticker if cached_sticker else BufferedInputFile(
+										file=cast(bytes, sticker_bytes),
+										filename="sticker.tgs" if is_animated else f"VK sticker {attachment['sticker_id']}.png"
+									),
+									silent=is_outbox,
+									reply_to=reply_to,
+									sender_id=event.from_id if event.from_id != self.service_user_id else None
+								)
+							except TelegramBadRequest:
+								cached_sticker = None
+								await TelehooperAPI.delete_attachment(
+									"VK",
+									attachment_cache_name
+								)
+
+								msg = await subgroup.send_sticker(
+									sticker=BufferedInputFile(
+										file=cast(bytes, sticker_bytes),
+										filename="sticker.tgs" if is_animated else f"VK sticker {attachment['sticker_id']}.png"
+									),
+									silent=is_outbox,
+									reply_to=reply_to,
+									sender_id=event.from_id if event.from_id != self.service_user_id else None
+								)
 
 							# Если произошёл rate limit, то msg будет None.
 							if not msg:
@@ -671,11 +690,21 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 							assert msg[0].sticker, "Стикер не был отправлен"
 
 							# Сохраняем в память.
-							await TelehooperAPI.save_message("VK", self.service_user_id, msg[0].message_id, event.message_id, False)
+							await TelehooperAPI.save_message(
+								"VK",
+								self.service_user_id,
+								msg[0].message_id,
+								event.message_id,
+								False
+							)
 
 							# Кэшируем стикер, если настройка у пользователя это позволяет.
-							if await self.user.get_setting("Security.MediaCache"):
-								await TelehooperAPI.save_attachment("VK", attachment_cache_name, msg[0].sticker.file_id)
+							if not cached_sticker and await self.user.get_setting("Security.MediaCache"):
+								await TelehooperAPI.save_attachment(
+									"VK",
+									attachment_cache_name,
+									msg[0].sticker.file_id
+								)
 
 							return
 						elif attachment_type == "doc":
@@ -1015,7 +1044,6 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 		"""
 
 		from api import TelehooperAPI
-
 
 		# Обрабатываем только события удаления сообщения.
 		if not (event.new_flags.delete_for_all or event.new_flags.deleted):
