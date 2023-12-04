@@ -1530,30 +1530,9 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 			# Пояснение: Иногда, longpoll возвращает событие о новом сообщении раньше, чем messages.send возвращает ID отправленного сообщения.
 			subgroup.pre_message_cache[message_text.lower().strip()] = None
 
-			# Выполняем сразу несколько действий:
-			# A. Устанавливаем статус "онлайн". (настройка Services.VK.SetOnline)
-			# B. Прочитываем сообщение в чате. (настройка Services.VK.WaitToType)
-			# B. Начинаем статус "печати".
-			#
-			# Сначала мы создаём список из API-вызовов для API execute.
-			execute_code = []
-
 			# Если разрешено, то устанавливаем статус "онлайн".
 			if await self.user.get_setting("Services.VK.SetOnline"):
-				execute_code.append("API.account.setOnline()")
-
-			# Если разрешено, то "прочитываем" сообщение, и начинаем "печатать".
-			wait_to_type = False
-			if await self.user.get_setting("Services.VK.WaitToType") and len(message_text) > 3:
-				execute_code.extend([
-					f"API.messages.markAsRead({{\"peer_id\": {peer_id}, \"mark_conversation_as_read\": 1}})",
-					f"API.messages.setActivity({{\"peer_id\": {peer_id}, \"type\": \"typing\"}})"
-				])
-				wait_to_type = True
-
-			# Вызываем несколько API-методов используя execute.
-			if wait_to_type:
-				await asyncio.sleep(1 if len(message_text) <= 15 else 2)
+				await self.set_online()
 
 			# Отправляем сообщение.
 			vk_message_id = await self.send_message(

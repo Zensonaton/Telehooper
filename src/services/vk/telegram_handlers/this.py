@@ -274,6 +274,7 @@ async def this_vk_convert_inline_handler(query: CallbackQuery, msg: Message, use
 		" • Реакции не поддерживаются.",
 		" • «Прочитать» сообщения можно через <code>/read</code>.",
 		" • Удалять сообщения можно только через <code>/delete</code>."
+		" • Собеседник не будет видеть Вашу печать."
 	]
 
 	if dialog.is_multiuser:
@@ -283,11 +284,6 @@ async def this_vk_convert_inline_handler(query: CallbackQuery, msg: Message, use
 		docs_info.append(" • Вы будете «онлайн» после отправки сообщения (см. {{Services.VK.SetOnline}}).")
 	else:
 		docs_info.append(" • Вы никогда не появитесь «онлайн» ВКонтакте (см. {{Services.VK.SetOnline}}).")
-
-	if await telehooper_user.get_setting("Services.VK.WaitToType"):
-		docs_info.append(" • Бот будет «печатать» в ВК перед пересылкой Вашего сообщения (см. {{Services.VK.WaitToType}}).")
-	else:
-		docs_info.append(" • Собеседник не будет видеть Вашу печать (см. {{Services.VK.WaitToType}}).")
 
 	docs_info.append(f" • Другие ограничения и примечания можно прочитать <a href=\"{docs_url}\">здесь</a>.")
 
