@@ -70,6 +70,8 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 	"""Кэшированные данные о пользователях ВКонтакте для быстрого повторного получения."""
 	_globalErrorAmount: int
 	"""Количество глобальных ошибок. При достижении определённого количества ошибок (см. `VK_LONGPOLL_GLOBAL_ERRORS_AMOUNT`), VK longpoll автоматически отключается от бота."""
+	_lastOnlineStatus: int = 0
+	"""UNIX-timestamp последнего обновления статуса онлайна через бота. Используется для настройки `Services.VK.SetOnline`."""
 
 	def __init__(self, token: SecretStr, vk_user_id: int, user: "TelehooperUser", limiter: Limiter = Limiter(RequestRate(2, 1), RequestRate(20, 60))) -> None:
 		super().__init__("VK", vk_user_id, user)
@@ -1584,7 +1586,10 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 			subgroup.pre_message_cache[message_text.lower().strip()] = None
 
 			# Если разрешено, то устанавливаем статус "онлайн".
-			if await self.user.get_setting("Services.VK.SetOnline"):
+			# Перед запросом проверяется, что с момента обновления онлайна ботом прошло как минимум 60 секунд.
+			if utils.time_since(self._lastOnlineStatus) > 60 and self.get_bucket_size("message") < 5 and await self.user.get_setting("Services.VK.SetOnline"):
+				self._lastOnlineStatus = utils.get_timestamp()
+
 				await self.set_online()
 
 			# Отправляем сообщение.

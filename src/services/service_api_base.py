@@ -148,6 +148,18 @@ class BaseTelehooperServiceAPI:
 			else:
 				return True
 
+	def get_bucket_size(self, key: str) -> int:
+		"""
+		Возвращает 'заполненность' очереди по заданному имени.
+
+		:param key: Ключ, по которому нужно получить заполненность очереди.
+		"""
+
+		try:
+			return self.limiter.get_current_volume(key)
+		except:
+			return 0
+
 	async def start_listening(self, bot: Bot | None = None) -> None:
 		"""
 		Запускает прослушивание событий с сервиса, т.е., получение сообщений.
