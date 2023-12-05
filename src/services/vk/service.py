@@ -673,6 +673,17 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 									attachment_cache_name
 								)
 
+								# TODO: Сделать отдельный метод для загрузки данных стикера.
+								# Достаём URL анимации стикера, либо статичное изображение-"превью" этого стикера.
+								sticker_url = attachment.get("animation_url") if is_animated else attachment["images"][-1]["url"]
+
+								# Загружаем стикер.
+								async with aiohttp.ClientSession() as client:
+									async with client.get(sticker_url) as response:
+										assert response.status == 200, f"Не удалось загрузить стикер с ID {attachment_cache_name}"
+
+										sticker_bytes = await response.read()
+
 								msg = await subgroup.send_sticker(
 									sticker=BufferedInputFile(
 										file=cast(bytes, sticker_bytes),
