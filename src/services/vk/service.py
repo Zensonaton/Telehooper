@@ -625,9 +625,32 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 						elif attachment_type == "audio_message":
 							attachment_media.append(InputMediaAudio(type="audio", media=attachment["link_ogg"]))
 						elif attachment_type == "sticker":
-							# В данный момент, поддержка анимированных стикеров отсутствует из-за возможного бага в библиотеке gzip.
+							async def _downloadSticker(url: str, is_animated: bool) -> bytes:
+								"""
+								Загружает стикер по указанному URL.
 
+								Если стикер является анимированным, то данный метод его ещё и сконвертирует в формат .tgs.
+
+								:param url: URL на данный файл со стикером.
+								:param is_animated: Указывает, что после загрузки стикера он должен сконвертироваться в формат .tgs.
+								"""
+
+								logger.debug(f"Загружаю стикер с URL {url}")
+
+								async with aiohttp.ClientSession() as client:
+									async with client.get(sticker_url) as response:
+										assert response.status == 200, f"Не удалось загрузить стикер с ID {attachment_cache_name}"
+
+										sticker_bytes = await response.read()
+
+								if is_animated:
+									sticker_bytes = await utils.convert_to_tgs_sticker(sticker_bytes)
+
+								return sticker_bytes
+
+							# В данный момент, поддержка анимированных стикеров отсутствует из-за особенности в сжатии библиотеки gzip.
 							is_animated = "animation_url" in attachment and False # TODO: Настройка для отключения анимированных стикеров.
+							sticker_url = attachment.get("animation_url") if is_animated else attachment["images"][-1]["url"]
 							attachment_cache_name = f"sticker{attachment['sticker_id']}{'anim' if is_animated else 'static'}"
 
 							# Пытаемся получить информацию о данном стикере из кэша вложений.
@@ -638,21 +661,8 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 							if not cached_sticker:
 								logger.debug(f"Не был найден кэш для стикера с ID {attachment_cache_name}")
 
-								# Достаём URL анимации стикера, либо статичное изображение-"превью" этого стикера.
-								sticker_url = attachment.get("animation_url") if is_animated else attachment["images"][-1]["url"]
-
 								# Загружаем стикер.
-								async with aiohttp.ClientSession() as client:
-									async with client.get(sticker_url) as response:
-										assert response.status == 200, f"Не удалось загрузить стикер с ID {attachment_cache_name}"
-
-										sticker_bytes = await response.read()
-
-								# Делаем манипуляции над стикером, если он анимированный.
-								if is_animated:
-									# Этот кусок кода не используется.
-
-									sticker_bytes = await utils.convert_to_tgs_sticker(sticker_bytes)
+								sticker_bytes = await _downloadSticker(sticker_url, is_animated)
 
 							# Отправляем стикер.
 							# Иногда стикеры, сохранённые в кэше ломаются. Если такое происходит, то бот удаляет стикер из кэша.
@@ -667,22 +677,9 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 									sender_id=event.from_id if event.from_id != self.service_user_id else None
 								)
 							except TelegramBadRequest:
-								cached_sticker = None
-								await TelehooperAPI.delete_attachment(
-									"VK",
-									attachment_cache_name
-								)
-
-								# TODO: Сделать отдельный метод для загрузки данных стикера.
-								# Достаём URL анимации стикера, либо статичное изображение-"превью" этого стикера.
-								sticker_url = attachment.get("animation_url") if is_animated else attachment["images"][-1]["url"]
-
-								# Загружаем стикер.
-								async with aiohttp.ClientSession() as client:
-									async with client.get(sticker_url) as response:
-										assert response.status == 200, f"Не удалось загрузить стикер с ID {attachment_cache_name}"
-
-										sticker_bytes = await response.read()
+								# Поскольку кэш стикера оказался поломанным, стоит отправить стикер по-новой, игнорируя кэш.
+								await TelehooperAPI.delete_attachment("VK", attachment_cache_name)
+								sticker_bytes = await _downloadSticker(sticker_url, is_animated)
 
 								msg = await subgroup.send_sticker(
 									sticker=BufferedInputFile(
