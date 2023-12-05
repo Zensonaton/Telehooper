@@ -344,7 +344,7 @@ class TelehooperGroup:
 
 		return self.document
 
-	async def try_acquire(self, key: str, max_delay: int | float | None = None) -> bool:
+	async def acquire_queue(self, key: str, max_delay: int | float | None = None) -> bool:
 		"""
 		Пытается получить место в очереди. Если место не было получено, то бот будет спать до тех пор, пока не получит место. Возвращает `True`, если место было получено, иначе `False`, если места вообще нет.
 
@@ -553,7 +553,7 @@ class TelehooperGroup:
 		:param bypass_queue: Отправить ли сообщение без учёта лимитов.
 		"""
 
-		if not bypass_queue and not await self.try_acquire("message"):
+		if not bypass_queue and not await self.acquire_queue("message"):
 			return None
 
 		bot = await self.get_associated_bot(sender_id)
@@ -580,7 +580,7 @@ class TelehooperGroup:
 		:param bypass_queue: Отправить ли сообщение без учёта лимитов.
 		"""
 
-		if not bypass_queue and not await self.try_acquire("message"):
+		if not bypass_queue and not await self.acquire_queue("message"):
 			return None
 
 		bot = await self.get_associated_bot(sender_id)
@@ -607,7 +607,7 @@ class TelehooperGroup:
 		:param bypass_queue: Отправить ли сообщение без учёта лимитов.
 		"""
 
-		if not bypass_queue and not await self.try_acquire("message"):
+		if not bypass_queue and not await self.acquire_queue("message"):
 			return None
 
 		bot = await self.get_associated_bot(sender_id)
@@ -636,7 +636,7 @@ class TelehooperGroup:
 		:param bypass_queue: Отправить ли сообщение без учёта лимитов.
 		"""
 
-		if not bypass_queue and not await self.try_acquire("message"):
+		if not bypass_queue and not await self.acquire_queue("message"):
 			return None
 
 		if not attachments:
@@ -688,7 +688,7 @@ class TelehooperGroup:
 		:param bypass_queue: Отправить ли событие печати без учёта лимитов.
 		"""
 
-		if not bypass_queue and not await self.try_acquire("message", max_delay=0.5):
+		if not bypass_queue and not await self.acquire_queue("message", max_delay=0.5):
 			return None
 
 		bot = await self.get_associated_bot(sender_id)
@@ -709,7 +709,7 @@ class TelehooperGroup:
 		:param bypass_queue: Отправить ли событие печати без учёта лимитов.
 		"""
 
-		if not bypass_queue and not await self.try_acquire("message"):
+		if not bypass_queue and not await self.acquire_queue("message"):
 			return None
 
 		bot = await self.get_associated_bot(sender_id)
