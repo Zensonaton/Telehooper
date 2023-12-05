@@ -556,10 +556,10 @@ class TelehooperGroup:
 		:param bypass_queue: Отправить ли сообщение без учёта лимитов.
 		"""
 
-		if not bypass_queue and not await self.acquire_queue("message"):
-			return None
-
 		bot = await self.get_associated_bot(sender_id)
+
+		if not bypass_queue and not await self.acquire_queue(f"message-{bot.id}"):
+			return None
 
 		return [await bot.send_sticker(
 			chat_id=self.chat.id,
@@ -583,10 +583,10 @@ class TelehooperGroup:
 		:param bypass_queue: Отправить ли сообщение без учёта лимитов.
 		"""
 
-		if not bypass_queue and not await self.acquire_queue("message"):
-			return None
-
 		bot = await self.get_associated_bot(sender_id)
+
+		if not bypass_queue and not await self.acquire_queue(f"message-{bot.id}"):
+			return None
 
 		return [await bot.send_location(
 			chat_id=self.chat.id,
@@ -610,10 +610,10 @@ class TelehooperGroup:
 		:param bypass_queue: Отправить ли сообщение без учёта лимитов.
 		"""
 
-		if not bypass_queue and not await self.acquire_queue("message"):
-			return None
-
 		bot = await self.get_associated_bot(sender_id)
+
+		if not bypass_queue and not await self.acquire_queue(f"message-{bot.id}"):
+			return None
 
 		return [await bot.send_video_note(
 			chat_id=self.chat.id,
@@ -636,28 +636,25 @@ class TelehooperGroup:
 		:param keyboard: Клавиатура, которую нужно прикрепить к сообщению.
 		:param disable_web_preview: Отключить ли превью ссылок в сообщении.
 		:param sender_id: ID пользователя, с которым должен быть найден ассоциированный минибот.
-		:param bypass_queue: Отправить ли сообщение без учёта лимитов.
+		:param bypass_queue: Отправить ли сообщение без учёта очереди.
 		"""
 
-		if not bypass_queue and not await self.acquire_queue("message"):
+		bot = await self.get_associated_bot(sender_id)
+
+		if not bypass_queue and not await self.acquire_queue(f"message-{bot.id}"):
 			return None
 
 		if not attachments:
 			attachments = []
-
-		message_ids = []
 
 		# В Telegram, при отправке медиа-группы, поле "caption" выступает как текст сообщения, отображаемое сверху сообщения.
 		# По этой причине, тут мы меняем текст вложения на текст сообщения, которое мы пытаемся отправить.
 		if attachments:
 			attachments[0].caption = text
 
-		bot = await self.get_associated_bot(sender_id)
-
+		# У нас есть хотя бы одно вложение, отправляем как медиа-группу.
 		if attachments:
-			# У нас есть хотя бы одно вложение, отправляем как медиа-группу.
-
-			message_ids = [i.message_id for i in await bot.send_media_group(
+			return [i.message_id for i in await bot.send_media_group(
 				chat_id=self.chat.id,
 				media=attachments,
 				message_thread_id=topic,
@@ -665,21 +662,18 @@ class TelehooperGroup:
 				disable_notification=silent,
 				allow_sending_without_reply=True
 			)]
-		else:
-			# Вложений нету.
 
-			message_ids = [(await bot.send_message(
-				chat_id=self.chat.id,
-				message_thread_id=topic,
-				reply_to_message_id=reply_to,
-				text=text,
-				disable_notification=silent,
-				allow_sending_without_reply=True,
-				reply_markup=keyboard,
-				disable_web_page_preview=disable_web_preview
-			)).message_id]
-
-		return message_ids
+		# Вложений нету, отправляем как сообщение без вложений.
+		return [(await bot.send_message(
+			chat_id=self.chat.id,
+			message_thread_id=topic,
+			reply_to_message_id=reply_to,
+			text=text,
+			disable_notification=silent,
+			allow_sending_without_reply=True,
+			reply_markup=keyboard,
+			disable_web_page_preview=disable_web_preview
+		)).message_id]
 
 	async def start_activity(self, type: Literal["typing", "upload_photo", "record_video", "upload_video", "record_audio", "upload_audio", "upload_document", "find_location", "record_video_note", "upload_video_note"] = "typing", topic: int = 0, sender_id: int | None = None, bypass_queue: bool = False) -> None:
 		"""
@@ -688,13 +682,13 @@ class TelehooperGroup:
 		:param type: Тип события.
 		:param topic: ID диалога в сервисе, в который нужно отправить сообщение. Если не указано, то сообщение будет отправлено в главный диалог группы.
 		:param sender_id: ID пользователя, с которым должен быть найден ассоциированный минибот.
-		:param bypass_queue: Отправить ли событие печати без учёта лимитов.
+		:param bypass_queue: Отправить ли событие печати, минуя очередь.
 		"""
 
-		if not bypass_queue and not await self.acquire_queue("message", max_delay=0.5):
-			return None
-
 		bot = await self.get_associated_bot(sender_id)
+
+		if not bypass_queue and not await self.acquire_queue(f"message-{bot.id}"):
+			return None
 
 		await bot.send_chat_action(
 			chat_id=self.chat.id,
@@ -709,13 +703,13 @@ class TelehooperGroup:
 		:param new_text: Новый текст сообщения.
 		:param id: ID сообщения, которое нужно отредактировать.
 		:param sender_id: ID пользователя, с которым должен быть найден ассоциированный минибот.
-		:param bypass_queue: Отправить ли событие печати без учёта лимитов.
+		:param bypass_queue: Отредактировать ли сообщение, минуя очередь.
 		"""
 
-		if not bypass_queue and not await self.acquire_queue("message"):
-			return None
-
 		bot = await self.get_associated_bot(sender_id)
+
+		if not bypass_queue and not await self.acquire_queue(f"message-{bot.id}"):
+			return None
 
 		try:
 			await bot.edit_message_text(
@@ -732,21 +726,28 @@ class TelehooperGroup:
 				message_id=id
 			)
 
-	async def delete_message(self, id: list[int] | int, sender_id: int | None = None) -> None:
+	async def delete_message(self, id: list[int] | int, sender_id: int | None = None, bypass_queue: bool = False) -> None:
 		"""
 		Удаляет одно или несколько сообщений в Telegram-группе.
 
 		:param id: ID сообщения(-ий), которое нужно удалить.
 		:param sender_id: ID пользователя, с которым должен быть найден ассоциированный минибот.
+		:param bypass_queue: Удалить ли указанное сообщение, минуя очередь.
 		"""
+
+		bot = await self.get_associated_bot(sender_id)
+
+		if not bypass_queue and not await self.acquire_queue(f"message-{bot.id}"):
+			return None
 
 		if isinstance(id, int):
 			id = [id]
 
-		bot = await self.get_associated_bot(sender_id)
-
 		for message_id in id:
-			await bot.delete_message(self.chat.id, message_id=message_id)
+			await bot.delete_message(
+				self.chat.id,
+				message_id=message_id
+			)
 
 	async def set_title(self, title: str) -> None:
 		"""
