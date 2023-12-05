@@ -2,6 +2,9 @@
 
 IS_TESTING = False
 
+MINIBOTS_INFO_URL = "https://t.me/telehooper_news/12"
+"""URL на страницу, на которой написана информацию про мини-ботов."""
+
 FAQ_INFO = {
 	"1. Основная информация": (
 		"<b>1. Основная информация</b>.\n"
