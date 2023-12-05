@@ -510,7 +510,13 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 					if not msg:
 						return
 
-					await TelehooperAPI.save_message("VK", self.service_user_id, msg[0].message_id, event.message_id, False)
+					await TelehooperAPI.save_message(
+						"VK",
+						self.service_user_id,
+						msg[0].message_id,
+						event.message_id,
+						False
+					)
 
 					return
 
@@ -524,7 +530,12 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 							# Проходимся по всем размерам фотографии и выбираем самый большой.
 							sizes_sorted = sorted(attachment["sizes"], key=lambda size: size["width"] * size["height"], reverse=True)
 
-							attachment_media.append(InputMediaPhoto(type="photo", media=sizes_sorted[0]["url"]))
+							attachment_media.append(
+								InputMediaPhoto(
+									type="photo",
+									media=sizes_sorted[0]["url"]
+								)
+							)
 						elif attachment_type == "video":
 							# Так как ВК не выдают прямую ссылку на видео, необходимо её извлечь из API.
 							# Что важно, передать ссылку напрямую не получается, поскольку ВК проверяет
@@ -610,20 +621,39 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 											return
 
 										# Сохраняем в память.
-										await TelehooperAPI.save_message("VK", self.service_user_id, msg[0].message_id, event.message_id, False)
+										await TelehooperAPI.save_message(
+											"VK",
+											self.service_user_id,
+											msg[0].message_id,
+											event.message_id,
+											False
+										)
 
 										assert msg[0].video_note, "Видеосообщение не было отправлено"
 
 										return
 
 									# Прикрепляем видео.
-									attachment_media.append(InputMediaVideo(type="video", media=BufferedInputFile(video_bytes, filename=f"{attachment['title'].strip()} {quality[4:]}p.mp4")))
+									attachment_media.append(
+										InputMediaVideo(
+											type="video",
+											media=BufferedInputFile(
+												video_bytes,
+												filename=f"{attachment['title'].strip()} {quality[4:]}p.mp4"
+											)
+										)
+									)
 
 									break
 								else:
 									raise Exception("ВКонтакте не вернул ссылку на видео")
 						elif attachment_type == "audio_message":
-							attachment_media.append(InputMediaAudio(type="audio", media=attachment["link_ogg"]))
+							attachment_media.append(
+								InputMediaAudio(
+									type="audio",
+									media=attachment["link_ogg"]
+								)
+							)
 						elif attachment_type == "sticker":
 							async def _downloadSticker(url: str, is_animated: bool) -> bytes:
 								"""
@@ -762,17 +792,24 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 										# По-настоящему загружаем аудио.
 										file_bytes = await response.read()
 
-								attachment_media.append(InputMediaAudio(
-									type="audio",
-									media=BufferedInputFile(
-										file=file_bytes,
-										filename=f"{attachment['artist']} - {attachment['title']}.mp3"
-									),
-									title=attachment["title"],
-									performer=attachment["artist"]
-								))
+								attachment_media.append(
+									InputMediaAudio(
+										type="audio",
+										media=BufferedInputFile(
+											file=file_bytes,
+											filename=f"{attachment['artist']} - {attachment['title']}.mp3"
+										),
+										title=attachment["title"],
+										performer=attachment["artist"]
+									)
+								)
 						elif attachment_type == "graffiti":
-							attachment_media.append(InputMediaPhoto(type="photo", media=attachment["url"]))
+							attachment_media.append(
+								InputMediaPhoto(
+									type="photo",
+									media=attachment["url"]
+								)
+							)
 						elif attachment_type == "wall":
 							# TODO: Имя группы/юзера откуда был пост.
 							#   В данный момент почти нереализуемо из-за того, что ВК не передаёт такую информацию, и нужно делать отдельный запрос.
@@ -907,7 +944,13 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 				if not sent_message_ids:
 					return
 
-				await TelehooperAPI.save_message("VK", self.service_user_id, sent_message_ids, event.message_id, False)
+				await TelehooperAPI.save_message(
+					"VK",
+					self.service_user_id,
+					sent_message_ids,
+					event.message_id,
+					False
+				)
 
 			# Отправляем сообщения с вложениями.
 			# Для отображения прогресса отправки, бот должен показать пользователям надпись "Telehooper отправляет документ...".
