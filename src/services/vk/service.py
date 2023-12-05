@@ -398,16 +398,13 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 			if sent_via_bot and not ignore_outbox_debug:
 				return
 
+			# Добываем полную информацию о сообщении.
+			message_extended = (await self.vkAPI.messages_getById(event.message_id))["items"][0]
+
 			# Получаем ID сообщения с ответом, а так же парсим вложения сообщения.
 			reply_to = None
-
-			# Парсим вложения.
-			message_extended = None
 			if event.attachments or is_group or is_bot:
 				attachments = event.attachments.copy()
-
-				# Добываем полную информацию о сообщении.
-				message_extended = (await self.vkAPI.messages_getById(event.message_id))["items"][0]
 
 				# Обрабатываем ответы (reply).
 				if "reply" in attachments or ("fwd_messages" in message_extended and len(message_extended["fwd_messages"]) == 1 and await self.user.get_setting("Services.VK.FWDAsReply")):
@@ -517,7 +514,8 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 						self.service_user_id,
 						msg[0].message_id,
 						event.message_id,
-						False
+						message_extended["conversation_message_id"],
+						sent_via_bot=False
 					)
 
 					return
@@ -628,7 +626,8 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 											self.service_user_id,
 											msg[0].message_id,
 											event.message_id,
-											False
+											message_extended["conversation_message_id"],
+											sent_via_bot=False
 										)
 
 										assert msg[0].video_note, "Видеосообщение не было отправлено"
@@ -735,7 +734,8 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 								self.service_user_id,
 								msg[0].message_id,
 								event.message_id,
-								False
+								message_extended["conversation_message_id"],
+								sent_via_bot=False
 							)
 
 							# Кэшируем стикер, если настройка у пользователя это позволяет.
@@ -951,7 +951,8 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 					self.service_user_id,
 					sent_message_ids,
 					event.message_id,
-					False
+					message_extended["conversation_message_id"],
+					sent_via_bot=False
 				)
 
 			# Отправляем сообщения с вложениями.
@@ -1405,16 +1406,32 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 			# Обрабатываем "ответы" на сообщение.
 			reply_message_id = None
-			if msg.reply_to_message and msg.reply_to_message.from_user: # FIXME: Если был сделан reply на сообщение от бота (минибота в том числе), то эта проверка всё ломает.
+			if msg.reply_to_message and msg.reply_to_message.from_user:
 				service_user_id = self.service_user_id
+				saved_message = None
 
 				# Если мы находимся в беседе, нужно найти ID сообщения пользователя во ВКонакте, на сообщение которого сделали reply.
+				# Мы ищем такого пользователя лишь в случае, если пользователь сделал ответ на сообщение другого реального пользователя, а не бота.
 				if is_multiuser_chat and not sent_by_owner:
+					telegram_user_id = subgroup.parent.creatorID
+
+					if msg.reply_to_message.from_user.id != subgroup.parent.bot.id:
+						# Сообщение в реплае было отправлено реальным пользователем либо миниботом. Нужно определить, кем именно оно было отправлено.
+						if msg.reply_to_message.from_user.username in subgroup.parent.associatedMinibots.values():
+							# Это минибот, значит извлекаем Telegram User ID, который ассоциирован с данным миниботом.
+							# Проблема, однако, в том, что миниботы могут быть присвоены к нескольким пользователям сразу.
+							# Ввиду этого, реплаи пока что не работают :(
+
+							pass
+						else:
+							# Сообщение в реплае было отправлено реальным пользователем. Значит ищем относительно ID этого пользователя.
+							telegram_user_id = msg.reply_to_message.from_user.id
+
 					for serviceAPI in TelehooperAPI.get_service_apis():
 						if serviceAPI.service_name != self.service_name:
 							continue
 
-						if serviceAPI.user.telegramUser.id != msg.reply_to_message.from_user.id:
+						if serviceAPI.user.telegramUser.id != telegram_user_id:
 							continue
 
 						service_user_id = serviceAPI.service_user_id
@@ -1428,8 +1445,6 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 				# Благодаря тому, что бот хранит ConversationMID'ы, мы можем найти "реальный" ID относительно
 				# текущего пользователя, что написал сообщение.
 				if is_multiuser_chat and not sent_by_owner and saved_message and saved_message.service_conversation_message_ids:
-					logger.debug("Ищем реальный ID сообщения в беседе на который был сделан reply...")
-
 					reply_message_info = await self.vkAPI.messages_getByConversationMessageId(peer_id, saved_message.service_conversation_message_ids[0])
 					if reply_message_info["items"]:
 						reply_message_id = reply_message_info["items"][0]["id"]
