@@ -373,7 +373,10 @@ class TelehooperGroup:
 		:param key: Ключ, по которому нужно получить заполненность очереди.
 		"""
 
-		return self.limiter.get_current_volume(key)
+		try:
+			return self.limiter.get_current_volume(key)
+		except:
+			return 0
 
 	async def convert_to_dialogue_group(self, user: TelehooperUser, dialogue: ServiceDialogue, pinned_message: Message, serviceAPI: BaseTelehooperServiceAPI) -> None:
 		"""
