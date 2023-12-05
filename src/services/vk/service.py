@@ -1361,6 +1361,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 		logger.debug("Сообщение отправил не владелец этой группы, пытаюсь узнать ID группы относительно отправителя...")
 
 		# TODO: Каким-то хитрым образом кэшировать этот ID?
+		# TODO: Сделать ещё какую-то проверку, поскольку бот может писать не в ту беседу, если у них совпадает имя.
 
 		for chat in await self.get_list_of_dialogues():
 			if not chat.is_multiuser:
@@ -1390,13 +1391,6 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 				return
 
-			# Обрабатываем "ответы" на сообщение.
-			reply_message_id = None
-			if msg.reply_to_message:
-				saved_message = await self.get_message_by_telegram_id(self.service_user_id, msg.reply_to_message.message_id)
-
-				reply_message_id = saved_message.service_message_ids[0] if saved_message else None
-
 			# Получаем ID беседы. Используется, если отправитель сообщения - не владелец группы.
 			peer_id = subgroup.service_chat_id
 			is_multiuser_chat = peer_id > 2000000000
@@ -1408,6 +1402,39 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 				if not peer_id:
 					return
+
+			# Обрабатываем "ответы" на сообщение.
+			reply_message_id = None
+			if msg.reply_to_message and msg.reply_to_message.from_user: # FIXME: Если был сделан reply на сообщение от бота (минибота в том числе), то эта проверка всё ломает.
+				service_user_id = self.service_user_id
+
+				# Если мы находимся в беседе, нужно найти ID сообщения пользователя во ВКонакте, на сообщение которого сделали reply.
+				if is_multiuser_chat and not sent_by_owner:
+					for serviceAPI in TelehooperAPI.get_service_apis():
+						if serviceAPI.service_name != self.service_name:
+							continue
+
+						if serviceAPI.user.telegramUser.id != msg.reply_to_message.from_user.id:
+							continue
+
+						service_user_id = serviceAPI.service_user_id
+						logger.debug(f"ID пользователя во ВКонтакте, на сообщение которого сделали reply {service_user_id}")
+
+				saved_message = await self.get_message_by_telegram_id(service_user_id, msg.reply_to_message.message_id)
+
+				# Если мы находимся в беседе, то ID сообщения, на который был сделан ответ,
+				# может быть неправильный, если реплай был сделан на сообщение от другого пользователя.
+				#
+				# Благодаря тому, что бот хранит ConversationMID'ы, мы можем найти "реальный" ID относительно
+				# текущего пользователя, что написал сообщение.
+				if is_multiuser_chat and not sent_by_owner and saved_message and saved_message.service_conversation_message_ids:
+					logger.debug("Ищем реальный ID сообщения в беседе на который был сделан reply...")
+
+					reply_message_info = await self.vkAPI.messages_getByConversationMessageId(peer_id, saved_message.service_conversation_message_ids[0])
+					if reply_message_info["items"]:
+						reply_message_id = reply_message_info["items"][0]["id"]
+				else:
+					reply_message_id = saved_message.service_message_ids[0] if saved_message else None
 
 			attachments_to_send: str | None = None
 			if attachments:

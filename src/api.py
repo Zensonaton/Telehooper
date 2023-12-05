@@ -1666,6 +1666,14 @@ class TelehooperAPI:
 			except:
 				pass
 
+	@staticmethod
+	def get_service_apis() -> list[BaseTelehooperServiceAPI]:
+		"""
+		Возвращает список всех `ServiceAPI`'s бота.
+		"""
+
+		return list(_saved_connections.values())
+
 async def get_subgroup(msg_or_query: Message | CallbackQuery) -> dict | None:
 	"""
 	Фильтр для входящих сообщений в группе. Если данная группа является диалог-группой, то данный метод вернёт объект TelehooperSubGroup.
