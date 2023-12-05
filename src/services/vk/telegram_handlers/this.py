@@ -7,10 +7,10 @@ from aiogram.filters import Text
 from aiogram.types import (BotCommand, BotCommandScopeChatAdministrators,
                            CallbackQuery, InlineKeyboardButton,
                            InlineKeyboardMarkup, Message, User)
-from consts import MINIBOTS_INFO_URL
 
 import utils
 from api import TelehooperAPI
+from consts import GITHUB_SOURCES_URL, MINIBOTS_INFO_URL
 from services.vk.consts import VK_GROUP_DIALOGUE_COMMANDS
 
 
@@ -269,7 +269,7 @@ async def this_vk_convert_inline_handler(query: CallbackQuery, msg: Message, use
 
 	await asyncio.sleep(2)
 
-	docs_url = "https://github.com/Zensonaton/Telehooper/blob/rewrite/src/services/vk/README.md"
+	docs_url = f"{GITHUB_SOURCES_URL}/blob/rewrite/src/services/vk/README.md"
 	docs_info = [
 		"Учтите следующее:",
 		" • Реакции не поддерживаются.",

@@ -4,7 +4,7 @@ from aiogram import Router
 from aiogram.filters import Command
 from aiogram.types import KeyboardButton, Message, ReplyKeyboardMarkup
 
-from consts import CommandButtons
+from consts import GITHUB_SOURCES_URL, CommandButtons
 
 
 router = Router()
@@ -24,7 +24,7 @@ async def start_handler(msg: Message) -> None:
 	message_text = (
 		"<b>Привет! 🙋</b>\n"
 		"\n"
-		"Я — бот с <a href=\"https://github.com/Zensonaton/Telehooper\">открытым исходным кодом</a>, позволяющий отправлять и получать сообщения из ВКонтакте напрямую в Telegram. 🤖\n"
+		f"Я — бот с <a href=\"{GITHUB_SOURCES_URL}\">открытым исходным кодом</a>, позволяющий отправлять и получать сообщения из ВКонтакте напрямую в Telegram. 🤖\n"
 		"\n"
 		"Список команд данного бота:\n"
 		" • /connect — подключение сервиса к боту.\n"

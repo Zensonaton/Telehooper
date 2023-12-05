@@ -6,6 +6,7 @@ from aiogram.types import Message
 
 import api
 import utils
+from consts import GITHUB_SOURCES_URL
 from telegram.bot import get_minibots
 
 
@@ -19,7 +20,7 @@ async def status_command_handler(msg: Message) -> None:
 
 	commit_hash_url = await utils.get_commit_hash()
 	if commit_hash_url:
-		commit_hash_url = f"<a href=\"https://github.com/Zensonaton/Telehooper/commit/{commit_hash_url}\">{commit_hash_url}</a>"
+		commit_hash_url = f"<a href=\"{GITHUB_SOURCES_URL}/commit/{commit_hash_url}\">{commit_hash_url}</a>"
 
 	await msg.answer(
 		"<b>📊 Состояние бота</b>.\n"
