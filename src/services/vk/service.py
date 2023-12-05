@@ -1459,6 +1459,22 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 							for file_same_type in attchs_of_same_type_part:
 								filenames.append(cast(TelegramDocument, file_same_type).file_name or "unknown-filename.txt")
+						elif attch_type == "Audio":
+							error_message = await msg.reply(
+								"<b>⚠️ Ошибка пересылки сообщения</b>.\n"
+								"\n"
+								"Музыка не поддерживается при пересылке во ВКонтакте.",
+								allow_sending_without_reply=True
+							)
+
+							# Удаляем сообщение об ошибке через время.
+							await asyncio.sleep(60)
+							try:
+								await error_message.delete()
+							except:
+								pass
+
+							return
 						else:
 							raise TypeError(f"Неизвестный тип вложения {attch_type}")
 
