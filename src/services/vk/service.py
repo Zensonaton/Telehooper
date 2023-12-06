@@ -1009,12 +1009,27 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 		if not subgroup:
 			return
 
-		logger.debug(f"[VK] Событие печати для подгруппы \"{subgroup.service_dialogue_name}\"")
+		# Получаем список всех "печатающих" пользователей.
+		typing_users: list[int] = []
+		if isinstance(event, LongpollTypingEvent):
+			typing_users = [event.user_id]
+		elif isinstance(event, LongpollTypingEventMultiple) or isinstance(event, LongpollVoiceMessageEvent):
+			typing_users = [event.user_ids] if isinstance(event.user_ids, int) else event.user_ids
+
+		logger.debug(f"[VK] Событие печати для подгруппы \"{subgroup.service_dialogue_name}\", {len(typing_users)} печатающих")
 
 		try:
-			await subgroup.start_activity("record_audio" if type(event) is LongpollVoiceMessageEvent else "typing")
+			for user_id in typing_users:
+				await subgroup.start_activity(
+					"record_audio" if type(event) is LongpollVoiceMessageEvent else "typing",
+					sender_id=user_id if user_id != subgroup.service.service_user_id else None
+				)
 		except TelegramForbiddenError:
-			await TelehooperAPI.delete_group_data(subgroup.parent.chat.id, fully_delete=True, bot=subgroup.parent.bot)
+			await TelehooperAPI.delete_group_data(
+				subgroup.parent.chat.id,
+				fully_delete=True,
+				bot=subgroup.parent.bot
+			)
 
 	async def handle_vk_message_edit(self, event: LongpollMessageEditEvent) -> None:
 		"""
