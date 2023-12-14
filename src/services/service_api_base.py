@@ -345,7 +345,7 @@ class BaseTelehooperServiceAPI:
 		raise NotImplementedError
 
 	@staticmethod
-	async def reconnect_on_restart(user: "TelehooperUser", db_user: Document, bot: Bot) -> "BaseTelehooperServiceAPI" | None:
+	async def reconnect_on_restart(user: "TelehooperUser", db_user: Document, bot: Bot) -> Optional["BaseTelehooperServiceAPI"]:
 		"""
 		Выполняет переподключение сервиса после перезагрузки бота. Если переподключение успешно, возвращает класс сервиса, иначе - None.
 

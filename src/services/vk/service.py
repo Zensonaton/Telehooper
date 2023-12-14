@@ -1908,7 +1908,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 		return await TelehooperAPI.get_message_by_service_id("VK", message_id, service_owner_id, bypass_cache=bypass_cache)
 
 	@staticmethod
-	async def reconnect_on_restart(user: "TelehooperUser", db_user: Document, bot: Bot) -> "VKServiceAPI" | None:
+	async def reconnect_on_restart(user: "TelehooperUser", db_user: Document, bot: Bot) -> Optional["VKServiceAPI"]:
 		vkServiceAPI = None
 
 		# Проверка, что токен установлен.
