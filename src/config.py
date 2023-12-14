@@ -24,8 +24,10 @@ class Configuration(BaseSettings):
 	"""Пароль базы данных CouchDB."""
 	token_encryption_key: SecretStr = Field(..., description="Ключ шифрования токенов в базе данных", env="token_encryption_key", min_length=6)
 	"""Ключ шифрования токенов в базе данных."""
-	vkbot_notifier_id: int = Field(213024897, description="ID VK группы, в которую будет отправляться сообщение для уведомление о подключении нового пользователя. Используй 0 для отключения.", env="vkbot_notifier_id")
+	vkbot_notifier_id: int = Field(213024897, description="ID VK группы, в которую будет отправляться сообщение для уведомление о подключении нового пользователя. Используй 0 для отключения", env="vkbot_notifier_id")
 	"""ID VK группы, в которую будет отправляться сообщение для уведомление о подключении нового пользователя. Используй 0 для отключения."""
+	ffmpeg_path: str | None = Field(..., description="Путь к binary ffmpeg. Используется для конвертации GIF из Telegram (которые на деле являются mp4-видео) в 'настоящие' GIF для сервисов", env="ffmpeg_path")
+	"""Путь к binary ffmpeg. Используется для конвертации GIF из Telegram (которые на деле являются mp4-видео) в 'настоящие' GIF для сервисов."""
 	debug: bool = Field(False, description="Включает режим отладки", env="debug")
 	"""Включает режим отладки."""
 

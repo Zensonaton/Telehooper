@@ -1484,6 +1484,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 					# По 5 элементов.
 					attachments_results: list[dict] = []
+					attachments_telegram_docs: list[TelegramDocument] = []
 					filenames: list[str] = []
 					for index in range(0, len(attchs_of_same_type), multiple_uploads_amount):
 						attchs_of_same_type_part = attchs_of_same_type[index:index + multiple_uploads_amount]
@@ -1512,10 +1513,15 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 								upload_url = (await self.vkAPI.docs_getMessagesUploadServer(type="graffiti", peer_id=peer_id))["upload_url"]
 								ext = "png"
 						elif attch_type == "Document":
-							upload_url = (await self.vkAPI.docs_getMessagesUploadServer(type="doc", peer_id=peer_id))["upload_url"]
+							# Проверяем в кэше.
+							document_cache_name = f"gif{attachments[0].file_unique_id}"
+							attachment_value = await TelehooperAPI.get_attachment("VK", document_cache_name)
 
-							for file_same_type in attchs_of_same_type_part:
-								filenames.append(cast(TelegramDocument, file_same_type).file_name or "unknown-filename.txt")
+							if not attachment_value:
+								upload_url = (await self.vkAPI.docs_getMessagesUploadServer(type="doc", peer_id=peer_id))["upload_url"]
+
+								for file_same_type in attchs_of_same_type_part:
+									filenames.append(cast(TelegramDocument, file_same_type).file_name or "unknown-filename.txt")
 						elif attch_type == "Audio":
 							error_message = await msg.reply(
 								"<b>⚠️ Ошибка пересылки сообщения</b>.\n"
@@ -1592,6 +1598,15 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 												return
 
+									# Если нам дан документ, который является видео, то мы должны превратить его в gif.
+									this_attach = attchs_of_same_type_part[index]
+									if len(attchs_of_same_type_part) == 1 and isinstance(this_attach, TelegramDocument) and this_attach.mime_type == "video/mp4":
+										with utils.CodeTimer("Время на конвертацию mp4 в gif: {time}"):
+											try:
+												file_bytes = await utils.convert_mp4_to_gif(file_bytes)
+											except Exception as error:
+												raise Exception(f"Ошибка при конвертации mp4 из Telegram как gif")
+
 									form_data.add_field(name=field_name, value=file_bytes, filename=f"file{index}.{ext}" if ext else filenames.pop(0))
 
 								# Отправляем загруженные вложения на сервера ВК.
@@ -1600,6 +1615,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 									response = VKAPI._parse_response(await response.json(content_type=None), "_get.server_")
 
 									attachments_results.append(response)
+									attachments_telegram_docs.append(attchs_of_same_type_part[index]) # type: ignore
 
 					# Закончили отправлять все вложения пачками по 5 элементов.
 					# Говорим ВК, что мы хотим отправить вложения в сообщении.
@@ -1609,7 +1625,9 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 					if attachment_value:
 						attachment_str_list.append(attachment_value)
 					else:
-						for attachment in attachments_results:
+						for index, attachment in enumerate(attachments_results):
+							telegram_document = attachments_telegram_docs[index]
+
 							if attch_type == "PhotoSize":
 								assert attachment["photo"], "Объект photo является пустым"
 								resp = await self.vkAPI.photos_saveMessagesPhoto(photo=attachment["photo"], server=attachment["server"], hash=attachment["hash"])
@@ -1630,11 +1648,24 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 								# Стикеры нам нужно кэшировать, если пользователь это разрешил.
 								if await self.user.get_setting("Security.MediaCache"):
-									await TelehooperAPI.save_attachment("VK", f"sticker{attachments[0].file_unique_id}static", attachment_str)
+									await TelehooperAPI.save_attachment(
+										"VK",
+										f"sticker{telegram_document.file_unique_id}static",
+										attachment_str
+									)
 							elif attch_type == "Document":
 								saved_attch = (await self.vkAPI.docs_save(file=attachment["file"]))["doc"]
 
-								attachment_str_list.append(get_attachment_key(saved_attch, type="doc"))
+								attachment_str = get_attachment_key(saved_attch, type="doc")
+								attachment_str_list.append(attachment_str)
+
+								# Если у нас гифка, и пользователь разрешил кэширование, то кэшируем.
+								if isinstance(telegram_document, TelegramDocument) and telegram_document.mime_type == "video/mp4" and await self.user.get_setting("Security.MediaCache"):
+									await TelehooperAPI.save_attachment(
+										"VK",
+										f"gif{telegram_document.file_unique_id}",
+										attachment_str
+									)
 
 					# Теперь нам нужно заменить вложения в сообщении на те, что мы получили от ВК.
 					for index, attch in enumerate(attachments_vk):

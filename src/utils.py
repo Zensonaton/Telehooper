@@ -399,3 +399,40 @@ def get_minibot_tokens() -> list[str]:
 	"""
 
 	return config.minibot_tokens.get_secret_value().replace(" ", "").split(",")
+
+async def convert_mp4_to_gif(data: bytes) -> bytes:
+	"""
+	Конвертирует передаваемые bytes .mp4-видео как .gif.
+	"""
+
+	assert config.ffmpeg_path, "В .env-файле не указан путь к ffmpeg"
+
+	command = [
+		"ffmpeg",
+		"-i", "pipe:0",
+		"-vf", "fps=10,scale=320:-1:flags=lanczos",
+		"-c:v", "gif",
+		"-f", "gif",
+		"pipe:1"
+	]
+
+	process = await asyncio.create_subprocess_exec(
+		*command,
+		stdin=subprocess.PIPE,
+		stdout=subprocess.PIPE,
+		stderr=subprocess.PIPE
+	)
+
+	assert process.stdin, "stdin отсутствует"
+
+	# Отправляем ffmpeg всё байтовое содержимое видео.
+	process.stdin.write(data)
+	process.stdin.close()
+
+	# Получаем готовый .gif-файл.
+	gif_data, error_output = await process.communicate()
+
+	if process.returncode != 0:
+		raise Exception(f"Ошибка конвертации ffmpeg: {error_output.decode('utf-8')}")
+
+	return gif_data

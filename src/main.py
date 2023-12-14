@@ -33,6 +33,11 @@ async def bot_init() -> None:
 		logger.info("Пытаюсь подключиться к базе данных CouchDB...")
 		await get_db(check_auth=True)
 
+	# Проверяем, что у нас указан путь к ffmpeg.
+	if not config.ffmpeg_path:
+		logger.warning("Вы не указали путь к ffmpeg!")
+		logger.warning("Не указав путь к ffmpeg, Telehooper не сможет пересылать GIF из Telegram как GIF в других сервисах.")
+
 	# Инициализируем Router'ы.
 	logger.info("Подготавливаюсь к запуску бота...")
 	bot.init_handlers()
