@@ -26,9 +26,9 @@ class Configuration(BaseSettings):
 	"""Ключ шифрования токенов в базе данных."""
 	vkbot_notifier_id: int = Field(213024897, description="ID VK группы, в которую будет отправляться сообщение для уведомление о подключении нового пользователя. Используй 0 для отключения", env="vkbot_notifier_id")
 	"""ID VK группы, в которую будет отправляться сообщение для уведомление о подключении нового пользователя. Используй 0 для отключения."""
-	ffmpeg_path: str | None = Field(..., description="Путь к binary ffmpeg. Используется для конвертации GIF из Telegram (которые на деле являются mp4-видео) в 'настоящие' GIF для сервисов", env="ffmpeg_path")
+	ffmpeg_path: str | None = Field(None, description="Путь к binary ffmpeg. Используется для конвертации GIF из Telegram (которые на деле являются mp4-видео) в 'настоящие' GIF для сервисов", env="ffmpeg_path")
 	"""Путь к binary ffmpeg. Используется для конвертации GIF из Telegram (которые на деле являются mp4-видео) в 'настоящие' GIF для сервисов."""
-	gzip_path: str | None = Field(..., description="Путь к binary gzip. Используется для конвертации анимированных стикеров в формате Lottie (к примеру, ВКонтакте) в формат .tgs для анимированных стикеров Telegram", env="gzip_path")
+	gzip_path: str | None = Field(None, description="Путь к binary gzip. Используется для конвертации анимированных стикеров в формате Lottie (к примеру, ВКонтакте) в формат .tgs для анимированных стикеров Telegram", env="gzip_path")
 	"""Путь к binary gzip. Используется для конвертации анимированных стикеров в формате Lottie (к примеру, ВКонтакте) в формат .tgs для анимированных стикеров Telegram."""
 	debug: bool = Field(False, description="Включает режим отладки", env="debug")
 	"""Включает режим отладки."""
