@@ -675,12 +675,13 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 										sticker_bytes = await response.read()
 
 								if is_animated:
-									sticker_bytes = await utils.convert_to_tgs_sticker(sticker_bytes)
+									with utils.CodeTimer("Время конвертации lottie (.json) в .tgs: {time}"):
+										sticker_bytes = await utils.convert_to_tgs_sticker(sticker_bytes)
 
 								return sticker_bytes
 
 							# В данный момент, поддержка анимированных стикеров отсутствует из-за особенности в сжатии библиотеки gzip.
-							is_animated = "animation_url" in attachment and False # TODO: Настройка для отключения анимированных стикеров.
+							is_animated = "animation_url" in attachment
 							sticker_url = attachment.get("animation_url") if is_animated else attachment["images"][-1]["url"]
 							attachment_cache_name = f"sticker{attachment['sticker_id']}{'anim' if is_animated else 'static'}"
 

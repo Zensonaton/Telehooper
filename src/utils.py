@@ -224,6 +224,8 @@ async def convert_to_tgs_sticker(json_animation: bytes) -> bytes:
 	:param json_animation: Содержимое JSON-файла с lottie-анимацией.
 	"""
 
+	assert config.gzip_path, "Путь к gzip не указан в файле .env"
+
 	# Убеждаемся, что в json_animation есть ключ "tgs".
 	if b"\"tgs\":" not in json_animation:
 		json_animation = json_animation.replace(
@@ -231,17 +233,33 @@ async def convert_to_tgs_sticker(json_animation: bytes) -> bytes:
 			b"\"tgs\":1,\"v\":"
 		)
 
-	# Создаём .tgs-архив (который на самом деле является .gz-архивом) из JSON-файла.
-	gzip_file = io.BytesIO()
+	# Используя gzip, создаём из Lottie .json файла .gzip архив.
+	command = [
+		config.gzip_path,
+		"-c",
+		"-"
+	]
 
-	# FIXME: По неясной причине, данный код возвращает нерабочий (непринимаемый Telegram)
-	# .tgs-файл. Что бы я не делал, Telegram не хочет воспринимать файл за .tgs-стикер.
-	# Что примечательно, при создании файла при помощи 7z, всё работает нормально.
-	with gzip.GzipFile(fileobj=gzip_file, mode="wb", compresslevel=5) as gzipped_file:
-		gzipped_file.write(json_animation)
+	process = await asyncio.create_subprocess_exec(
+		*command,
+		stdin=subprocess.PIPE,
+		stdout=subprocess.PIPE,
+		stderr=subprocess.PIPE
+	)
 
-	# Возвращаем байты .gz-архива.
-	return gzip_file.getvalue()
+	assert process.stdin, "stdin отсутствует"
+
+	# Отправляем gzip всё байтовое содержимое Lottie-анимации.
+	process.stdin.write(json_animation)
+	process.stdin.close()
+
+	# Получаем готовый .gzip-файл.
+	compressed_data, error_output = await process.communicate()
+
+	if process.returncode != 0:
+		raise Exception(f"Ошибка сжатия в gzip: {error_output.decode('utf-8')}")
+
+	return compressed_data
 
 class CodeTimer:
 	"""
@@ -408,7 +426,7 @@ async def convert_mp4_to_gif(data: bytes) -> bytes:
 	assert config.ffmpeg_path, "В .env-файле не указан путь к ffmpeg"
 
 	command = [
-		"ffmpeg",
+		config.ffmpeg_path,
 		"-i", "pipe:0",
 		"-vf", "fps=10,scale=320:-1:flags=lanczos",
 		"-c:v", "gif",

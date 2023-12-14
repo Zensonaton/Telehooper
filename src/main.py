@@ -38,6 +38,11 @@ async def bot_init() -> None:
 		logger.warning("Вы не указали путь к ffmpeg!")
 		logger.warning("Не указав путь к ffmpeg, Telehooper не сможет пересылать GIF из Telegram как GIF в других сервисах.")
 
+	# Проверяем, что у нас указан путь к gzip.
+	if not config.gzip_path:
+		logger.warning("Вы не указали путь к gzip!")
+		logger.warning("Не указав путь к gzip, Telehooper не сможет преобразовывать некоторые анимированные стикеры из сервисов в формат анимированных стикеров Telegram.")
+
 	# Инициализируем Router'ы.
 	logger.info("Подготавливаюсь к запуску бота...")
 	bot.init_handlers()
