@@ -224,42 +224,19 @@ async def convert_to_tgs_sticker(json_animation: bytes) -> bytes:
 	:param json_animation: Содержимое JSON-файла с lottie-анимацией.
 	"""
 
-	assert config.gzip_path, "Путь к gzip не указан в файле .env"
+	def _inner() -> bytes:
+		"""
+		Внутренний метод для преобразования Lottie-анимации (.json) в .tgs (.gz)-архив. Вызывается в отдельном thread'е.
+		"""
 
-	# Убеждаемся, что в json_animation есть ключ "tgs".
-	if b"\"tgs\":" not in json_animation:
-		json_animation = json_animation.replace(
-			b"\"v\":",
-			b"\"tgs\":1,\"v\":"
-		)
+		gzip_file = io.BytesIO()
 
-	# Используя gzip, создаём из Lottie .json файла .gzip архив.
-	command = [
-		config.gzip_path,
-		"-c",
-		"-"
-	]
+		with gzip.GzipFile(fileobj=gzip_file, mode="wb", compresslevel=5) as gzipped_file:
+			gzipped_file.write(json_animation)
 
-	process = await asyncio.create_subprocess_exec(
-		*command,
-		stdin=subprocess.PIPE,
-		stdout=subprocess.PIPE,
-		stderr=subprocess.PIPE
-	)
+		return gzip_file.getvalue()
 
-	assert process.stdin, "stdin отсутствует"
-
-	# Отправляем gzip всё байтовое содержимое Lottie-анимации.
-	process.stdin.write(json_animation)
-	process.stdin.close()
-
-	# Получаем готовый .gzip-файл.
-	compressed_data, error_output = await process.communicate()
-
-	if process.returncode != 0:
-		raise Exception(f"Ошибка сжатия в gzip: {error_output.decode('utf-8')}")
-
-	return compressed_data
+	return await asyncio.to_thread(_inner)
 
 class CodeTimer:
 	"""

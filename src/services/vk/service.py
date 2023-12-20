@@ -675,8 +675,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 										sticker_bytes = await response.read()
 
 								if is_animated:
-									with utils.CodeTimer("Время конвертации lottie (.json) в .tgs: {time}"):
-										sticker_bytes = await utils.convert_to_tgs_sticker(sticker_bytes)
+									sticker_bytes = await utils.convert_to_tgs_sticker(sticker_bytes)
 
 								return sticker_bytes
 
