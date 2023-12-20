@@ -33,7 +33,7 @@ async def settings_command_message(msg: Message, user: TelehooperUser, edit_mess
 	else:
 		setting_selected = setting["IsValue"]
 
-	tree_rendered = settings.render_tree(path)
+	tree_rendered = settings.render_tree(path, user.settingsOverriden)
 	settings_keyboard = settings.get_keyboard(path, user.settingsOverriden)
 
 	debug_setting_paths = ""
@@ -73,7 +73,7 @@ async def settings_command_message(msg: Message, user: TelehooperUser, edit_mess
 			f"{tree_rendered}"
 			"\n"
 			f"<b>⚙️ {setting['Name']}</b>:\n"
-			f"{setting['Documentation']}\n"
+			f"{utils.replace_placeholders(setting['Documentation'])}\n"
 			"\n"
 			f"<b>⚙️ Текущее значение у настройки</b>:\n"
 			f"{current_value}."

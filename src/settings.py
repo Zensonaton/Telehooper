@@ -186,6 +186,56 @@ SETTINGS_TREE = {
 					"as-self": "От имени отправившего"
 				},
 				"VerticalButtons": True
+			},
+			"AutoRead": {
+				"Name": "Авто прочитывание сообщений",
+				"Documentation": (
+					"Ввиду ограничений Telegram, Telehooper не знает, когда Вы читаете сообщения, заходя в связанный со ВКонтакте группой. Единственный вариант, как можно пометить сообщение как прочитанное - использовать команду <code>/read</code>.\n"
+					"\n"
+					"Вы можете автоматически помечать сообщения как «прочитанные» после их отправки Вашим собеседников, делая список диалогов ВКонтакте более «чистым».\n"
+					"Указать время, после которого сообщение помечается как «прочитанное» можно при помощи настройки {{Services.VK.AutoReadTime}}.\n"
+					"\n"
+					"Значение «не прочитывать»:\n"
+					" • Telehooper не будет автоматически помечать сообщения как «прочитанные».\n"
+					"\n"
+					"Значение «обычные чаты»:\n"
+					" • Telehooper будет автоматически «прочитывать» сообщения во всех чатах, которые связаны с Telehooper.\n"
+					"\n"
+					"Значение «только беседы»:\n"
+					" • Telehooper будет автоматически «прочитывать» сообщения только в беседах, которые связаны с Telehooper.\n"
+					"\n"
+					"Значение «все чаты»:\n"
+					" • Telehooper будет автоматически «прочитывать» сообщения во всех чатах, которые связаны с Telehooper."
+				),
+				"ButtonType": "enum",
+				"Default": "ignore",
+				"EnumValues": {
+					"ignore": "Не прочитывать",
+					"single": "Обычные чаты",
+					"multiuser": "Только беседы",
+					"all": "Все чаты"
+				},
+				"VerticalButtons": True
+			},
+			"AutoReadTime": {
+				"Name": "Таймер авто прочитывания",
+				"Documentation": (
+					"Если настройка {{Services.VK.AutoRead}} включена, то в данной настройке Вы можете указать, через какое время после отправки сообщения собеседником, Telehooper автоматически пометит его как «прочитанное»."
+				),
+				"ButtonType": "enum",
+				"Default": "5",
+				"DependsOn": [{
+					"Setting": "Services.VK.AutoRead",
+					"NotEqual": "ignore"
+				}],
+				"EnumValues": {
+					"1": "Мгновенно",
+					"5": "5 секунд",
+					"30": "30 секунд",
+					"60": "1 минута",
+					"300": "5 минут",
+				},
+				"VerticalButtons": True
 			}
 		}
 	}
@@ -296,6 +346,9 @@ class SettingsHandler:
 
 						if len(value["EnumValues"]) == 0:
 							raise ValueError(f"Свойство EnumValues настройки \"{value['Name']}\" пусто.")
+
+						if default_value not in value["EnumValues"]:
+							raise ValueError(f"Поле Default настройки \"{value['Name']}\" имеет такое значение, которое не существует в списке возможных (EnumValues).")
 				else:
 					_check(value)
 
@@ -490,11 +543,12 @@ class SettingsHandler:
 			]
 		)
 
-	def render_tree(self, path: str | None = None) -> str:
+	def render_tree(self, path: str | None = None, user_settings: dict = {}) -> str:
 		"""
 		Отрисовывает дерево настроек, выглядящее как команда `tree` в Windows.
 
 		:param path: Путь к настройке, которую нужно выделить.
+		:param user_settings: Словарь с установленными пользователем настройками. Если не указывать, то эффекта "зачёркнутой" настройки в случае зависимостей одной настройки от другой не будет.
 		"""
 
 		def _render(path: list[str], level: int, settings_dict: dict) -> str:
@@ -515,11 +569,12 @@ class SettingsHandler:
 				is_selected = level < len(path) and level < len(setting["PathSplitted"]) and path[level].lower() == setting["PathSplitted"][level].lower()
 				is_folder = setting["IsFolder"]
 				is_last = index == len(real_settings_dict) - 1
+				is_enabled = self.check_setting_requirements(setting["Path"], user_settings) if not is_folder and user_settings else True
 
 				if is_folder:
 					leaf_str = f"<code>{' ' * (level * 3)}{BOX_CHAR_CLOSING if is_last else BOX_CHAR_CONNECTED}{OPEN_FOLDER_EMOJI if is_selected else CLOSED_FOLDER_EMOJI}</code> {'<b>' if is_selected else ''}{setting['Name']}{'</b>:' if is_selected else ''}\n"
 				else:
-					leaf_str = f"<code>{' ' * (level * 3)}{BOX_CHAR_CLOSING if is_last else BOX_CHAR_CONNECTED}{SETTING_EMOJI}</code> {'<b>' if is_selected else ''}{setting['Name']}{'</b> ◀️' if is_selected else ''}\n"
+					leaf_str = f"<code>{' ' * (level * 3)}{BOX_CHAR_CLOSING if is_last else BOX_CHAR_CONNECTED}</code>{'<s>' if not is_enabled else ''}{SETTING_EMOJI} {'<b>' if is_selected else ''}{setting['Name']}{'</b> ◀️' if is_selected else ''}{'</s>' if not is_enabled else ''}\n"
 
 				if is_selected:
 					late_append_str += leaf_str + _render(path, level + 1, setting)
@@ -589,3 +644,28 @@ class SettingsHandler:
 			)
 
 		return input
+
+	def check_setting_requirements(self, setting: str | dict, user_settings: dict) -> bool:
+		"""
+		Возвращает то, включена ли настройка или нет, в зависимости от зависимых для неё настроек.
+
+		:param setting: Путь к настройке, либо сама настройка.
+		:param user_settings: Словарь с пользовательскими значениями настроек.
+		"""
+
+		if isinstance(setting, str):
+			setting = self.get_setting(setting)
+
+		for requirement in setting["DependsOn"]:
+			setting_name = requirement["Setting"]
+			required_setting = self.get_setting(setting_name)
+
+			required_set_value = user_settings.get(setting_name, required_setting["Default"])
+
+			if "Equal" in requirement and requirement["Equal"] != required_set_value:
+				return False
+
+			if "NotEqual" in requirement and requirement["NotEqual"] == required_set_value:
+				return False
+
+		return True

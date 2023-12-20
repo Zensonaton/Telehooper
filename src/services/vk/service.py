@@ -72,6 +72,8 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 	"""Количество глобальных ошибок. При достижении определённого количества ошибок (см. `VK_LONGPOLL_GLOBAL_ERRORS_AMOUNT`), VK longpoll автоматически отключается от бота."""
 	_lastOnlineStatus: int = 0
 	"""UNIX-timestamp последнего обновления статуса онлайна через бота. Используется для настройки `Services.VK.SetOnline`."""
+	_autoReadChats: dict[int, asyncio.Task]
+	"""Словарь, хранящий asyncio.Task для 'прочитывания' сообщений после их отправки собеседником. Используется для настройки `Services.VK.AutoRead`."""
 
 	def __init__(self, token: SecretStr, vk_user_id: int, user: "TelehooperUser", limiter: Limiter = Limiter(RequestRate(2, 1), RequestRate(20, 60))) -> None:
 		super().__init__("VK", vk_user_id, user)
@@ -84,6 +86,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 		self.limiter = limiter
 		self._cachedUsersInfo = cachetools.TLRUCache(maxsize=80, ttu=lambda _, value, now: now + 5 * 60)
 		self._globalErrorAmount = 0
+		self._autoReadChats = {}
 
 	async def start_listening(self, bot: Bot | None = None) -> asyncio.Task:
 		async def handle_updates() -> None:
@@ -1002,6 +1005,29 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 					# Что-то пошло не так и произошёл таймаут.
 					# Пробуем выслать сообщения ещё раз, но в этот раз бот должен вручную загрузить вложения.
 					await _send_and_save(force_manual_files_upload=True)
+
+			# Если это разрешено пользователем, то мы должны запустить таймер для "прочитки" последнего сообщения.
+			read_setting_value = cast(Literal["ignore", "single", "multiuser", "all"], await self.user.get_setting(f"Services.{self.service_name}.AutoRead"))
+
+			if (read_setting_value == "single" and not is_convo) or (read_setting_value == "multiuser" and is_convo) or (read_setting_value == "all"):
+				# Если задача по "прочитыванию" уже запущена, то останавливаем её.
+				if subgroup.service_chat_id in self._autoReadChats:
+					self._autoReadChats[subgroup.service_chat_id].cancel()
+
+				# Получаем время, через которое мы должны "прочитать" сообщение.
+				read_setting_timer = int(await self.user.get_setting(f"Services.{self.service_name}.AutoReadTime"))
+
+				async def read_task(chat_id: int, timer: int) -> None:
+					await asyncio.sleep(timer)
+
+					logger.debug(f"Помечаю чат {chat_id} как прочитанный, поскольку прошло {timer} секунд с момента отправки.")
+					try:
+						await self.read_message(chat_id)
+					except:
+						pass
+
+				# Запускаем задачу по "прочитыванию" чата через время.
+				self._autoReadChats[subgroup.service_chat_id] = asyncio.create_task(read_task(subgroup.service_chat_id, read_setting_timer))
 		except TelegramForbiddenError:
 			await TelehooperAPI.delete_group_data(subgroup.parent.chat.id, fully_delete=True, bot=subgroup.parent.bot)
 		except Exception as e:
