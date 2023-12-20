@@ -36,7 +36,7 @@ from services.vk.consts import VK_LONGPOLL_GLOBAL_ERRORS_AMOUNT
 from services.vk.exceptions import (AccessDeniedException,
                                     TokenRevokedException,
                                     TooManyRequestsException)
-from services.vk.utils import (create_message_link, get_attachment_key,
+from services.vk.utils import (create_message_link, get_attachment_key, get_message_mentions,
                                prepare_sticker)
 from services.vk.vk_api.api import VKAPI
 from services.vk.vk_api.longpoll import (BaseVKLongpollEvent,
@@ -846,16 +846,50 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 				return
 
 			# Подготавливаем текст сообщения, который будет отправлен.
-			full_message_text = ""
 			msg_prefix = await self.get_message_prefix(event, is_outbox)
+			msg_body = utils.telegram_safe_str(event.text)
 			msg_suffix = ""
 
+			# Добавляем ссылки на вложения.
 			if attachment_items:
 				msg_suffix += "\n\n————————\n"
 
 				msg_suffix += "  |  ".join(attachment_items) + "."
 
-			full_message_text = msg_prefix + utils.telegram_safe_str(event.text) + msg_suffix
+			# Делаем обработку упоминаний вида:
+			#  "Привет, [id1|Дуров]!"
+			# ->
+			#  "Привет, Дуров!" (с ссылкой)
+			msg_mentions = get_message_mentions(msg_body)
+
+			for domain, mention_text in msg_mentions:
+				original_mention_text = f"[{domain}|{mention_text}]"
+
+				assert original_mention_text in msg_body, "Не получилось восстановить текст упоминания для замены"
+
+				# Извлекаем ID упоминаемого пользователя/группы, что бы получить информацию о нём (domain/username, полное имя).
+				mention_id = int(domain[2:]) if "id" in domain else -int(int(domain[4:]))
+
+				# Делаем API-запрос, получая информацию о пользователе.
+				mention_info = await self.get_user_info(mention_id)
+
+				# Создаём ссылку на страницу пользователя.
+				#
+				# В ссылке так же передаётся имя и фамилия упоминаемого пользвателя, это нужно
+				# что бы при нажатии на упоминание, клиенты Telegram показывали ссылку вида:
+				#   https://vk.com/durov?Павел_Дуров
+				mention_user_url = (
+					f"https://{'m.' if use_mobile_vk else ''}vk.com/"
+					f"{mention_info.username or domain}"
+					f"?{mention_info.name.replace(' ', '_')}"
+				)
+
+				msg_body = msg_body.replace(
+					original_mention_text,
+					f"<a href=\"{mention_user_url}\">{mention_text}</a>"
+				)
+
+			full_message_text = msg_prefix + msg_body + msg_suffix
 
 			# Отправляем готовое сообщение, и сохраняем его ID в БД бота.
 			async def _send_and_save(force_manual_files_upload: bool = False) -> None:
@@ -1296,7 +1330,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 	async def get_user_info(self, user_id: int, force_update: bool = False) -> TelehooperServiceUserInfo:
 		"""
-		Возвращает информацию о пользователе ВКонтакте.
+		Возвращает информацию о пользователе/группе ВКонтакте.
 
 		:param user_id: ID пользователя ВКонтакте.
 		:param force_update: Нужно ли обновить информацию о пользователе, если она уже есть в кэше.
@@ -1321,7 +1355,8 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 				id=user_info["id"],
 				name=f"{user_info['first_name']} {user_info['last_name']}",
 				profile_url=user_info.get("photo_max_orig"),
-				male=user_info.get("sex", 2) == 2 # Судя по документации ВК, может быть и третий вариант с ID 0, "пол не указан". https://dev.vk.com/ru/reference/objects/user#sex
+				male=user_info.get("sex", 2) == 2, # Судя по документации ВК, может быть и третий вариант с ID 0, "пол не указан". https://dev.vk.com/ru/reference/objects/user#sex
+				username=user_info.get("domain", f"id{user_info['id']}")
 			)
 		else:
 			# Группа (бот).
@@ -1334,7 +1369,8 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 				id=-group_info["id"],
 				name=group_info["name"],
 				profile_url=group_info.get("photo_200_orig"),
-				male=None
+				male=None,
+				username=group_info.get("domain", f"club{group_info['id']}")
 			)
 
 		self._cachedUsersInfo[user_id] = user_info_class

@@ -181,3 +181,14 @@ def get_attachment_key(attachment: dict, type: str | None = None, include_access
 		output += f"_{attachment['access_key']}"
 
 	return output
+
+def get_message_mentions(text: str) -> list[tuple[str, str]]:
+	"""
+	Извлекает из текста сообщения ВКонтакте массив, состоящий из ID (domain/username) и текста того, как упомянули пользователя или группу.
+
+	:param text: Содержимое текста сообщения из ВКонтакте.
+	"""
+
+	matches = re.findall(r"\[([^|\]]+)\|([^|\]]+)\]", text)
+
+	return [(id_part, text_part) for id_part, text_part in matches]

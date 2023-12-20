@@ -88,14 +88,17 @@ class TelehooperServiceUserInfo:
 	"""Аватарка пользователя в виде байтов."""
 	male: bool | None
 	"""Пол пользователя. Может отсутствовать."""
+	username: str | None
+	"""@username/domain пользователя. Может отсутствовать."""
 
-	def __init__(self, service_name: str, id: int, name: str, profile_url: str | None = None, profile_img: bytes | None = None, male: bool | None = None) -> None:
+	def __init__(self, service_name: str, id: int, name: str, profile_url: str | None = None, profile_img: bytes | None = None, male: bool | None = None, username: str | None = None) -> None:
 		self.service_name = service_name
 		self.id = id
 		self.name = name
 		self.profile_url = profile_url
 		self.profile_img = profile_img
 		self.male = male
+		self.username = username
 
 class BaseTelehooperServiceAPI:
 	"""
