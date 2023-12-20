@@ -834,6 +834,8 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 							pass
 						elif attachment_type == "wall_reply":
 							attachment_items.append(f"<a href=\"{message_url}\">📝 Комментарий к записи</a>")
+						elif attachment_type == "story":
+							attachment_items.append(f"<a href=\"{message_url}\">📝 История</a>")
 						else:
 							raise TypeError(f"Неизвестный тип вложения \"{attachment_type}\"")
 
