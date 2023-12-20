@@ -1179,7 +1179,8 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 		except TelegramForbiddenError:
 			await TelehooperAPI.delete_group_data(subgroup.parent.chat.id, fully_delete=True, bot=subgroup.parent.bot)
 		except Exception as error:
-			logger.error(f"Ошибка при удалении сообщения Telegam пользователя {utils.get_telegram_logging_info(self.user.telegramUser)}:", error)
+			if error:
+				logger.error(f"Ошибка при удалении сообщения Telegam пользователя {utils.get_telegram_logging_info(self.user.telegramUser)}:", error)
 
 	async def get_list_of_dialogues(self, force_update: bool = False, max_amount: int = 800, skip_ids: list[int] = []) -> list[ServiceDialogue]:
 		if not force_update and self._cachedDialogues:
