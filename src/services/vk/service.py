@@ -1643,34 +1643,32 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 									# Если нам дан стикер, то изменяем его размера.
 									if attch_type == "Sticker":
-										with utils.CodeTimer("Время на изменение размера стикера: {time}"):
+										try:
+											file_bytes = await prepare_sticker(file_bytes)
+										except PIL.UnidentifiedImageError as error:
+											error_message = await msg.reply(
+												"<b>⚠️ Ошибка пересылки сообщения</b>.\n"
+												"\n"
+												"Анимированные стикеры не поддерживаются.",
+												allow_sending_without_reply=True
+											)
+
+											# Удаляем сообщение об ошибке через время.
+											await asyncio.sleep(60)
 											try:
-												file_bytes = await prepare_sticker(file_bytes)
-											except PIL.UnidentifiedImageError as error:
-												error_message = await msg.reply(
-													"<b>⚠️ Ошибка пересылки сообщения</b>.\n"
-													"\n"
-													"Анимированные стикеры не поддерживаются.",
-													allow_sending_without_reply=True
-												)
+												await error_message.delete()
+											except:
+												pass
 
-												# Удаляем сообщение об ошибке через время.
-												await asyncio.sleep(60)
-												try:
-													await error_message.delete()
-												except:
-													pass
-
-												return
+											return
 
 									# Если нам дан документ, который является видео, то мы должны превратить его в gif.
 									this_attach = attchs_of_same_type_part[index]
 									if len(attchs_of_same_type_part) == 1 and isinstance(this_attach, TelegramDocument) and this_attach.mime_type == "video/mp4":
-										with utils.CodeTimer("Время на конвертацию mp4 в gif: {time}"):
-											try:
-												file_bytes = await utils.convert_mp4_to_gif(file_bytes)
-											except Exception as error:
-												raise Exception(f"Ошибка при конвертации mp4 из Telegram как gif")
+										try:
+											file_bytes = await utils.convert_mp4_to_gif(file_bytes)
+										except Exception as error:
+											raise Exception(f"Ошибка при конвертации mp4 из Telegram как gif")
 
 									form_data.add_field(name=field_name, value=file_bytes, filename=f"file{index}.{ext}" if ext else filenames.pop(0))
 
