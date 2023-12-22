@@ -402,7 +402,14 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 				return
 
 			# Добываем полную информацию о сообщении.
-			message_extended = (await self.vkAPI.messages_getById(event.message_id))["items"][0]
+			message_extended = (await self.vkAPI.messages_getById(event.message_id))["items"]
+
+			# Иногда случается такое, что пользователь отправляет сообщение и мгновенно удаляет его.
+			# В таком случае, API ВК не возвращает информацию о таком сообщении. Пропускаем такое событие.
+			if not message_extended:
+				return
+
+			message_extended = message_extended[0]
 
 			# Получаем ID сообщения с ответом, а так же парсим вложения сообщения.
 			reply_to = None
