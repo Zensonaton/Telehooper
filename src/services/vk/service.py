@@ -359,6 +359,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 			is_bot = (event.from_id or 0) < 0
 			from_self = (not is_convo and is_outbox) or (is_convo and event.from_id and event.from_id == self.service_user_id)
 			message_text_stripped = event.text.lower().strip()
+			original_message_sender_id = event.from_id
 
 			# Проверяем, стоит ли боту обрабатывать исходящие сообщения.
 			if is_outbox and not (ignore_outbox_debug or await self.user.get_setting("Services.VK.ViaServiceMessages")):
@@ -417,24 +418,13 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 				attachments = event.attachments.copy()
 
 				# Обрабатываем ответы (reply).
-				if "reply" in attachments or ("fwd_messages" in message_extended and len(message_extended["fwd_messages"]) == 1 and await self.user.get_setting("Services.VK.FWDAsReply")):
-					reply_vk_message_id: int | None = message_extended["reply_message"].get("id") if "reply" in attachments else None
-					fwd_vk_message_id: int | None = message_extended["fwd_messages"][0].get("id") if "reply" not in attachments else None
-					fwd_vk_conversation_message_id: int | None = message_extended["fwd_messages"][0].get("conversation_message_id") if "reply" not in attachments else None
+				if "reply" in attachments:
+					reply_vk_message_id: int | None = message_extended["reply_message"].get("id")
 
 					# В некоторых случаях ID reply может отсутствовать,
 					# вместо него либо ничего нет, либо есть conversation message id.
-					if not (reply_vk_message_id or fwd_vk_message_id or fwd_vk_conversation_message_id):
+					if not reply_vk_message_id:
 						logger.warning(f"[VK] Пользователь сделал Reply на сообщение во ВКонтакте, однако API ВКонтакте не вернул ID сообщения, на который был сделан Reply. Сообщение: {message_extended}")
-					elif fwd_vk_conversation_message_id:
-						# Нам дан Conversation Message ID, ищем "реальный" ID сообщения.
-						message_data = (await self.vkAPI.messages_getByConversationMessageId(event.peer_id, fwd_vk_conversation_message_id))["items"]
-
-						if message_data:
-							reply_vk_message_id = message_data[0]["id"]
-					elif fwd_vk_message_id:
-						# Была сделана пересылка сообщения, в таком случае используем ID данного сообщения.
-						reply_vk_message_id = fwd_vk_message_id
 
 					# Настоящий ID сообщения, на которое был дан ответ, получен. Получаем информацию о сообщении с БД бота.
 					if reply_vk_message_id:
@@ -443,6 +433,16 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 						# Если информация о данном сообщении есть, то мы можем получить ID сообщения в Telegram.
 						if telegram_message:
 							reply_to = telegram_message.telegram_message_ids[0]
+
+					# Если мы находимся в беседе, и настройка позволяет,
+					# то мы отправляем сообщение от имени самого "корневого" отправителя.
+					if is_convo and await self.user.get_setting("Services.VK.SameMinibotReply"):
+						cur_message_extended = message_extended["reply_message"]
+
+						while cur_message_extended.get("reply_message"):
+							cur_message_extended = cur_message_extended["reply_message"]
+
+						original_message_sender_id = cur_message_extended["from_id"]
 
 				# Обрабатываем клавиатуру.
 				if "keyboard" in message_extended:
@@ -512,7 +512,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 						longitude=attachment["coordinates"]["longitude"],
 						silent=is_outbox,
 						reply_to=reply_to,
-						sender_id=event.from_id if event.from_id != self.service_user_id else None
+						sender_id=original_message_sender_id
 					)
 
 					# Если произошёл rate limit, то msg будет None.
@@ -623,7 +623,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 											input=BufferedInputFile(video_bytes, filename=f"VK video note {attachment['id']}.mp4"),
 											silent=is_outbox,
 											reply_to=reply_to,
-											sender_id=event.from_id if event.from_id != self.service_user_id else None
+											sender_id=original_message_sender_id
 										)
 
 										# Если произошёл rate limit, то msg будет None.
@@ -715,7 +715,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 									),
 									silent=is_outbox,
 									reply_to=reply_to,
-									sender_id=event.from_id if event.from_id != self.service_user_id else None
+									sender_id=original_message_sender_id
 								)
 							except TelegramBadRequest:
 								# Поскольку кэш стикера оказался поломанным, стоит отправить стикер по-новой, игнорируя кэш.
@@ -729,7 +729,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 									),
 									silent=is_outbox,
 									reply_to=reply_to,
-									sender_id=event.from_id if event.from_id != self.service_user_id else None
+									sender_id=original_message_sender_id
 								)
 
 							# Если произошёл rate limit, то msg будет None.
@@ -849,6 +849,9 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 						else:
 							raise TypeError(f"Неизвестный тип вложения \"{attachment_type}\"")
 
+			# Делаем так, что бы сообщения от имени владельца страницы отправлялись от имени основного бота Telehooper.
+			original_message_sender_id = original_message_sender_id if original_message_sender_id != self.service_user_id else None
+
 			# Проверяем, не было ли это событие беседы из ВК.
 			if is_convo and event.source_act:
 				await handle_message_events()
@@ -952,7 +955,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 					silent=is_outbox,
 					reply_to=reply_to,
 					keyboard=keyboard,
-					sender_id=event.from_id if event.from_id != self.service_user_id else None
+					sender_id=original_message_sender_id
 				)
 
 				# Если произошёл rate limit, то ответ на отправку сообщений будет равен None.
@@ -969,7 +972,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 						attachments=audio_attachments, # type: ignore
 						silent=is_outbox,
 						reply_to=msg_special[0],
-						sender_id=event.from_id if event.from_id != self.service_user_id else None
+						sender_id=original_message_sender_id
 					)
 
 					if msg_audio:
@@ -981,7 +984,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 						attachments=doc_attachments, # type: ignore
 						silent=is_outbox,
 						reply_to=msg_special[0],
-						sender_id=event.from_id if event.from_id != self.service_user_id else None
+						sender_id=original_message_sender_id
 					)
 
 					if msg_docs:
