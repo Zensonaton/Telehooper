@@ -1360,54 +1360,76 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 			profile_url=self_info.get("photo_max_orig"),
 		)
 
+	async def get_users_info(self, user_ids: list[int], force_update: bool = False) -> list[TelehooperServiceUserInfo]:
+		"""
+		Возвращает информацию о множестве пользователей/групп ВКонтакте.
+
+		:param user_ids: ID пользователей ВКонтакте.
+		:param force_update: Нужно ли обновлять информацию о пользователях/группах, если она уже есть в кэше. Если нет каких-то передаваемых пользователей/групп в кэше, то бот их обновит.
+		"""
+
+		if not force_update:
+			cached_items = [self._cachedUsersInfo[k] for k in user_ids if k in self._cachedUsersInfo]
+
+			if len(cached_items) == len(user_ids):
+				return cached_items
+
+		users_get = {}
+		groups_get = {}
+
+		# Во ВКонтакте, пользователи имеют положительный ID,
+		# пока как группы (т.е., сообщества/боты) имеют отрицательный.
+		if any([i for i in user_ids if i > 0]):
+			users_get = await self.vkAPI.users_get(user_ids=[i for i in user_ids if i > 0])
+
+		if any([i for i in user_ids if i < 0]):
+			groups_get = await self.vkAPI.groups_getByID(user_ids=[abs(i) for i in user_ids if i < 0])
+
+		assert len(users_get) + len(groups_get) == len(user_ids), f"Список требуемых от API ВКонтакте пользователей/групп ({len(user_ids)}) не совпадает с ответом ({len(users_get) + len(groups_get)})"
+
+		# Создаём список из объектов типа TelehooperServiceUserInfo.
+		users_info: list[TelehooperServiceUserInfo] = []
+
+		for user in users_get:
+			users_info.append(
+				TelehooperServiceUserInfo(
+					service_name=self.service_name,
+					id=user["id"],
+					name=f"{user['first_name']} {user['last_name']}",
+					profile_url=user.get("photo_max_orig"),
+					male=user.get("sex", 2) == 2, # Судя по документации ВК, может быть и третий вариант с ID 0, "пол не указан". https://dev.vk.com/ru/reference/objects/user#sex
+					username=user.get("domain", f"id{user['id']}")
+				)
+			)
+
+		for group in groups_get:
+			users_info.append(
+				TelehooperServiceUserInfo(
+					service_name=self.service_name,
+					id=-group["id"],
+					name=group["name"],
+					profile_url=group.get("photo_200_orig"),
+					male=None,
+					username=group.get("domain", f"club{group['id']}")
+				)
+			)
+
+		# Сохраняем всю информацию в кэш.
+		for user in users_info:
+			self._cachedUsersInfo[user.id] = user
+
+		# TODO: Вернуть всё в таком же порядке, как и передавалось в user_ids.
+		return users_info
+
 	async def get_user_info(self, user_id: int, force_update: bool = False) -> TelehooperServiceUserInfo:
 		"""
 		Возвращает информацию о пользователе/группе ВКонтакте.
 
-		:param user_id: ID пользователя ВКонтакте.
-		:param force_update: Нужно ли обновить информацию о пользователе, если она уже есть в кэше.
+		:param user_id: ID пользователя или группы ВКонтакте.
+		:param force_update: Нужно ли обновлять информацию о пользователе/группе, если информация уже есть в кэше.
 		"""
 
-		if not force_update and user_id in self._cachedUsersInfo:
-			return self._cachedUsersInfo[user_id]
-
-		# Во ВКонтакте, пользователи имеют положительный ID,
-		# пока как группы (т.е., боты) имеют отрицательный.
-		#
-		# Здесь, в зависимости от знака ID используются разные API-запросы.
-		user_info_class: TelehooperServiceUserInfo
-		if user_id > 0:
-			# Пользователь.
-
-			user_info = (await self.vkAPI.users_get(user_ids=[user_id]))[0]
-			assert user_info, f"Данные о пользователе с ID {user_id} не были получены от API ВКонтакте, хотя обязаны были быть"
-
-			user_info_class = TelehooperServiceUserInfo(
-				service_name=self.service_name,
-				id=user_info["id"],
-				name=f"{user_info['first_name']} {user_info['last_name']}",
-				profile_url=user_info.get("photo_max_orig"),
-				male=user_info.get("sex", 2) == 2, # Судя по документации ВК, может быть и третий вариант с ID 0, "пол не указан". https://dev.vk.com/ru/reference/objects/user#sex
-				username=user_info.get("domain", f"id{user_info['id']}")
-			)
-		else:
-			# Группа (бот).
-
-			group_info = (await self.vkAPI.groups_getByID(user_ids=[abs(user_id)]))[0]
-			assert group_info, f"Данные о группе с ID {user_id} не были получены от API ВКонтакте, хотя обязаны были быть"
-
-			user_info_class = TelehooperServiceUserInfo(
-				service_name=self.service_name,
-				id=-group_info["id"],
-				name=group_info["name"],
-				profile_url=group_info.get("photo_200_orig"),
-				male=None,
-				username=group_info.get("domain", f"club{group_info['id']}")
-			)
-
-		self._cachedUsersInfo[user_id] = user_info_class
-
-		return user_info_class
+		return (await self.get_users_info(user_ids=[user_id], force_update=force_update))[0]
 
 	async def get_service_dialogue(self, chat_id: int, force_update: bool = False) -> ServiceDialogue:
 		dialogues = await self.get_list_of_dialogues(force_update=force_update)
