@@ -421,11 +421,6 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 				if "reply" in attachments:
 					reply_vk_message_id: int | None = message_extended["reply_message"].get("id")
 
-					# В некоторых случаях ID reply может отсутствовать,
-					# вместо него либо ничего нет, либо есть conversation message id.
-					if not reply_vk_message_id:
-						logger.warning(f"[VK] Пользователь сделал Reply на сообщение во ВКонтакте, однако API ВКонтакте не вернул ID сообщения, на который был сделан Reply. Сообщение: {message_extended}")
-
 					# Настоящий ID сообщения, на которое был дан ответ, получен. Получаем информацию о сообщении с БД бота.
 					if reply_vk_message_id:
 						telegram_message = await subgroup.service.get_message_by_service_id(self.service_user_id, reply_vk_message_id)
