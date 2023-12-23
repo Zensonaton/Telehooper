@@ -1222,18 +1222,24 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 			return
 
 		# Удаляем сообщение.
+		sender_id = subgroup.service.service_user_id if subgroup.service.service_user_id != self.service_user_id else None
 		try:
 			logger.debug(f"Удаляю сообщения с ID {telegram_message.telegram_message_ids}")
 
 			await subgroup.delete_message(
 				telegram_message.telegram_message_ids,
-				sender_id=subgroup.service.service_user_id if subgroup.service.service_user_id != self.service_user_id else None
+				sender_id=sender_id
 			)
 		except TelegramForbiddenError:
 			await TelehooperAPI.delete_group_data(subgroup.parent.chat.id, fully_delete=True, bot=subgroup.parent.bot)
-		except Exception as error:
-			if error:
-				logger.error(f"Ошибка при удалении сообщения Telegam пользователя {utils.get_telegram_logging_info(self.user.telegramUser)}:", error)
+		except Exception:
+			try:
+				# Если не удалось удалить при помощи минибота, то удаляем главным ботом.
+
+				if sender_id:
+					await subgroup.delete_message(telegram_message.telegram_message_ids)
+			except Exception:
+				pass
 
 	async def get_list_of_dialogues(self, force_update: bool = False, max_amount: int = 800, skip_ids: list[int] = []) -> list[ServiceDialogue]:
 		if not force_update and self._cachedDialogues:
