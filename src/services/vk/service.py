@@ -66,7 +66,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 	"""Кэшированный список диалогов."""
 	_longPollTask: asyncio.Task | None = None
 	"""Задача, выполняющая longpoll."""
-	_cachedUsersInfo: cachetools.TLRUCache[int, TelehooperServiceUserInfo] # 80 элементов, 5 минут хранения.
+	_cachedUsersInfo: cachetools.TLRUCache[int, TelehooperServiceUserInfo] # 50 элементов, 30 минут хранения.
 	"""Кэшированные данные о пользователях ВКонтакте для быстрого повторного получения."""
 	_globalErrorAmount: int
 	"""Количество глобальных ошибок. При достижении определённого количества ошибок (см. `VK_LONGPOLL_GLOBAL_ERRORS_AMOUNT`), VK longpoll автоматически отключается от бота."""
@@ -84,7 +84,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 		self.vkAPI = VKAPI(self.token)
 
 		self.limiter = limiter
-		self._cachedUsersInfo = cachetools.TLRUCache(maxsize=80, ttu=lambda _, value, now: now + 5 * 60)
+		self._cachedUsersInfo = cachetools.TLRUCache(maxsize=50, ttu=lambda _, value, now: now + 30 * 60)
 		self._globalErrorAmount = 0
 		self._autoReadChats = {}
 
