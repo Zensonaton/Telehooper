@@ -30,6 +30,7 @@ async def status_command_handler(msg: Message) -> None:
 		"<b>📊 Состояние бота</b>.\n"
 		"\n"
 		"Техническая информация о боте:\n"
+		f" • <b>Uptime</b>: {utils.seconds_to_userfriendly_string(utils.time_since(api._start_timestamp))}.\n"
 		f" • <b>Commit hash</b>: {commit_hash_url or '<i>⚠️ commit hash неизвестен*</i>'}.\n"
 		f" • <b>Версия объектов БД</b>: v{utils.get_bot_version()}.\n"
 		f" • <b>RAM usage</b>: {round(utils.get_ram_usage())} МБ.\n"

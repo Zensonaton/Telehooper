@@ -40,6 +40,7 @@ _service_dialogues: list["TelehooperSubGroup"] = []
 _cached_message_ids: dict[int, list["TelehooperMessage"]] = {}
 _cached_attachments: list["TelehooperCachedAttachment"] = []
 _media_group_messages: dict[str, list] = {}
+_start_timestamp = utils.get_timestamp()
 
 settings = SettingsHandler(SETTINGS_TREE)
 
