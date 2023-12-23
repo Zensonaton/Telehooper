@@ -192,3 +192,14 @@ def get_message_mentions(text: str) -> list[tuple[str, str]]:
 	matches = re.findall(r"\[([^|\]]+)\|([^|\]]+)\]", text)
 
 	return [(id_part, text_part) for id_part, text_part in matches]
+
+def extract_id_from_domain(domain: str) -> int:
+	"""
+	Возвращает цифровой ID из domain-строки вида `id1`, `club1`. Если ID получить не удалось, то метод вернёт исключение.
+
+	:param domain: Строка вида `id1` или `club1`.
+	"""
+
+	assert "id" in domain or "club" in domain, "Получен неправильный формат domain'а"
+
+	return int(domain[2:]) if "id" in domain else -int(int(domain[4:]))

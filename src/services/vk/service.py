@@ -36,7 +36,7 @@ from services.vk.consts import VK_LONGPOLL_GLOBAL_ERRORS_AMOUNT
 from services.vk.exceptions import (AccessDeniedException,
                                     TokenRevokedException,
                                     TooManyRequestsException)
-from services.vk.utils import (create_message_link, get_attachment_key, get_message_mentions,
+from services.vk.utils import (create_message_link, extract_id_from_domain, get_attachment_key, get_message_mentions,
                                prepare_sticker)
 from services.vk.vk_api.api import VKAPI
 from services.vk.vk_api.longpoll import (BaseVKLongpollEvent,
@@ -184,11 +184,16 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 		else:
 			logger.warning(f"[VK] Метод handle_update столкнулся с неизвестным событием {event.__class__.__name__}: {event.event_data}")
 
-	async def get_message_prefix(self, event: LongpollNewMessageEvent | LongpollMessageEditEvent, is_outbox: bool, sent_via_bot: bool = False) -> str:
+	async def get_message_prefix(self, event: LongpollNewMessageEvent | LongpollMessageEditEvent, is_outbox: bool, has_attachments: bool = False, sent_via_bot: bool = False) -> str:
 		"""
 		Возвращает префикс для отправляемого (или редактируемого) сообщения. Такой префикс выглядит как:
 		- `[Вы]: `.
 		- `[Имя Ф.]`
+
+		:param event: Событие нового (или редактируемого) сообщения, полученного с longpoll.
+		:param is_outbox: Указывает, является ли сообщение исходящим.
+		:param has_attachments: Указывает, есть ли в сообщении вложения.
+		:param sent_via_bot: Указывает, было ли сообщение отправлено через бота.
 		"""
 
 		use_compact_names = await self.user.get_setting("Services.VK.CompactNames")
@@ -217,12 +222,59 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 		msg_prefix += "]"
 
-		# Проверяем, указан ли текст сообщения. Если да, то для красоты добавляем символ ":":
-		# [Вы]: ...
-		if event.text if isinstance(event, LongpollNewMessageEvent) else event.new_text:
+		# Проверяем, указан ли текст сообщения, или в нём есть вложения. Если да, то добавляем ":":
+		#   [Вы]: ...
+		if (event.text if isinstance(event, LongpollNewMessageEvent) else event.new_text) or has_attachments:
 			msg_prefix += ": "
 
 		return msg_prefix
+
+	async def parse_message_mentions(self, text: str, use_mobile_vk: bool = False) -> str:
+		"""
+		Парсит содержимое сообщения, заменяя упоминания в формате `[id1|@durov]` в формат вида `<a href="...">@durov</a>` для Telegram.
+
+		:param text: Содержимое сообщения, в котором могут находиться упоминания.
+		:param use_mobile_vk: Указывает, что вместо `vk.com` будет использоваться мобильная версия сайта `m.vk.com`.
+		"""
+
+		msg_mentions = get_message_mentions(text)
+
+		# Для начала, мы обязаны получить от API информацию о упоминаемых пользователях.
+		mentioned_users_info = await self.get_users_info(user_ids=[extract_id_from_domain(domain) for domain, _ in msg_mentions])
+
+		for domain, mention_text in msg_mentions:
+			mention_id = extract_id_from_domain(domain)
+			original_mention_text = f"[{domain}|{mention_text}]"
+
+			assert original_mention_text in text, "Не получилось восстановить текст упоминания для замены"
+
+			# Используя предыдущий запрос, извлекаем информацию о пользователе или группе.
+			for user in mentioned_users_info:
+				if user.id != mention_id:
+					continue
+
+				mention_info = user
+				break
+			else:
+				raise Exception("Не была найдена информация об упоминаемом пользователе")
+
+			# Создаём ссылку на страницу пользователя.
+			#
+			# В ссылке так же передаётся имя и фамилия упоминаемого пользвателя, это нужно
+			# что бы при нажатии на упоминание, клиенты Telegram показывали ссылку вида:
+			#   https://vk.com/durov?Павел_Дуров
+			mention_user_url = (
+				f"https://{'m.' if use_mobile_vk else ''}vk.com/"
+				f"{mention_info.username or domain}"
+				f"?{mention_info.name.replace(' ', '_')}"
+			)
+
+			text = text.replace(
+				original_mention_text,
+				f"<a href=\"{mention_user_url}\">{mention_text}</a>"
+			)
+
+		return text
 
 	async def handle_vk_message(self, event: LongpollNewMessageEvent) -> None:
 		"""
@@ -854,49 +906,18 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 				return
 
 			# Подготавливаем текст сообщения, который будет отправлен.
-			msg_prefix = await self.get_message_prefix(event, is_outbox)
-			msg_body = utils.telegram_safe_str(event.text)
+			msg_prefix = await self.get_message_prefix(event, is_outbox=is_outbox, has_attachments=bool(attachment_items))
+			msg_body = await self.parse_message_mentions(utils.telegram_safe_str(event.text), use_mobile_vk=use_mobile_vk)
 			msg_suffix = ""
 
-			# Добавляем ссылки на вложения.
+			# Добавляем ссылки на вложения, если таковые есть.
 			if attachment_items:
-				msg_suffix += "\n\n————————\n"
+				if msg_body:
+					msg_suffix += "\n\n————————\n"
 
 				msg_suffix += "  |  ".join(attachment_items) + "."
 
-			# Делаем обработку упоминаний вида:
-			#  "Привет, [id1|Дуров]!"
-			# ->
-			#  "Привет, Дуров!" (с ссылкой)
-			msg_mentions = get_message_mentions(msg_body)
-
-			for domain, mention_text in msg_mentions:
-				original_mention_text = f"[{domain}|{mention_text}]"
-
-				assert original_mention_text in msg_body, "Не получилось восстановить текст упоминания для замены"
-
-				# Извлекаем ID упоминаемого пользователя/группы, что бы получить информацию о нём (domain/username, полное имя).
-				mention_id = int(domain[2:]) if "id" in domain else -int(int(domain[4:]))
-
-				# Делаем API-запрос, получая информацию о пользователе.
-				mention_info = await self.get_user_info(mention_id)
-
-				# Создаём ссылку на страницу пользователя.
-				#
-				# В ссылке так же передаётся имя и фамилия упоминаемого пользвателя, это нужно
-				# что бы при нажатии на упоминание, клиенты Telegram показывали ссылку вида:
-				#   https://vk.com/durov?Павел_Дуров
-				mention_user_url = (
-					f"https://{'m.' if use_mobile_vk else ''}vk.com/"
-					f"{mention_info.username or domain}"
-					f"?{mention_info.name.replace(' ', '_')}"
-				)
-
-				msg_body = msg_body.replace(
-					original_mention_text,
-					f"<a href=\"{mention_user_url}\">{mention_text}</a>"
-				)
-
+			# Композируем полное сообщение.
 			full_message_text = msg_prefix + msg_body + msg_suffix
 
 			# Отправляем готовое сообщение, и сохраняем его ID в БД бота.
@@ -1152,11 +1173,12 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 			return
 
 		# Подготавливаем текст сообщения, который будет отправлен.
-		full_message_text = ""
-		msg_prefix = await self.get_message_prefix(event, is_outbox=event.flags.outbox)
+		use_mobile_vk = await self.user.get_setting("Services.VK.MobileVKURLs")
+		msg_prefix = await self.get_message_prefix(event, is_outbox=event.flags.outbox) # FIXME: Тут теряется информация о вложениях сообщения.
+		msg_body   = await self.parse_message_mentions(utils.telegram_safe_str(event.new_text), use_mobile_vk=use_mobile_vk)
 		msg_suffix = " <i>(ред.)</i>"
 
-		full_message_text = msg_prefix + utils.telegram_safe_str(event.new_text) + msg_suffix
+		full_message_text = msg_prefix + msg_body + msg_suffix
 
 		# Редактируем сообщение.
 		try:
