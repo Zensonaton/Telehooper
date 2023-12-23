@@ -22,6 +22,10 @@ async def status_command_handler(msg: Message) -> None:
 	if commit_hash_url:
 		commit_hash_url = f"<a href=\"{GITHUB_SOURCES_URL}/commit/{commit_hash_url}\">{commit_hash_url}</a>"
 
+	mids_sum = 0
+	for mid_objects in api._cached_message_ids.values():
+		mids_sum += len(mid_objects)
+
 	await msg.answer(
 		"<b>📊 Состояние бота</b>.\n"
 		"\n"
@@ -32,7 +36,7 @@ async def status_command_handler(msg: Message) -> None:
 		f" • <b>Миниботов подключено</b>: {len(get_minibots())} шт.\n"
 		f" • <b>Объектов ServiceAPI</b>: {len(api._saved_connections)} шт.\n"
 		f" • <b>Объектов TelehooperSubGroup</b>: {len(api._service_dialogues)} шт.\n"
-		f" • <b>Кэшированные MIDs</b>: {len(api._cached_message_ids)} шт.\n"
+		f" • <b>Кэшированные MIDs</b>: {mids_sum} шт., (при {len(api._cached_message_ids)} объектах)\n"
 		f" • <b>Кэшированные вложения</b>: {len(api._cached_attachments)} шт.\n"
 		"\n"
 		f"{'⚠️ Боту не удалось получить commit hash. Это значит, что человек, запустивший этого бота на своём сервере не использовал git. Это плохо, поскольку это может обозначать то, что бот может быть неактуальной либо поддельной версии.' if not commit_hash_url else ''}"

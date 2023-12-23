@@ -1932,6 +1932,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 		# Удаляем из кэша сообщений.
 		await TelehooperAPI.delete_message(
 			"VK",
+			self.service_user_id,
 			saved_message.service_message_ids
 		)
 
@@ -2046,15 +2047,15 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 		await self.send_callback(saved_message.service_message_ids[0], peer_id, service_callback_query)
 
-	async def get_message_by_telegram_id(self, service_owner_id: int, message_id: int, bypass_cache: bool = False) -> Optional["TelehooperMessage"]:
+	async def get_message_by_telegram_id(self, service_owner_id: int, message_id: int) -> Optional["TelehooperMessage"]:
 		from api import TelehooperAPI
 
-		return await TelehooperAPI.get_message_by_telegram_id("VK", message_id, service_owner_id, bypass_cache=bypass_cache)
+		return await TelehooperAPI.get_message_by_telegram_id("VK", message_id, service_owner_id)
 
-	async def get_message_by_service_id(self, service_owner_id: int, message_id: int, bypass_cache: bool = False) -> Optional["TelehooperMessage"]:
+	async def get_message_by_service_id(self, service_owner_id: int, message_id: int) -> Optional["TelehooperMessage"]:
 		from api import TelehooperAPI
 
-		return await TelehooperAPI.get_message_by_service_id("VK", message_id, service_owner_id, bypass_cache=bypass_cache)
+		return await TelehooperAPI.get_message_by_service_id("VK", message_id, service_owner_id)
 
 	@staticmethod
 	async def reconnect_on_restart(user: "TelehooperUser", db_user: Document, bot: Bot) -> Optional["VKServiceAPI"]:

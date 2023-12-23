@@ -37,7 +37,7 @@ from settings import SETTINGS_TREE, SettingsHandler
 # Да, я знаю что это плохой способ. Знаю. Ни к чему другому, адекватному я не пришёл.
 _saved_connections = {}
 _service_dialogues: list["TelehooperSubGroup"] = []
-_cached_message_ids: list["TelehooperMessage"] = []
+_cached_message_ids: dict[int, list["TelehooperMessage"]] = {}
 _cached_attachments: list["TelehooperCachedAttachment"] = []
 _media_group_messages: dict[str, list] = {}
 
@@ -821,8 +821,6 @@ class TelehooperMessage:
 
 	service: str
 	"""Название сервиса, через который было отправлено сообщение."""
-	service_owner_id: int
-	"""ID пользователя сервиса, который связан с этим сообщением."""
 	telegram_message_ids: list[int]
 	"""Список ID сообщений в Telegram. Может быть несколько, если сообщение является альбомом."""
 	service_message_ids: list[int]
@@ -832,12 +830,11 @@ class TelehooperMessage:
 	sent_via_bot: bool
 	"""Отправлено ли сообщение через бота."""
 
-	def __init__(self, service: str, service_owner_id: int, telegram_mids: int | list[int], service_mids: int | list[int], service_conv_mids: int | list[int] | None = None, sent_via_bot: bool = False) -> None:
+	def __init__(self, service: str, telegram_mids: int | list[int], service_mids: int | list[int], service_conv_mids: int | list[int] | None = None, sent_via_bot: bool = False) -> None:
 		"""
 		Инициализирует объект сообщения.
 
 		:param service: Название сервиса, через который было отправлено сообщение.
-		:param service_owner_id: ID пользователя сервиса, который связан с этим сообщением.
 		:param telegram_mids: ID сообщения(-ий) в Telegram.
 		:param service_mids: ID сообщения(-ий) в сервисе.
 		:param service_conv_mids: ID сообщения(-ий) в сервисе относительно беседы.
@@ -845,7 +842,6 @@ class TelehooperMessage:
 		"""
 
 		self.service = service
-		self.service_owner_id = service_owner_id
 		self.telegram_message_ids = [telegram_mids] if isinstance(telegram_mids, int) else telegram_mids
 		self.service_message_ids = [service_mids] if isinstance(service_mids, int) else service_mids
 		self.service_conversation_message_ids = [service_conv_mids] if isinstance(service_conv_mids, int) else service_conv_mids
@@ -1365,25 +1361,21 @@ class TelehooperAPI:
 		:param sent_via_bot: Отправлено ли сообщение через бота.
 		"""
 
-		msg = TelehooperMessage(
+		_cached_message_ids.setdefault(service_owner_id, []).append(TelehooperMessage(
 			service=service_name,
-			service_owner_id=service_owner_id,
 			telegram_mids=telegram_message_id,
 			service_mids=service_message_id,
 			service_conv_mids=service_conv_mids,
 			sent_via_bot=sent_via_bot
-		)
-
-		_cached_message_ids.append(msg)
-
-		# TODO: Сохранить в БД.
+		))
 
 	@staticmethod
-	async def delete_message(service_name: str, telegram_message_id: int | list[int] | None = None, service_message_id: int | list[int] | None = None):
+	async def delete_message(service_name: str, service_owner_id: int, telegram_message_id: int | list[int] | None = None, service_message_id: int | list[int] | None = None):
 		"""
 		Удаляет ID сообщения из БД с соответствием по ID сообщения сервиса или Telegram.
 
 		:param service_name: Название сервиса, через который было отправлено сообщение.
+		:param service_owner_id: ID пользователя сервиса, который связан с этим сообщением.
 		:param telegram_message_id: ID сообщения(-ий) в Telegram.
 		:param service_message_id: ID сообщения(-ий) в сервисе.
 		"""
@@ -1399,7 +1391,7 @@ class TelehooperAPI:
 		telegram_message_id = cast(list[int], telegram_message_id)
 		service_message_id = cast(list[int], service_message_id)
 
-		for index, msg in enumerate(_cached_message_ids):
+		for index, msg in enumerate(_cached_message_ids.get(service_owner_id, [])):
 			if msg.service != service_name:
 				continue
 
@@ -1407,7 +1399,7 @@ class TelehooperAPI:
 				if mid in msg.telegram_message_ids:
 					continue
 
-				del _cached_message_ids[index]
+				del _cached_message_ids[service_owner_id][index]
 
 				return
 
@@ -1415,69 +1407,47 @@ class TelehooperAPI:
 				if mid in msg.service_message_ids:
 					continue
 
-				del _cached_message_ids[index]
+				del _cached_message_ids[service_owner_id][index]
 
 				return
 
-		# TODO: Удалить из БД.
-
 	@staticmethod
-	async def get_message_by_telegram_id(service_name: str, message_id: int, service_owner_id: int, bypass_cache: bool = False) -> TelehooperMessage | None:
+	async def get_message_by_telegram_id(service_name: str, message_id: int, service_owner_id: int) -> TelehooperMessage | None:
 		"""
 		Возвращает информацию о отправленном через бота сообщения по его ID в Telegram.
 
 		:param service_name: Название сервиса, через который было отправлено сообщение.
 		:param message_id: ID сообщения в Telegram.
 		:param service_owner_id: ID пользователя сервиса, который связан с этим сообщением.
-		:param bypass_cache: Игнорировать ли кэш. Если да, то бот будет искать сообщение только в БД.
 		"""
 
-		# Если нам это разрешено, возвращаем ID сообщения из кэша.
-		if not bypass_cache:
-			for msg in _cached_message_ids:
-				if msg.service != service_name:
-					continue
+		for msg in _cached_message_ids.get(service_owner_id, []):
+			if msg.service != service_name:
+				continue
 
-				if msg.service_owner_id != service_owner_id:
-					continue
+			if message_id not in msg.telegram_message_ids:
+				continue
 
-				if message_id not in msg.telegram_message_ids:
-					continue
-
-				return msg
-
-		# TODO: Извлечь информацию о сообщении из БД.
-
-		return None
+			return msg
 
 	@staticmethod
-	async def get_message_by_service_id(service_name: str, message_id: int, service_owner_id: int, bypass_cache: bool = False) -> TelehooperMessage | None:
+	async def get_message_by_service_id(service_name: str, message_id: int, service_owner_id: int) -> TelehooperMessage | None:
 		"""
 		Возвращает информацию о отправленном через бота сообщения по его ID в сервисе.
 
 		:param service_name: Название сервиса, через который было отправлено сообщение.
 		:param message_id: ID сообщения в сервисе.
 		:param service_owner_id: ID пользователя сервиса, который связан с этим сообщением.
-		:param bypass_cache: Игнорировать ли кэш. Если да, то бот будет искать сообщение только в БД.
 		"""
 
-		# Если нам это разрешено, возвращаем ID сообщения из кэша.
-		if not bypass_cache:
-			for msg in _cached_message_ids:
-				if msg.service != service_name:
-					continue
+		for msg in _cached_message_ids.get(service_owner_id, []):
+			if msg.service != service_name:
+				continue
 
-				if msg.service_owner_id != service_owner_id:
-					continue
+			if message_id not in msg.service_message_ids:
+				continue
 
-				if message_id not in msg.service_message_ids:
-					continue
-
-				return msg
-
-		# TODO: Извлечь информацию о сообщении из БД.
-
-		return None
+			return msg
 
 	@staticmethod
 	async def save_attachment(service_name: str, key: str, value: str):
