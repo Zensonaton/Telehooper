@@ -19,9 +19,9 @@ from loguru import logger
 
 from config import config
 from consts import (MAX_DOWNLOAD_FILE_SIZE_BYTES,
-                    MAX_LOCAL_SERVER_DOWNLOAD_FILE_SIZE_BYTES,
-                    MAX_LOCAL_SERVER_UPLOAD_FILE_SIZE_BYTES,
-                    MAX_UPLOAD_FILE_SIZE_BYTES)
+					MAX_LOCAL_SERVER_DOWNLOAD_FILE_SIZE_BYTES,
+					MAX_LOCAL_SERVER_UPLOAD_FILE_SIZE_BYTES,
+					MAX_UPLOAD_FILE_SIZE_BYTES)
 
 
 def get_timestamp() -> int:
@@ -431,3 +431,14 @@ def max_download_bytes() -> int:
 	"""
 
 	return MAX_LOCAL_SERVER_DOWNLOAD_FILE_SIZE_BYTES if is_local_bot_api() else MAX_DOWNLOAD_FILE_SIZE_BYTES
+
+def extract_url(input: str) -> str | None:
+	"""
+	Извлекает самую первую ссылку из входной строки.
+
+	:param input: Входная строка, из которой будет извлечён URL.
+	"""
+
+	match = re.search(r"https?://\S+", input)
+
+	return match.group() if match else None

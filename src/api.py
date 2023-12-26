@@ -697,12 +697,13 @@ class TelehooperGroup:
 			message_thread_id=topic
 		)
 
-	async def edit_message(self, new_text: str, id: int, sender_id: int | None = None, bypass_queue: bool = False) -> None:
+	async def edit_message(self, new_text: str, id: int, disable_web_preview: bool = False, sender_id: int | None = None, bypass_queue: bool = False) -> None:
 		"""
 		Редактирует сообщение в Telegram-группе.
 
 		:param new_text: Новый текст сообщения.
 		:param id: ID сообщения, которое нужно отредактировать.
+		:param disable_web_preview: Отключить ли превью ссылок.
 		:param sender_id: ID пользователя, с которым должен быть найден ассоциированный минибот.
 		:param bypass_queue: Отредактировать ли сообщение, минуя очередь.
 		"""
@@ -716,7 +717,8 @@ class TelehooperGroup:
 			await bot.edit_message_text(
 				text=new_text,
 				chat_id=self.chat.id,
-				message_id=id
+				message_id=id,
+				disable_web_page_preview=disable_web_preview
 			)
 		except TelegramBadRequest:
 			# Если мы пытаемся отредачить сообщение с медиа (к примеру, фото), то нужно использовать метод `edit_message_caption`.
@@ -1017,12 +1019,13 @@ class TelehooperSubGroup:
 			bypass_queue=bypass_queue
 		)
 
-	async def edit_message(self, new_text: str, id: int, sender_id: int | None = None, bypass_queue: bool = False) -> None:
+	async def edit_message(self, new_text: str, id: int, disable_web_preview: bool = False, sender_id: int | None = None, bypass_queue: bool = False) -> None:
 		"""
 		Редактирует сообщение в Telegram-группе.
 
 		:param new_text: Новый текст сообщения.
 		:param id: ID сообщения, которое нужно отредактировать.
+		:param disable_web_preview: Отключить ли превью ссылок.
 		:param sender_id: ID пользователя, с которым должен быть найден ассоциированный минибот.
 		:param bypass_queue: Отправить ли событие печати без учёта лимитов.
 		"""
@@ -1030,8 +1033,9 @@ class TelehooperSubGroup:
 		return await self.parent.edit_message(
 			new_text,
 			id=id,
+			disable_web_preview=disable_web_preview,
 			sender_id=sender_id,
-			bypass_queue=bypass_queue
+			bypass_queue=bypass_queue,
 		)
 
 	async def delete_message(self, id: list[int] | int, sender_id: int | None = None) -> None:

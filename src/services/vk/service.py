@@ -415,6 +415,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 			from_self = (not is_convo and is_outbox) or (is_convo and event.from_id and event.from_id == self.service_user_id)
 			message_text_stripped = event.text.lower().strip()
 			original_message_sender_id = event.from_id
+			first_message_text_url = utils.extract_url(message_text_stripped)
 
 			# Проверяем, стоит ли боту обрабатывать исходящие сообщения.
 			if is_outbox and not (ignore_outbox_debug or await self.user.get_setting("Services.VK.ViaServiceMessages")):
@@ -923,6 +924,9 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 			# Композируем полное сообщение.
 			full_message_text = msg_prefix + msg_body + msg_suffix
 
+			# Извлекаем первый URL из полного сообщения, что бы понять, нужно ли нам прятать веб-превью или нет.
+			full_message_first_url = utils.extract_url(full_message_text)
+
 			# Отправляем готовое сообщение, и сохраняем его ID в БД бота.
 			async def _send_and_save(force_manual_files_upload: bool = False) -> None:
 				"""
@@ -974,7 +978,8 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 					silent=is_outbox,
 					reply_to=reply_to,
 					keyboard=keyboard,
-					sender_id=original_message_sender_id
+					sender_id=original_message_sender_id,
+					disable_web_preview=first_message_text_url != full_message_first_url
 				)
 
 				# Если произошёл rate limit, то ответ на отправку сообщений будет равен None.
@@ -991,7 +996,8 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 						attachments=audio_attachments, # type: ignore
 						silent=is_outbox,
 						reply_to=msg_special[0],
-						sender_id=original_message_sender_id
+						sender_id=original_message_sender_id,
+						disable_web_preview=first_message_text_url != full_message_first_url
 					)
 
 					if msg_audio:
@@ -1003,7 +1009,8 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 						attachments=doc_attachments, # type: ignore
 						silent=is_outbox,
 						reply_to=msg_special[0],
-						sender_id=original_message_sender_id
+						sender_id=original_message_sender_id,
+						disable_web_preview=first_message_text_url != full_message_first_url
 					)
 
 					if msg_docs:
@@ -1183,6 +1190,10 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 		full_message_text = msg_prefix + msg_body + msg_suffix
 
+		# Если у нас первый найденный URL в сообщении не совпадает с "готовом" сообщении, то нужно выключить веб-превью,
+		# что бы бот не показывал превью для лишних элементов по типу страниц ВКонтакте при упоминаниях.
+		disable_web_preview = utils.extract_url(event.new_text) != utils.extract_url(full_message_text)
+
 		# Редактируем сообщение.
 		try:
 			logger.debug(f"Редактирую сообщение с ID0 {telegram_message.telegram_message_ids[0]}")
@@ -1190,7 +1201,8 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 			await subgroup.edit_message(
 				full_message_text,
 				telegram_message.telegram_message_ids[0],
-				sender_id=event.from_id if event.from_id != subgroup.service.service_user_id else None
+				sender_id=event.from_id if event.from_id != subgroup.service.service_user_id else None,
+				disable_web_preview=disable_web_preview
 			)
 		except TelegramForbiddenError:
 			await TelehooperAPI.delete_group_data(subgroup.parent.chat.id, fully_delete=True, bot=subgroup.parent.bot)
