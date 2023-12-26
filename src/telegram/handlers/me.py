@@ -52,7 +52,7 @@ async def me_command_message(msg: Message, from_user: User, edit_message: bool =
 			"<b>👤 Профиль и сервисы</b>.\n"
 			"\n"
 			"Информация о Вашем профиле:\n"
-			f" • <b>Telegram</b>: {utils.get_telegram_logging_info(msg.from_user)}.\n"
+			f" • <b>Telegram</b>: {utils.get_telegram_logging_info(from_user)}.\n"
 			"\n"
 			f"{connections_info}"
 			f"ℹ️ {'Для подключения, либо управления сервисами, нажмите на кнопку снизу.' if has_any_connections else 'Выберите нужный сервис снизу, что бы сделать Ваше первое подключение.'}"
