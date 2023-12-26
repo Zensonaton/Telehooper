@@ -1645,6 +1645,28 @@ class TelehooperAPI:
 
 		return list(_saved_connections.values())
 
+	@staticmethod
+	async def get_users_with_role(role: str, allow_any: bool = True) -> list[int]:
+		"""
+		Возвращает ID пользователей Telegram, которые имеют указанную роль `role`.
+
+		:param role: Роль, которую нужно найти у пользователей из БД.
+		:param allow_any: Если `True`, то наличие роли `*` обеспечит попадение в этот список, вне зависимости от значения поля `role`.
+		"""
+
+		db = await get_db()
+		user_ids = []
+
+		async for user in db.docs(prefix="user_"):
+			roles = user["Roles"]
+
+			if not (allow_any and "*" in roles) and role.lower() not in [i.lower() for i in roles]:
+				continue
+
+			user_ids.append(user["ID"])
+
+		return user_ids
+
 async def get_subgroup(msg_or_query: Message | CallbackQuery) -> dict | None:
 	"""
 	Фильтр для входящих сообщений в группе. Если данная группа является диалог-группой, то данный метод вернёт объект TelehooperSubGroup.
