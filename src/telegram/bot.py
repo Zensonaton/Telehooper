@@ -6,28 +6,38 @@ import os
 import pkgutil
 import re
 from types import ModuleType
-from typing import Tuple, cast
 
 from aiocouch import Document
 from aiogram import Bot, Dispatcher
+from aiogram.client.session.aiohttp import AiohttpSession
 from aiogram.client.session.base import BaseSession
+from aiogram.client.telegram import TelegramAPIServer
 from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
 from aiogram.types import (BotCommand, BotCommandScopeAllGroupChats,
                            BotCommandScopeDefault)
 from loguru import logger
 
 import utils
-from api import (TelehooperAPI, TelehooperGroup, TelehooperSubGroup,
-                 TelehooperUser)
+from api import TelehooperAPI, TelehooperSubGroup, TelehooperUser
 from config import config
-from consts import COMMANDS, COMMANDS_USERS_GROUPS
+from consts import (COMMANDS, COMMANDS_USERS_GROUPS,
+                    MAX_DOWNLOAD_FILE_SIZE_BYTES,
+                    MAX_LOCAL_SERVER_DOWNLOAD_FILE_SIZE_BYTES,
+                    MAX_LOCAL_SERVER_UPLOAD_FILE_SIZE_BYTES,
+                    MAX_UPLOAD_FILE_SIZE_BYTES)
 from DB import get_db
 from services.vk.service import VKServiceAPI
 
 
 bot = Bot(
 	token=config.telegram_token.get_secret_value(),
-	parse_mode="HTML"
+	parse_mode="HTML",
+	session=AiohttpSession(
+		api=TelegramAPIServer.from_base(
+			config.telegram_local_api_url,
+			is_local=True
+		) if config.telegram_local_api_url else None,
+	)
 )
 dispatcher = Dispatcher()
 username: str | None

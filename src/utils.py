@@ -18,6 +18,10 @@ from cryptography.fernet import Fernet
 from loguru import logger
 
 from config import config
+from consts import (MAX_DOWNLOAD_FILE_SIZE_BYTES,
+                    MAX_LOCAL_SERVER_DOWNLOAD_FILE_SIZE_BYTES,
+                    MAX_LOCAL_SERVER_UPLOAD_FILE_SIZE_BYTES,
+                    MAX_UPLOAD_FILE_SIZE_BYTES)
 
 
 def get_timestamp() -> int:
@@ -406,3 +410,24 @@ async def convert_mp4_to_gif(data: bytes) -> bytes:
 		raise Exception(f"Ошибка конвертации ffmpeg: {error_output.decode('utf-8')}")
 
 	return gif_data
+
+def is_local_bot_api() -> bool:
+	"""
+	Возвращает True, если используется Local Bot API.
+	"""
+
+	return bool(config.telegram_local_api_url)
+
+def max_upload_bytes() -> int:
+	"""
+	Возвращает максимальный размер файла в байтах, который используется для выгрузки файла в Telegram. Данное значение зависит от того, используется ли Local Bot API или нет.
+	"""
+
+	return MAX_LOCAL_SERVER_UPLOAD_FILE_SIZE_BYTES if is_local_bot_api() else MAX_UPLOAD_FILE_SIZE_BYTES
+
+def max_download_bytes() -> int:
+	"""
+	Возвращает максимальный размер файла в байтах, который используется для загрузки файла из Telegram. Данное значение зависит от того, используется ли Local Bot API или нет.
+	"""
+
+	return MAX_LOCAL_SERVER_DOWNLOAD_FILE_SIZE_BYTES if is_local_bot_api() else MAX_DOWNLOAD_FILE_SIZE_BYTES

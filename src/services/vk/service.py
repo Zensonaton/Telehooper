@@ -26,7 +26,6 @@ from pyrate_limiter import Limiter, RequestRate
 
 import utils
 from config import config
-from consts import MAX_UPLOAD_FILE_SIZE_BYTES
 from DB import get_user
 from services.service_api_base import (BaseTelehooperServiceAPI,
                                        ServiceDialogue,
@@ -36,7 +35,8 @@ from services.vk.consts import VK_LONGPOLL_GLOBAL_ERRORS_AMOUNT
 from services.vk.exceptions import (AccessDeniedException,
                                     TokenRevokedException,
                                     TooManyRequestsException)
-from services.vk.utils import (create_message_link, extract_id_from_domain, get_attachment_key, get_message_mentions,
+from services.vk.utils import (create_message_link, extract_id_from_domain,
+                               get_attachment_key, get_message_mentions,
                                prepare_sticker)
 from services.vk.vk_api.api import VKAPI
 from services.vk.vk_api.longpoll import (BaseVKLongpollEvent,
@@ -655,7 +655,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 											assert content_size, "Не был выдан размер файла для загрузки"
 
 											# Пытаемся найти самое большое видео, размер которого не превышает 50 МБ.
-											if content_size > MAX_UPLOAD_FILE_SIZE_BYTES:
+											if content_size > utils.max_upload_bytes():
 												if is_last:
 													raise Exception("Не было найдено видео меньшего размера")
 
@@ -817,7 +817,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 										assert content_size, "Не был выдан размер файла для загрузки"
 
 										# Проверяем, не превышает ли размер файла 50 МБ.
-										if content_size > MAX_UPLOAD_FILE_SIZE_BYTES:
+										if content_size > utils.max_upload_bytes():
 											logger.debug(f"Файл оказался слишком большой ({content_size} байт).")
 
 											raise Exception("Размер файла слишком большой")
@@ -846,7 +846,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 										assert content_size, "Не был выдан размер файла для загрузки"
 
 										# Проверяем, не превышает ли размер файла 50 МБ.
-										if content_size > MAX_UPLOAD_FILE_SIZE_BYTES:
+										if content_size > utils.max_upload_bytes():
 											logger.debug(f"Файл оказался слишком большой ({content_size} байт).")
 
 											raise Exception("Размер файла слишком большой")
