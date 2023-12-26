@@ -1399,6 +1399,9 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 		:param force_update: Нужно ли обновлять информацию о пользователях/группах, если она уже есть в кэше. Если нет каких-то передаваемых пользователей/групп в кэше, то бот их обновит.
 		"""
 
+		# Избавляемся от неуникальных ID пользователей.
+		user_ids = list(set(user_ids))
+
 		if not force_update:
 			cached_items = [self._cachedUsersInfo[k] for k in user_ids if k in self._cachedUsersInfo]
 
