@@ -991,30 +991,32 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 				# В случае необходимости, отправляем "особые" виды вложений по-отдельности.
 				if separate_attachs:
 					# Аудио, если нужны:
-					msg_audio = await subgroup.send_message_in(
-						"ℹ️ <i>Данное сообщение было разделено ввиду ограничений Telegram, данное сообщение — часть сообщения, на которое был сделан «ответ»</i>.",
-						attachments=audio_attachments, # type: ignore
-						silent=is_outbox,
-						reply_to=msg_special[0],
-						sender_id=original_message_sender_id,
-						disable_web_preview=first_message_text_url != full_message_first_url
-					)
+					if audio_attachments:
+						msg_audio = await subgroup.send_message_in(
+							"ℹ️ <i>Данное сообщение было разделено ввиду ограничений Telegram, данное сообщение — часть сообщения, на которое был сделан «ответ»</i>.",
+							attachments=audio_attachments, # type: ignore
+							silent=is_outbox,
+							reply_to=msg_special[0],
+							sender_id=original_message_sender_id,
+							disable_web_preview=first_message_text_url != full_message_first_url
+						)
 
-					if msg_audio:
-						sent_message_ids.extend(msg_audio)
+						if msg_audio:
+							sent_message_ids.extend(msg_audio)
 
 					# Документы, если нужны:
-					msg_docs = await subgroup.send_message_in(
-						"ℹ️ <i>Данное сообщение было разделено ввиду ограничений Telegram, данное сообщение — часть сообщения, на которое был сделан «ответ»</i>.",
-						attachments=doc_attachments, # type: ignore
-						silent=is_outbox,
-						reply_to=msg_special[0],
-						sender_id=original_message_sender_id,
-						disable_web_preview=first_message_text_url != full_message_first_url
-					)
+					if doc_attachments:
+						msg_docs = await subgroup.send_message_in(
+							"ℹ️ <i>Данное сообщение было разделено ввиду ограничений Telegram, данное сообщение — часть сообщения, на которое был сделан «ответ»</i>.",
+							attachments=doc_attachments, # type: ignore
+							silent=is_outbox,
+							reply_to=msg_special[0],
+							sender_id=original_message_sender_id,
+							disable_web_preview=first_message_text_url != full_message_first_url
+						)
 
-					if msg_docs:
-						sent_message_ids.extend(msg_docs)
+						if msg_docs:
+							sent_message_ids.extend(msg_docs)
 
 				# Если произошёл rate limit, то бот не сможет выслать сообщения,
 				# и список из отправленных сообщений будет пуст.
