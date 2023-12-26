@@ -269,9 +269,12 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 				f"?{mention_info.name.replace(' ', '_')}"
 			)
 
+			# Заменяем упоминания в формате [id1|@durov] на ссылки на страницы ВК.
+			# Параметр "1" указывает, что упоминание в тексте заменится лишь один раз.
 			text = text.replace(
 				original_mention_text,
-				f"<a href=\"{mention_user_url}\">{mention_text}</a>"
+				f"<a href=\"{mention_user_url}\">{mention_text}</a>",
+				1
 			)
 
 		return text
