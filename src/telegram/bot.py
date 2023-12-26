@@ -20,14 +20,9 @@ from loguru import logger
 import utils
 from api import TelehooperAPI, TelehooperSubGroup, TelehooperUser
 from config import config
-from consts import (COMMANDS, COMMANDS_USERS_GROUPS,
-                    MAX_DOWNLOAD_FILE_SIZE_BYTES,
-                    MAX_LOCAL_SERVER_DOWNLOAD_FILE_SIZE_BYTES,
-                    MAX_LOCAL_SERVER_UPLOAD_FILE_SIZE_BYTES,
-                    MAX_UPLOAD_FILE_SIZE_BYTES)
+from consts import COMMANDS, COMMANDS_USERS_GROUPS
 from DB import get_db
 from services.vk.service import VKServiceAPI
-
 
 bot = Bot(
 	token=config.telegram_token.get_secret_value(),
@@ -36,8 +31,8 @@ bot = Bot(
 		api=TelegramAPIServer.from_base(
 			config.telegram_local_api_url,
 			is_local=True
-		) if config.telegram_local_api_url else None,
-	)
+		)
+	) if config.telegram_local_api_url else None
 )
 dispatcher = Dispatcher()
 username: str | None
