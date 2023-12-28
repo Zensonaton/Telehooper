@@ -18,13 +18,6 @@ def test_getTimestamp():
 	sleep(1)
 	assert utils.get_timestamp() > time
 
-def test_getBotVersion():
-	"""
-	`get_bot_version()` возвращает версию бота.
-	"""
-
-	assert isinstance(utils.get_bot_version(), int)
-
 def test_getUUID():
 	"""
 	`get_uuid()` возвращает случайный UUID v4.
@@ -32,6 +25,13 @@ def test_getUUID():
 
 	assert isinstance(utils.get_uuid(), str)
 	assert len(utils.get_uuid()) == 36
+
+def test_getBotVersion():
+	"""
+	`get_bot_version()` возвращает версию бота.
+	"""
+
+	assert isinstance(utils.get_bot_version(), int)
 
 def test_parseStrAsBoolean():
 	"""

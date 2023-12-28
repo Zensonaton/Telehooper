@@ -24,6 +24,8 @@ from consts import (MAX_DOWNLOAD_FILE_SIZE_BYTES,
 					MAX_UPLOAD_FILE_SIZE_BYTES)
 
 
+COMMIT_HASH = None
+
 def get_timestamp() -> int:
 	"""
 	Возвращает текущее время в формате UNIX Timestamp.
@@ -328,7 +330,6 @@ def time_since(timestamp: int) -> int:
 
 	return get_timestamp() - timestamp
 
-COMMIT_HASH = None
 async def get_commit_hash() -> str | None:
 	"""
 	Возвращает строку хэша последнего коммита, либо None, если что-то пошло не так (например, `.git` не инициализирован).

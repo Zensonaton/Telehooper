@@ -65,3 +65,34 @@ def test_createDialogueLink():
 	assert isinstance(utils.create_dialogue_link(123456789, use_mobile=False), str)
 
 	assert utils.create_dialogue_link(123456789, use_mobile=True) == "https://m.vk.com/mail?act=show&chat=123456789"
+
+def test_getAttachmentKey():
+	"""
+	`get_attachment_key()` создаёт строку с вложением ВКонтакте.
+	"""
+
+	assert utils.get_attachment_key({"owner_id": 123, "id": 456}, type="photo") == "photo123_456"
+	assert utils.get_attachment_key({"owner_id": 123, "id": 456}, type="video") == "video123_456"
+	assert utils.get_attachment_key({"owner_id": 123, "id": 456}) == "123_456"
+	assert utils.get_attachment_key({"owner_id": 123, "video_id": 456}, type="video") == "video123_456"
+	assert utils.get_attachment_key({"owner_id": 123, "video_id": 456, "access_key": "secret"}, type="video") == "video123_456_secret"
+	assert utils.get_attachment_key({"owner_id": 123, "video_id": 456, "access_key": "secret"}, type="video", include_access_key=False) == "video123_456"
+
+def test_getMessageMentions():
+	"""
+	`get_message_mentions()` извлекает и возвращает список из упоминаний в тексте сообщения.
+	"""
+
+	assert utils.get_message_mentions("Привет, [@durov|id1] и [@club1|club1]! [нет] [@тест]") == [("@durov", "id1"), ("@club1", "club1")]
+	assert utils.get_message_mentions("тест") == []
+
+def test_extractIDFromDomain():
+	"""
+	`extract_id_from_domain()` извлекает из строки вида `id1` или `club1` цифровой ID.
+	"""
+
+	assert utils.extract_id_from_domain("id1") == 1
+	assert utils.extract_id_from_domain("club1") == -1
+
+	with pytest.raises(AssertionError):
+		utils.extract_id_from_domain("aaa")
