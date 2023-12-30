@@ -147,4 +147,11 @@ async def this_inline_handler(query: CallbackQuery, msg: Message, user: User, bo
 	Вызывается при нажатии на нажатии на кнопку "назад", показывая содержимое команды `/this`.
 	"""
 
-	await group_convert_message(bot, msg.chat.id, user, message_to_edit=query.message, called_from_command=False, callback_query=query)
+	await group_convert_message(
+		bot,
+		msg.chat.id,
+		user,
+		message_to_edit=cast(Message, query.message),
+		called_from_command=False,
+		callback_query=query
+	)
