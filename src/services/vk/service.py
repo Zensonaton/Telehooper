@@ -418,6 +418,14 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 			original_message_sender_id = event.from_id
 			first_message_text_url = utils.extract_url(message_text_stripped)
 
+			# Заменяем в тексте сообщения упоминания, поскольку ВК их возвращает в формате [id1|@durov].
+			# Здесь мы их просто заменяем на часть типа @durov.
+			for domain, mention in get_message_mentions(message_text_stripped):
+				message_text_stripped = message_text_stripped.replace(
+					f"[{domain}|{mention}]",
+					mention
+				)
+
 			# Проверяем, стоит ли боту обрабатывать исходящие сообщения.
 			if is_outbox and not (ignore_outbox_debug or await self.user.get_setting("Services.VK.ViaServiceMessages")):
 				return
