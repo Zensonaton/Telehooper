@@ -328,15 +328,15 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 				"chat_title_update": f"{issuer_name_with_link} изменил{'' if issuer_male else 'а'} имя беседы на «{event.source_text}»",
 				"chat_invite_user": f"{issuer_name_with_link} добавил{'' if issuer_male else 'а'} пользователя {victim_name_with_link}",
 				"chat_kick_user": f"{issuer_name_with_link} удалил{'' if issuer_male else 'а'} пользователя {victim_name_with_link} из беседы",
-				"chat_invite_user_by_link": f"{victim_name_with_link} присоеденил{'ся' if issuer_male else 'ась'} к беседе используя пригласительную ссылку",
-				"chat_invite_user_by_message_request": f"{victim_name_with_link} присоденил{'ся' if issuer_male else 'ась'} к беседе используя запрос на вступление",
+				"chat_invite_user_by_link": f"{issuer_name_with_link} присоеденил{'ся' if issuer_male else 'ась'} к беседе используя пригласительную ссылку",
+				"chat_invite_user_by_message_request": f"{issuer_name_with_link} присоденил{'ся' if issuer_male else 'ась'} к беседе используя запрос на вступление",
 				"chat_pin_message": f"{issuer_name_with_link} закрепил{'' if issuer_male else 'а'} сообщение",
 				"chat_unpin_message": f"{issuer_name_with_link} открепил{'' if issuer_male else 'а'} закреплённое сообщение",
-				"chat_screenshot": f"{victim_name_with_link} сделал{'' if issuer_male else 'а'} скриншот чата",
+				"chat_screenshot": f"{issuer_name_with_link} сделал{'' if issuer_male else 'а'} скриншот чата",
 				"conversation_style_update": f"{issuer_name_with_link} обновил стиль чата",
 				"chat_leave": f"{issuer_name_with_link} покинул{'' if issuer_male else 'а'} беседу",
 				"chat_return": f"{issuer_name_with_link} вернул{'ся' if issuer_male else 'ась'} в беседу",
-				# "call_ended": f"{victim_name_with_link} начал{'' if issuer_male else 'а'} вызов ВКонтакте. Присоедениться можно <a href=\"https://vk.com/call/join/{group_chat_join_link}\">по ссылке</a>"
+				# "call_ended": f"{issuer_name_with_link} начал{'' if issuer_male else 'а'} вызов ВКонтакте. Присоедениться можно <a href=\"https://vk.com/call/join/{group_chat_join_link}\">по ссылке</a>"
 			}
 			message = messages.get(event_action)
 
