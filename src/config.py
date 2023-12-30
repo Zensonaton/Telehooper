@@ -12,8 +12,10 @@ class Configuration(BaseSettings):
 
 	telegram_token: SecretStr = Field(..., description="Токен для Telegram-бота, который можно получить у @BotFather", env="telegram_token")
 	"""Токен для Telegram-бота, который можно получить у @BotFather."""
-	telegram_local_api_url: str | None = Field(None, description="URL для Local Bot API. Чаще всего используется `http://localhost:8082`", env="telegram_local_api_url")
-	"""URL для Local Bot API. Чаще всего используется `http://localhost:8082`."""
+	telegram_local_api_url: str | None = Field(None, description="URL для Local Bot API. Чаще всего используется `http://localhost:8081`", env="telegram_local_api_url")
+	"""URL для Local Bot API. Чаще всего используется `http://localhost:8081`."""
+	telegram_local_file_url: str | None = Field(None, description="URL для хранимых файлов Local Bot API. Чаще всего используется `http://localhost:8080`", env="telegram_local_file_url")
+	"""URL для хранимых файлов Local Bot API. Чаще всего используется `http://localhost:8080`."""
 	minibot_tokens: SecretStr = Field("", description="Список токенов для Telegram мини ботов, которые можно получить у @BotFather. Все эти токены должны разделяться запятой", env="minibot_tokens")
 	"""Список токенов для Telegram мини ботов, которые можно получить у @BotFather. Все эти токены должны разделяться запятой."""
 

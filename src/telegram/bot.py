@@ -6,6 +6,7 @@ import os
 import pkgutil
 import re
 from types import ModuleType
+from typing import cast
 
 from aiocouch import Document
 from aiogram import Bot, Dispatcher
@@ -24,15 +25,17 @@ from consts import COMMANDS, COMMANDS_USERS_GROUPS
 from DB import get_db
 from services.vk.service import VKServiceAPI
 
+
 bot = Bot(
 	token=config.telegram_token.get_secret_value(),
 	parse_mode="HTML",
 	session=AiohttpSession(
-		api=TelegramAPIServer.from_base(
-			config.telegram_local_api_url,
-			is_local=True
+		api=TelegramAPIServer(
+			f"{config.telegram_local_api_url}/bot{{token}}/{{method}}",
+			f"{config.telegram_local_file_url}/file/bot{{token}}/{{path}}",
+			is_local=False # Если указать True, то бот немного ломается.
 		)
-	) if config.telegram_local_api_url else None
+	) if utils.is_local_bot_api() else None
 )
 dispatcher = Dispatcher()
 username: str | None

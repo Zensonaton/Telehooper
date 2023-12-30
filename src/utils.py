@@ -417,7 +417,7 @@ def is_local_bot_api() -> bool:
 	Возвращает True, если используется Local Bot API.
 	"""
 
-	return bool(config.telegram_local_api_url)
+	return bool(config.telegram_local_api_url and config.telegram_local_file_url)
 
 def max_upload_bytes() -> int:
 	"""

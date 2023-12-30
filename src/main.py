@@ -19,7 +19,7 @@ async def bot_init() -> None:
 	# Логирование.
 	init_logger(debug=config.debug)
 
-	logger.info(f"Привет, мир! Запускаем Telehooper commit {await utils.get_commit_hash() or '<неизвестно>'}... {'с Local Bot API' if utils.is_local_bot_api() else ''}")
+	logger.info(f"Привет, мир! Запускаем Telehooper commit {await utils.get_commit_hash() or '<неизвестно>'} {'с Local Bot API' if utils.is_local_bot_api() else ''}...")
 
 	# Проверяем на debug-режим.
 	if config.debug:
