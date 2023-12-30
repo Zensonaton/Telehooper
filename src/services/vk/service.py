@@ -909,7 +909,10 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 						elif attachment_type == "market_album":
 							pass
 						elif attachment_type == "wall_reply":
-							attachment_items.append(f"<a href=\"{message_url}\">📝 Комментарий к записи</a>")
+							# Получаем информацию о том, откуда был взят этот пост.
+							commented_post_creator_info = await self.get_user_info(attachment["owner_id"])
+
+							attachment_items.append(f"<a href=\"{message_url}\">📝 Комментарий к записи от {commented_post_creator_info.name}</a>")
 						elif attachment_type == "story":
 							attachment_items.append(f"<a href=\"{message_url}\">📝 История</a>")
 						else:
