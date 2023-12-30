@@ -4,7 +4,7 @@ import asyncio
 
 from aiogram import F, Router
 from aiogram.filters import Command
-from aiogram.types import CallbackQuery, Message
+from aiogram.types import CallbackQuery, Message, MessageReactionUpdated
 from loguru import logger
 
 from api import (TelehooperSubGroup, TelehooperUser, get_mediagroup,
@@ -69,6 +69,14 @@ async def on_message_edit(msg: Message, subgroup: TelehooperSubGroup, user: Tele
 	"""
 
 	await subgroup.handle_telegram_message_edit(msg, user)
+
+@router.message_reaction(get_subgroup)
+async def on_message_reaction(msg: MessageReactionUpdated, subgroup: TelehooperSubGroup, user: TelehooperUser) -> None:
+	"""
+	Handler для случая, если бот получил реакцию на сообщение.
+	"""
+
+	await subgroup.handle_telegram_message_reaction(msg, user)
 
 @router.message(get_mediagroup, get_subgroup)
 async def on_group_message(msg: Message, subgroup: TelehooperSubGroup, user: TelehooperUser, mediagroup: list) -> None:

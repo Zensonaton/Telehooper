@@ -19,7 +19,8 @@ from aiogram.types import Document as TelegramDocument
 from aiogram.types import (InlineKeyboardButton, InlineKeyboardMarkup,
                            InputFile, InputMediaAudio, InputMediaDocument,
                            InputMediaPhoto, InputMediaVideo, Message,
-                           PhotoSize, Sticker, Video, VideoNote, Voice)
+                           MessageReactionUpdated, PhotoSize,
+                           ReactionTypeEmoji, Sticker, Video, VideoNote, Voice)
 from aiogram.utils.chat_action import ChatActionSender
 from loguru import logger
 from pydantic import SecretStr
@@ -32,7 +33,7 @@ from services.service_api_base import (BaseTelehooperServiceAPI,
                                        ServiceDialogue,
                                        ServiceDisconnectReason,
                                        TelehooperServiceUserInfo)
-from services.vk.consts import VK_LONGPOLL_GLOBAL_ERRORS_AMOUNT
+from services.vk.consts import VK_LONGPOLL_GLOBAL_ERRORS_AMOUNT, VK_REACTION_EMOJIS
 from services.vk.exceptions import (AccessDeniedException,
                                     TokenRevokedException,
                                     TooManyRequestsException)
@@ -1532,6 +1533,44 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 		return await self.vkAPI.messages_send(peer_id=chat_id, message=text, reply_to=reply_to_message, attachment=attachments, lat=latitude, long=longitude)
 
+	async def set_reactions(self, chat_id: int, message_id: int, reactions: str | list[str], bypass_queue: bool = False) -> None:
+		if not bypass_queue and not await self.acquire_queue("message"):
+			return None
+
+		if not isinstance(reactions, list):
+			reactions = [reactions]
+
+		execute_code = []
+
+		for reaction in reactions:
+			assert reaction in VK_REACTION_EMOJIS, f"Реакция \"{reaction}\" не поддерживается во ВКонтакте"
+
+			reaction_id = VK_REACTION_EMOJIS[reaction]
+			execute_code.append(
+				f"API.messages.sendReaction({{\"peer_id\":\"{chat_id}\",\"cmid\":{message_id},\"reaction_id\":{reaction_id}}})"
+			)
+
+		await self.vkAPI.execute(code=";".join(execute_code) + ";")
+
+	async def delete_reactions(self, chat_id: int, message_id: int, reactions: str | list[str], bypass_queue: bool = False) -> None:
+		if not bypass_queue and not await self.acquire_queue("message"):
+			return None
+
+		if not isinstance(reactions, list):
+			reactions = [reactions]
+
+		execute_code = []
+
+		for reaction in reactions:
+			assert reaction in VK_REACTION_EMOJIS, f"Реакция \"{reaction}\" не поддерживается во ВКонтакте"
+
+			reaction_id = VK_REACTION_EMOJIS[reaction]
+			execute_code.append(
+				f"API.messages.deleteReaction({{\"peer_id\":\"{chat_id}\",\"cmid\":{message_id},\"reaction_id\":{reaction_id}}})"
+			)
+
+		await self.vkAPI.execute(code=";".join(execute_code) + ";")
+
 	async def find_real_chat_id(self, user: "TelehooperUser", subgroup: "TelehooperSubGroup") -> int | None:
 		"""
 		Возвращает реальный ID беседы в ВКонтакте, если пользователь не является её создателем.
@@ -2038,6 +2077,64 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 					await subgroup.delete_message(error_message)
 				except:
 					pass
+
+	async def handle_telegram_message_reaction(self, msg: MessageReactionUpdated, subgroup: "TelehooperSubGroup", user: "TelehooperUser") -> None:
+		logger.debug(f"[TG] Обработка установки реакции в Telegram в \"{subgroup}\"")
+
+		# Получаем ID беседы. Используется, если отправитель сообщения - не владелец группы.
+		peer_id = subgroup.service_chat_id
+		is_multiuser_chat = peer_id > 2000000000
+		sent_by_owner = True
+
+		if subgroup.parent.creatorID != user.telegramUser.id:
+			peer_id = await self.find_real_chat_id(user, subgroup)
+			sent_by_owner = False
+
+			if not peer_id:
+				return
+
+		# Ищем ID сообщения ВКонтакте.
+		# TODO: Поддержка изменения реакций сообщения от невладельца страницы.
+		saved_message = await self.get_message_by_telegram_id(self.service_user_id, msg.message_id)
+
+		if not saved_message:
+			return
+
+		if not saved_message.service_conversation_message_ids:
+			return
+
+		# Извлекаем список тех реакций, которые поменялись.
+		emojis_before = [i.emoji for i in msg.old_reaction if isinstance(i, ReactionTypeEmoji)]
+		emojis_after = [i.emoji for i in msg.new_reaction if isinstance(i, ReactionTypeEmoji)]
+
+		emojis_diff_added = [i for i in emojis_after if i not in emojis_before]
+		emojis_diff_removed = [i for i in emojis_before if i not in emojis_after]
+
+		try:
+			if emojis_diff_added:
+				await self.set_reactions(peer_id, saved_message.service_conversation_message_ids[0], emojis_diff_added)
+
+			if emojis_diff_removed:
+				await self.delete_reactions(peer_id, saved_message.service_conversation_message_ids[0], emojis_diff_removed)
+		except Exception as error:
+			error_message = await subgroup.send_message_in(
+				text=(
+					"<b>⚠️ Ошибка установки реакции</b>.\n"
+					"\n"
+					"Похоже, что на данное сообщение нельзя установить реакцию."
+				),
+				silent=True
+			)
+
+			# Удаляем сообщение об ошибке через время.
+			if error_message:
+				await asyncio.sleep(60)
+				try:
+					await subgroup.delete_message(error_message)
+				except:
+					pass
+
+			return
 
 	async def handle_telegram_message_read(self, subgroup: "TelehooperSubGroup", user: "TelehooperUser") -> None:
 		logger.debug(f"[TG] Обработка прочтения сообщения в Telegram в \"{subgroup}\"")

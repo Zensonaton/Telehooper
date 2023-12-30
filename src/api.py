@@ -18,8 +18,9 @@ from aiogram.types import Document as TelegramDocument
 from aiogram.types import (ForceReply, InlineKeyboardMarkup, InputFile,
                            InputMediaAudio, InputMediaDocument,
                            InputMediaPhoto, InputMediaVideo, Message,
-                           PhotoSize, ReplyKeyboardMarkup, ReplyKeyboardRemove,
-                           Sticker, User, Video, VideoNote, Voice)
+                           MessageReactionUpdated, PhotoSize,
+                           ReplyKeyboardMarkup, ReplyKeyboardRemove, Sticker,
+                           User, Video, VideoNote, Voice)
 from loguru import logger
 from magic_filter import MagicFilter
 from pyrate_limiter import BucketFullException, Limiter, RequestRate
@@ -506,7 +507,6 @@ class TelehooperGroup:
 		"""
 
 		from telegram.bot import get_minibots
-
 
 		# Если нам не передан ID отправителя, то просто возвращаем "главного" бота.
 		if not sender_id:
@@ -1123,6 +1123,20 @@ class TelehooperSubGroup:
 
 		await serviceAPI.handle_telegram_message_edit(msg, self, user)
 
+	async def handle_telegram_message_reaction(self, msg: MessageReactionUpdated, user: TelehooperUser) -> None:
+		"""
+		Метод, вызываемый ботом, в случае изменения реакций под сообщением в Telegram внутри группе-диалоге (или топик-диалоге).
+
+		:param msg: Объект псевдосообщения, хранимый в себе информацию о том, какие реакции были ранее и теперь присутствуют.
+		:param user: Пользователь, который установил реакцию.
+		"""
+
+		serviceAPI = await self.get_service_by_sender(user)
+		if not serviceAPI:
+			return
+
+		await serviceAPI.handle_telegram_message_reaction(msg, self, user)
+
 	async def handle_telegram_message_read(self, user: TelehooperUser) -> None:
 		"""
 		Метод, вызываемый ботом, в случае прочтения сообщения в группе-диалоге (или топик-диалоге) в боте при помощи команды `/read` либо нажатия кнопки "прочитать".
@@ -1655,34 +1669,51 @@ class TelehooperAPI:
 
 		return user_ids
 
-async def get_subgroup(msg_or_query: Message | CallbackQuery, bot: Bot) -> dict | None:
+async def get_subgroup(msg_or_query: Message | CallbackQuery | MessageReactionUpdated, bot: Bot) -> dict | None:
 	"""
 	Фильтр для входящих сообщений в группе. Если данная группа является диалог-группой, то данный метод вернёт объект TelehooperSubGroup.
 
 	:param msg_or_query: Объект сообщения или Callback query в Telegram.
 	"""
 
-	# Понятия не имею как, но бот получал свои же сообщения в данном хэндлере.
-	if msg_or_query.from_user and msg_or_query.from_user.is_bot:
+	# Понятия не имею как, но бот получал свои же сообщения в данном обработчике.
+	if not isinstance(msg_or_query, MessageReactionUpdated) and msg_or_query.from_user and msg_or_query.from_user.is_bot:
 		return None
 
-	msg = msg_or_query if isinstance(msg_or_query, Message) else msg_or_query.message
-	assert msg, "Сообщение не было найдено"
+	msg_id: int = 0
+	user: User = None # type: ignore
+	chat: Chat = None # type: ignore
+	topic_id: int = 0
 
-	telehooper_user = await TelehooperAPI.get_user(cast(User, msg_or_query.from_user))
-	telehooper_group = await TelehooperAPI.get_group(telehooper_user, msg.chat, bot)
+	if isinstance(msg_or_query, Message):
+		msg_id = msg_or_query.message_id
+		user = cast(User, msg_or_query.from_user)
+		chat = msg_or_query.chat
+		topic_id = (msg_or_query.message_thread_id) or 0
+
+		# Telegram в msg.message_thread_id возвращает ID сообщения, на которое был ответ.
+		# Это ломает всего бота, поэтому нам приходится костылить.
+		if not msg_or_query.is_topic_message:
+			topic_id = 0
+	elif isinstance(msg_or_query, CallbackQuery):
+		msg_id = cast(Message, msg_or_query.message).message_id
+		user = cast(User, msg_or_query.from_user)
+		chat = cast(Message, msg_or_query.message).chat
+		topic_id = cast(Message, msg_or_query.message).message_thread_id or 0
+
+		if not cast(Message, msg_or_query.message).is_topic_message:
+			topic_id = 0
+	else:
+		msg_id = msg_or_query.message_id
+		user = cast(User, msg_or_query.user)
+		chat = msg_or_query.chat
+		topic_id = 0 # TODO
+
+	telehooper_user = await TelehooperAPI.get_user(user)
+	telehooper_group = await TelehooperAPI.get_group(telehooper_user, chat, bot)
 
 	if not telehooper_group:
 		return None
-
-	telehooper_group = cast(TelehooperGroup, telehooper_group)
-
-	topic_id = cast(Message, msg).message_thread_id or 0
-
-	# Telegram в msg.message_thread_id возвращает ID сообщения, на которое был ответ.
-	# Это ломает всего бота, поэтому нам приходится костылить.
-	if not cast(Message, msg).is_topic_message:
-		topic_id = 0
 
 	subgroup = TelehooperAPI.get_subgroup_by_chat(telehooper_group, topic_id)
 

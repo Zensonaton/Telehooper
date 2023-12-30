@@ -296,7 +296,6 @@ async def this_vk_convert_inline_handler(query: CallbackQuery, msg: Message, use
 	docs_url = f"{GITHUB_SOURCES_URL}/blob/rewrite/src/services/vk/README.md"
 	docs_info = [
 		"Учтите следующее:",
-		" • Реакции не поддерживаются.",
 		" • «Прочитать» сообщения можно через <code>/read</code>.",
 		" • Удалять сообщения можно только через <code>/delete</code>."
 		" • Собеседник не будет видеть Вашу печать."

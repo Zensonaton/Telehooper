@@ -7,8 +7,8 @@ import enum
 from typing import TYPE_CHECKING, Literal, Optional
 
 from aiogram import Bot
-from aiogram.types import (Audio, CallbackQuery, Document, Message, PhotoSize,
-                           Video, VideoNote)
+from aiogram.types import (Audio, CallbackQuery, Document, Message,
+                           MessageReactionUpdated, PhotoSize, Video, VideoNote)
 from pyrate_limiter import BucketFullException, Limiter, RequestRate
 
 if TYPE_CHECKING:
@@ -270,6 +270,30 @@ class BaseTelehooperServiceAPI:
 
 		raise NotImplementedError
 
+	async def set_reactions(self, chat_id: int, message_id: int, reactions: str | list[str], bypass_queue: bool = False) -> None:
+		"""
+		Устанавливает реакции под указанным сообщением.
+
+		:param chat_id: ID диалога.
+		:param reply_to_message: ID сообщения, на которое должно быть удалено/установлена реакция.
+		:param reactions: Реакция или массив реакций, которые будут переключены у сообщения. Должны передаваться эмодзи реакций.
+		:param bypass_queue: Отправить ли сообщение без учёта лимитов.
+		"""
+
+		raise NotImplementedError
+
+	async def delete_reactions(self, chat_id: int, message_id: int, reactions: str | list[str], bypass_queue: bool = False) -> None:
+		"""
+		Удаляет реакции под указанным сообщением.
+
+		:param chat_id: ID диалога.
+		:param reply_to_message: ID сообщения, на которое должно быть удалено/установлена реакция.
+		:param reactions: Реакция или массив реакций, которые будут переключены у сообщения. Должны передаваться эмодзи реакций.
+		:param bypass_queue: Отправить ли сообщение без учёта лимитов.
+		"""
+
+		raise NotImplementedError
+
 	async def handle_telegram_message(self, msg: Message, subgroup: "TelehooperSubGroup", user: "TelehooperUser", attachments: list[PhotoSize | Video | Audio | Document | VideoNote]) -> None:
 		"""
 		Метод, вызываемый ботом, в случае получения нового сообщения в группе-диалоге (или топик-диалоге). Этот метод обрабатывает события, передавая их текст в сервис.
@@ -300,6 +324,17 @@ class BaseTelehooperServiceAPI:
 		:param msg: Новое сообщение из Telegram.
 		:param subgroup: Подгруппа, в которой сообщение было отредактировано пользователем.
 		:param user: Пользователь, который отредактировал сообщение.
+		"""
+
+		raise NotImplementedError
+
+	async def handle_telegram_message_reaction(self, msg: MessageReactionUpdated, subgroup: "TelehooperSubGroup", user: "TelehooperUser") -> None:
+		"""
+		Метод, вызываемый ботом, в случае изменения реакций под сообщением в Telegram внутри группе-диалоге (или топик-диалоге).
+
+		:param msg: Объект псевдосообщения, хранимый в себе информацию о том, какие реакции были ранее и теперь присутствуют.
+		:param subgroup: Подгруппа, в которой сообщение было отредактировано пользователем.
+		:param user: Пользователь, который установил реакцию.
 		"""
 
 		raise NotImplementedError

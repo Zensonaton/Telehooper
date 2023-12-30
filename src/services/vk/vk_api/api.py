@@ -178,6 +178,40 @@ class VKAPI:
 			"long": long
 		}))
 
+	async def messages_sendReaction(self, peer_id: int, cmid: int, reaction_id: int) -> bool:
+		"""
+		Устанавливает реакцию на сообщение. API: `messages.sendReaction`.
+
+		:param peer_id: ID пользователя/группы/беседы, в которой будет установлена реакция на сообщение.
+		:param cmid: ID сообщения в чате.
+		:param reaction_id: ID реакции.
+		"""
+
+		await self._post_("messages.sendReaction", {
+			"peer_id": peer_id,
+			"cmid": cmid,
+			"reaction_id": reaction_id
+		})
+
+		return True
+
+	async def messages_deleteReaction(self, peer_id: int, cmid: int, reaction_id: int) -> bool:
+		"""
+		Удаляет реакцию с сообщения. API: `messages.deleteReaction`.
+
+		:param peer_id: ID пользователя/группы/беседы, в которой будет удалена реакция на сообщение.
+		:param cmid: ID сообщения в чате.
+		:param reaction_id: ID реакции.
+		"""
+
+		await self._post_("messages.deleteReaction", {
+			"peer_id": peer_id,
+			"cmid": cmid,
+			"reaction_id": reaction_id
+		})
+
+		return True
+
 	async def messages_getLongPollServer(self) -> dict:
 		"""
 		Выдаёт информацию о longpoll-сервере. API: `messages.getLongPollServer`.
