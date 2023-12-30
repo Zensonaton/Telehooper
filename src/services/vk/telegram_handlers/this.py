@@ -3,7 +3,7 @@
 import asyncio
 
 from aiogram import Bot, F, Router
-from aiogram.filters import Text
+from aiogram.enums import BotCommandScopeType
 from aiogram.types import (BotCommand, BotCommandScopeChatAdministrators,
                            CallbackQuery, InlineKeyboardButton,
                            InlineKeyboardMarkup, Message, User)
@@ -18,8 +18,8 @@ router = Router()
 
 DIALOGUES_PER_PAGE = 10
 
-@router.callback_query(Text("/this vk"), F.message.as_("msg"))
-async def this_vk_inline_handler(query: CallbackQuery, msg: Message) -> None:
+@router.callback_query(F.data == "/this vk", F.message.as_("msg"))
+async def this_vk_inline_handler(query: CallbackQuery, msg: Message, bot: Bot) -> None:
 	"""
 	Inline Callback Handler для команды `/this`.
 
@@ -34,20 +34,23 @@ async def this_vk_inline_handler(query: CallbackQuery, msg: Message) -> None:
 	])
 
 	await TelehooperAPI.edit_or_resend_message(
-		"<b>🫂 Группа-диалог — ВКонтакте</b>.\n"
-		"\n"
-		"В данный момент, Вы пытаетесь соединить данную группу Telegram с сообществом либо же диалогом ВКонтакте.\n"
-		"Ответив на вопросы бот определит, какую роль будет выполнять данная группа.\n"
-		"\n"
-		"<b>❓ Что Вы хотите получать из ВКонтакте</b>?",
+		bot,
+		text=(
+			"<b>🫂 Группа-диалог — ВКонтакте</b>.\n"
+			"\n"
+			"В данный момент, Вы пытаетесь соединить данную группу Telegram с сообществом либо же диалогом ВКонтакте.\n"
+			"Ответив на вопросы бот определит, какую роль будет выполнять данная группа.\n"
+			"\n"
+			"<b>❓ Что Вы хотите получать из ВКонтакте</b>?"
+		),
 		message_to_edit=msg,
 		chat_id=msg.chat.id,
 		reply_markup=keyboard,
 		query=query
 	)
 
-@router.callback_query(Text("/this vk messages"), F.message.as_("msg"))
-async def this_vk_messages_inline_handler(query: CallbackQuery, msg: Message) -> None:
+@router.callback_query(F.data == "/this vk messages", F.message.as_("msg"))
+async def this_vk_messages_inline_handler(query: CallbackQuery, msg: Message, bot: Bot) -> None:
 	"""
 	Inline Callback Handler для команды `/this`.
 
@@ -62,22 +65,25 @@ async def this_vk_messages_inline_handler(query: CallbackQuery, msg: Message) ->
 	])
 
 	await TelehooperAPI.edit_or_resend_message(
-		"<b>🫂 Группа-диалог — ВКонтакте — сообщения</b>.\n"
-		"\n"
-		"Вы пытаетесь получать <b>сообщения</b> из ВКонтакте. Если Вы ошиблись с выбором, то нажмите на кнопку «назад».\n"
-		"Следующий вопрос:\n"
-		"\n"
-		"<b>❓ Как Вам будет удобно получать сообщения</b>?\n"
-		"\n"
-		"ℹ️ Вы не создали «общую» группу в Telegram, рекомендуется выбрать «Telegram-группа для всех чатов». Без такой группы Telehooper не сможет отправлять сообщения от новых людей.", # TODO: Проверка на это.
+		bot,
+		text=(
+			"<b>🫂 Группа-диалог — ВКонтакте — сообщения</b>.\n"
+			"\n"
+			"Вы пытаетесь получать <b>сообщения</b> из ВКонтакте. Если Вы ошиблись с выбором, то нажмите на кнопку «назад».\n"
+			"Следующий вопрос:\n"
+			"\n"
+			"<b>❓ Как Вам будет удобно получать сообщения</b>?\n"
+			"\n"
+			"ℹ️ Вы не создали «общую» группу в Telegram, рекомендуется выбрать «Telegram-группа для всех чатов». Без такой группы Telehooper не сможет отправлять сообщения от новых людей." # TODO: Проверка на это.
+		),
 		message_to_edit=msg,
 		chat_id=msg.chat.id,
 		reply_markup=keyboard,
 		query=query
 	)
 
-@router.callback_query(Text("/this vk posts"), F.message.as_("msg"))
-async def this_vk_posts_inline_handler(query: CallbackQuery, msg: Message) -> None:
+@router.callback_query(F.data == "/this vk posts", F.message.as_("msg"))
+async def this_vk_posts_inline_handler(query: CallbackQuery, msg: Message, bot: Bot) -> None:
 	"""
 	Inline Callback Handler для команды `/this`.
 
@@ -87,25 +93,28 @@ async def this_vk_posts_inline_handler(query: CallbackQuery, msg: Message) -> No
 	keyboard = InlineKeyboardMarkup(inline_keyboard=[
 		[InlineKeyboardButton(text="🔙 Назад", callback_data="/this vk")],
 
-		# [InlineKeyboardButton(text="🗞 Все новости в одной Telegram-группе", callback_data="do-nothing")],
-		# [InlineKeyboardButton(text="🫂 Одно сообщество ВК - одна Telegram-группа", callback_data="do-nothing")],
+		# [InlineKeyboardButton(text="🗞 Вся лента в одной группе", callback_data="do-nothing")],
+		# [InlineKeyboardButton(text="🫂 Одно сообщество ВК - одна группа", callback_data="do-nothing")],
 	])
 
 	await TelehooperAPI.edit_or_resend_message(
-		"<b>🫂 Группа-диалог — ВКонтакте — посты/новости</b>.\n"
-		"\n"
-		"Вы пытаетесь получать <b>посты или новости</b> из ВКонтакте. Если Вы ошиблись с выбором, то нажмите на кнопку «назад».\n"
-		"Следующий вопрос:\n"
-		"\n"
-		"<b>❓ Как именно Вы хотите получать посты или новости</b>?",
+		bot,
+		text=(
+			"<b>🫂 Группа-диалог — ВКонтакте — посты/новости</b>.\n"
+			"\n"
+			"Вы пытаетесь получать <b>посты или новости</b> из ВКонтакте. Если Вы ошиблись с выбором, то нажмите на кнопку «назад».\n"
+			"Следующий вопрос:\n"
+			"\n"
+			"<b>❓ Как именно Вы хотите получать посты или новости</b>?"
+		),
 		message_to_edit=msg,
 		chat_id=msg.chat.id,
 		reply_markup=keyboard,
 		query=query
 	)
 
-@router.callback_query(Text(startswith="/this vk messages separated"), F.message.as_("msg"), F.from_user.as_("user"), F.data.as_("queryStr"))
-async def this_vk_messages_separated_inline_handler(query: CallbackQuery, msg: Message, user: User, queryStr: str) -> None:
+@router.callback_query(F.data.startswith("/this vk messages separated"), F.message.as_("msg"), F.from_user.as_("user"), F.data.as_("queryStr"))
+async def this_vk_messages_separated_inline_handler(query: CallbackQuery, msg: Message, user: User, queryStr: str, bot: Bot) -> None:
 	"""
 	Inline Callback Handler для команды `/this`.
 
@@ -136,11 +145,14 @@ async def this_vk_messages_separated_inline_handler(query: CallbackQuery, msg: M
 		])
 
 		await TelehooperAPI.edit_or_resend_message(
-			"<b>🫂 Группа-диалог — ВКонтакте — сообщения</b>.\n"
-			"\n"
-			"Вы собираетесь создать отдельную группу для отдельного чата из ВКонтакте. После выбора чата, бот сделает данную группу похожей на выбранный диалог ВКонтакте.\n"
-			"\n"
-			"<i>⏳ Пожалуйста, дождитесь получения списка чатов...</i>",
+			bot,
+			text=(
+				"<b>🫂 Группа-диалог — ВКонтакте — сообщения</b>.\n"
+				"\n"
+				"Вы собираетесь создать отдельную группу для отдельного чата из ВКонтакте. После выбора чата, бот сделает данную группу похожей на выбранный диалог ВКонтакте.\n"
+				"\n"
+				"<i>⏳ Пожалуйста, дождитесь получения списка чатов...</i>"
+			),
 			message_to_edit=msg,
 			chat_id=msg.chat.id,
 			reply_markup=keyboard,
@@ -191,18 +203,21 @@ async def this_vk_messages_separated_inline_handler(query: CallbackQuery, msg: M
 	])
 
 	await TelehooperAPI.edit_or_resend_message(
-		"<b>🫂 Группа-диалог — ВКонтакте — сообщения</b>.\n"
-		"\n"
-		"Вы собираетесь создать отдельную группу для отдельного чата из ВКонтакте. После выбора чата, бот сделает данную группу похожей на выбранный диалог ВКонтакте.\n"
-		f"Чатов отображено — {dialogues_shown} штук.\n",
+		bot,
+		text=(
+			"<b>🫂 Группа-диалог — ВКонтакте — сообщения</b>.\n"
+			"\n"
+			"Вы собираетесь создать отдельную группу для отдельного чата из ВКонтакте. После выбора чата, бот сделает данную группу похожей на выбранный диалог ВКонтакте.\n"
+			f"Чатов отображено — {dialogues_shown} штук.\n"
+		),
 		message_to_edit=msg,
 		chat_id=msg.chat.id,
 		reply_markup=keyboard,
 		query=query
 	)
 
-@router.callback_query(Text(startswith="/this vk convert"), F.message.as_("msg"), F.from_user.as_("user"), F.data.as_("queryStr"))
-async def this_vk_convert_inline_handler(query: CallbackQuery, msg: Message, user: User, queryStr: str) -> None:
+@router.callback_query(F.data.startswith("/this vk convert"), F.message.as_("msg"), F.from_user.as_("user"), F.data.as_("queryStr"))
+async def this_vk_convert_inline_handler(query: CallbackQuery, msg: Message, user: User, queryStr: str, bot: Bot) -> None:
 	"""
 	Inline Callback Handler для команды `/this`.
 
@@ -219,9 +234,8 @@ async def this_vk_convert_inline_handler(query: CallbackQuery, msg: Message, use
 	assert is_separated
 
 	telehooper_user = await TelehooperAPI.get_user(user)
-	telehooper_group = await TelehooperAPI.get_group(telehooper_user, msg.chat)
+	telehooper_group = await TelehooperAPI.get_group(telehooper_user, msg.chat, bot)
 	vkServiceAPI = telehooper_user.get_vk_connection()
-	bot = Bot.get_current()
 
 	assert telehooper_group is not None, "Группа не существует"
 	assert vkServiceAPI is not None, "Сервис ВКонтакте не существует"
@@ -243,12 +257,15 @@ async def this_vk_convert_inline_handler(query: CallbackQuery, msg: Message, use
 		return
 
 	await TelehooperAPI.edit_or_resend_message(
-		"<b>🫂 Группа-диалог — ВКонтакте — сообщения</b>.\n"
-		"\n"
-		f"Отлично! Вы выбрали чат с «{dialog.name}».\n"
-		"Дождитесь, пока Telehooper сделает свою магию... 👀\n"
-		"\n"
-		"<i>⏳ Пожалуйста, подождите, пока Telehooper превращает данную Telegram-группу в похожий диалог из ВКонтакте...</i>",
+		bot,
+		text=(
+			"<b>🫂 Группа-диалог — ВКонтакте — сообщения</b>.\n"
+			"\n"
+			f"Отлично! Вы выбрали чат с «{dialog.name}».\n"
+			"Дождитесь, пока Telehooper сделает свою магию... 👀\n"
+			"\n"
+			"<i>⏳ Пожалуйста, подождите, пока Telehooper превращает данную Telegram-группу в похожий диалог из ВКонтакте...</i>"
+		),
 		message_to_edit=msg,
 		chat_id=msg.chat.id,
 		query=query
@@ -258,13 +275,20 @@ async def this_vk_convert_inline_handler(query: CallbackQuery, msg: Message, use
 	# TODO: Проверка на права админа у юзера?
 	# TODO: Сделать настройку, а так же извлечение текста закрепа из диалога ВКонтакте, сделав его закрепом в Telegram.
 	# TODO: Сделать настройку, а так же пересылку последних сообщений в диалоге.
-
 	await telehooper_group.convert_to_dialogue_group(telehooper_user, dialog, msg, vkServiceAPI)
 
 	# Изменяем список команд.
 	await bot.set_my_commands(
-		commands=[BotCommand(command=command, description=description) for command, description in VK_GROUP_DIALOGUE_COMMANDS.items()],
-		scope=BotCommandScopeChatAdministrators(type="chat_administrators", chat_id=msg.chat.id)
+		commands=[
+			BotCommand(
+				command=command,
+				description=description
+			) for command, description in VK_GROUP_DIALOGUE_COMMANDS.items()
+		],
+		scope=BotCommandScopeChatAdministrators(
+			type=BotCommandScopeType.CHAT_ADMINISTRATORS,
+			chat_id=msg.chat.id
+		)
 	)
 
 	await asyncio.sleep(2)

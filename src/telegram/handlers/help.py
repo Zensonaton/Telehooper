@@ -2,8 +2,8 @@
 
 from typing import cast
 
-from aiogram import Router
-from aiogram.filters import CommandObject, Text
+from aiogram import Bot, F, Router
+from aiogram.filters import CommandObject
 from aiogram.types import (CallbackQuery, InlineKeyboardButton,
                            InlineKeyboardMarkup, Message)
 
@@ -14,7 +14,7 @@ from consts import FAQ_INFO, CommandButtons
 
 router = Router()
 
-async def help_command_message(msg: Message, edit_message: bool = False, selected: int = 0, callback_query: CallbackQuery | None = None) -> None:
+async def help_command_message(msg: Message, bot: Bot, edit_message: bool = False, selected: int = 0, callback_query: CallbackQuery | None = None) -> None:
 	"""
 	Сообщение для команды `/help`.
 	"""
@@ -35,6 +35,7 @@ async def help_command_message(msg: Message, edit_message: bool = False, selecte
 		])
 
 	await TelehooperAPI.edit_or_resend_message(
+		bot,
 		text=selected_text,
 		chat_id=msg.chat.id,
 		reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard_btns),
@@ -44,8 +45,8 @@ async def help_command_message(msg: Message, edit_message: bool = False, selecte
 	)
 
 @router.message(CommandWithDeepLink("help", "info", "faq", "h"))
-@router.message(Text(CommandButtons.HELP))
-async def help_command_handler(msg: Message, command: CommandObject | None = None) -> None:
+@router.message(F.text == CommandButtons.HELP)
+async def help_command_handler(msg: Message, bot: Bot, command: CommandObject | None = None) -> None:
 	"""
 	Handler для команды `/help`.
 	"""
@@ -57,10 +58,10 @@ async def help_command_handler(msg: Message, command: CommandObject | None = Non
 		if args[0].isdigit():
 			selected = utils.clamp(int(args[0]) - 1, 0, len(FAQ_INFO) - 1)
 
-	await help_command_message(msg, selected=cast(int, selected))
+	await help_command_message(msg, bot, selected=cast(int, selected))
 
-@router.callback_query(Text(startswith="/help"))
-async def help_page_inline_handler(query: CallbackQuery) -> None:
+@router.callback_query(F.data.startswith("/help"))
+async def help_page_inline_handler(query: CallbackQuery, bot: Bot) -> None:
 	"""
 	Inline Callback Handler для команды `/help`.
 
@@ -69,4 +70,4 @@ async def help_page_inline_handler(query: CallbackQuery) -> None:
 
 	page = utils.clamp(int((query.data or "").split()[1]), 0, len(FAQ_INFO) - 1)
 
-	await help_command_message(cast(Message, query.message), edit_message=True, selected=int(page), callback_query=query)
+	await help_command_message(cast(Message, query.message), bot, edit_message=True, selected=int(page), callback_query=query)

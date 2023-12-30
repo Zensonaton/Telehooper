@@ -3,12 +3,12 @@
 from typing import cast
 
 from aiogram import Bot, F, Router
-from aiogram.filters import Command, Text
+from aiogram.filters import Command
 from aiogram.types import (CallbackQuery, InlineKeyboardButton,
                            InlineKeyboardMarkup, Message, User)
 
 import utils
-from api import TelehooperAPI, TelehooperGroup
+from api import TelehooperAPI
 from consts import CommandButtons
 from services.vk.telegram_handlers.this import router as VKRouter
 
@@ -16,17 +16,14 @@ from services.vk.telegram_handlers.this import router as VKRouter
 router = Router()
 router.include_router(VKRouter)
 
-async def group_convert_message(chat_id: int, user: User, message_to_edit: Message | int | None = None, called_from_command: bool = True, callback_query: CallbackQuery | None = None) -> None:
+async def group_convert_message(bot: Bot, chat_id: int, user: User, message_to_edit: Message | int | None = None, called_from_command: bool = True, callback_query: CallbackQuery | None = None) -> None:
 	"""
 	Сообщение у команды /this, либо же при выдаче прав администратора боту после его добавления в группу.
 	"""
 
-	bot = Bot.get_current()
-	assert bot
-
 	telehooper_user = await TelehooperAPI.get_user(user)
 
-	telehooper_group = await TelehooperAPI.get_group(telehooper_user, chat_id)
+	telehooper_group = await TelehooperAPI.get_group(telehooper_user, chat_id, bot)
 
 	if not telehooper_group:
 		await bot.send_message(
@@ -62,6 +59,7 @@ async def group_convert_message(chat_id: int, user: User, message_to_edit: Messa
 		dialogs = dialogs[:-1]
 
 		await TelehooperAPI.edit_or_resend_message(
+			bot,
 			text=(
 				"<b>🫂 Группа-диалог</b>.\n"
 				"\n"
@@ -79,6 +77,7 @@ async def group_convert_message(chat_id: int, user: User, message_to_edit: Messa
 	# Проверяем на наличие подключённых сервисов.
 	if not telehooper_user.document["Connections"]:
 		await TelehooperAPI.edit_or_resend_message(
+			bot,
 			text=(
 				"<b>🫂 Группа-диалог</b>.\n"
 				"\n"
@@ -101,6 +100,7 @@ async def group_convert_message(chat_id: int, user: User, message_to_edit: Messa
 	use_mobile_vk = await telehooper_user.get_setting("Services.VK.MobileVKURLs")
 
 	await TelehooperAPI.edit_or_resend_message(
+		bot,
 		text=(
 			"<b>🫂 Группа-диалог</b>.\n"
 			"\n"
@@ -120,8 +120,8 @@ async def group_convert_message(chat_id: int, user: User, message_to_edit: Messa
 	)
 
 @router.message(Command("this"))
-@router.message(Text(CommandButtons.THIS))
-async def this_command_handler(msg: Message):
+@router.message(F.text == CommandButtons.THIS)
+async def this_command_handler(msg: Message, bot: Bot):
 	"""
 	Handler для команды `/this`.
 	"""
@@ -137,14 +137,14 @@ async def this_command_handler(msg: Message):
 
 		return
 
-	await group_convert_message(msg.chat.id, cast(User, msg.from_user), called_from_command=True)
+	await group_convert_message(bot, msg.chat.id, cast(User, msg.from_user), called_from_command=True)
 
-@router.callback_query(Text("/this"), F.message.as_("msg"), F.from_user.as_("user"))
-async def this_inline_handler(query: CallbackQuery, msg: Message, user: User) -> None:
+@router.callback_query(F.data == "/this", F.message.as_("msg"), F.from_user.as_("user"))
+async def this_inline_handler(query: CallbackQuery, msg: Message, user: User, bot: Bot) -> None:
 	"""
 	Inline Callback Handler для команды `/this`.
 
 	Вызывается при нажатии на нажатии на кнопку "назад", показывая содержимое команды `/this`.
 	"""
 
-	await group_convert_message(msg.chat.id, user, message_to_edit=query.message, called_from_command=False, callback_query=query)
+	await group_convert_message(bot, msg.chat.id, user, message_to_edit=query.message, called_from_command=False, callback_query=query)

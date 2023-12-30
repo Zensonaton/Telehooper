@@ -61,13 +61,14 @@
 
    ```env
    telegram_token=12345678:abcdef...
-   couch_db_database=test
-   couch_db_user=test
-   couch_db_password=test
+   couchdb_name=test
+   couchdb_user=test
+   couchdb_password=test
    token_encryption_key=abcdefg123456789
    ```
 
-   Вам стоит обратиться к файлу [config.py](src/config.py), в котором расположены существующие поля, которые находятся в `.env`-файле. Так же, в этом файле есть описания всех полей.
+   > [!WARNING]
+   > Вероятнее всего, данный пункт не будет отображать актуальное содержимое файла `.env`. Рекомендуется обратиться к файлу [config.py](src/config.py), поскольку в нём расположены все поля для `.env`-файла, вместе с их подробными описаниями.
 
 5. Установите [Python как минимум 3.10 версии](https://www.python.org/).
 6. Установите зависимости для Telehooper'а:

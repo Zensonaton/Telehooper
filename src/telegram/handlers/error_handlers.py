@@ -31,7 +31,7 @@ async def handle_error(event: ErrorEvent, bot: Bot, chat: Chat) -> bool:
 	if isinstance(exc, TelegramForbiddenError) and "bot was kicked" in exc.message:
 		logger.debug("Пользователь удалил бота из группы.")
 
-		await TelehooperAPI.delete_group_data(chat, fully_delete=True)
+		await TelehooperAPI.delete_group_data(chat, bot, fully_delete=True)
 
 	return False
 

@@ -5,10 +5,10 @@ import json
 
 from aiogram import Router
 from aiogram.types import BufferedInputFile, Message
-from DB import get_group
 
 import utils
 from api import CommandWithDeepLink, TelehooperAPI, TelehooperUser
+from DB import get_group
 
 
 router = Router()

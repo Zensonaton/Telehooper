@@ -6,13 +6,13 @@ import os
 import pkgutil
 import re
 from types import ModuleType
-from typing import cast
 
 from aiocouch import Document
 from aiogram import Bot, Dispatcher
 from aiogram.client.session.aiohttp import AiohttpSession
 from aiogram.client.session.base import BaseSession
 from aiogram.client.telegram import TelegramAPIServer
+from aiogram.enums import BotCommandScopeType
 from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
 from aiogram.types import (BotCommand, BotCommandScopeAllGroupChats,
                            BotCommandScopeDefault)
@@ -114,7 +114,7 @@ async def set_commands(use_async: bool = True) -> None:
 				) for command, description in COMMANDS.items()
 			],
 			scope=BotCommandScopeDefault(
-				type="default"
+				type=BotCommandScopeType.DEFAULT
 			)
 		)
 
@@ -126,7 +126,7 @@ async def set_commands(use_async: bool = True) -> None:
 				) for command, description in COMMANDS_USERS_GROUPS.items()
 			],
 			scope=BotCommandScopeAllGroupChats(
-				type="all_group_chats"
+				type=BotCommandScopeType.ALL_GROUP_CHATS
 			)
 		)
 

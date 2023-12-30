@@ -2,10 +2,11 @@
 
 from aiogram import Router
 from aiogram.filters import Command
-from aiogram.types import Message, FSInputFile
+from aiogram.types import FSInputFile, Message
 
 import utils
 from api import TelehooperAPI
+
 
 router = Router()
 

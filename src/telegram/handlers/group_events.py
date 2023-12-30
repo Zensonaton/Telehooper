@@ -6,7 +6,7 @@ from typing import cast
 from aiogram import Bot, F, Router
 from aiogram.filters import (ADMINISTRATOR, CREATOR, JOIN_TRANSITION, KICKED,
                              LEAVE_TRANSITION, MEMBER, RESTRICTED,
-                             ChatMemberUpdatedFilter, Text)
+                             ChatMemberUpdatedFilter)
 from aiogram.types import (CallbackQuery, ChatMemberUpdated,
                            InlineKeyboardButton, InlineKeyboardMarkup, Message,
                            User)
@@ -16,8 +16,8 @@ from loguru import logger
 import utils
 from api import TelehooperAPI
 from DB import get_db, get_default_group, get_group
-from telegram.handlers.this import group_convert_message
 from telegram.bot import get_minibots
+from telegram.handlers.this import group_convert_message
 
 
 _supergroup_converts = []
@@ -244,14 +244,15 @@ async def on_other_member_add_handler(event: ChatMemberUpdated, bot: Bot) -> Non
 
 	del _minibot_adds[event.chat.id]
 
-@router.callback_query(Text("/this showAdminTips"), F.message.as_("msg"))
-async def show_platform_admin_steps_inline_handler(query: CallbackQuery, msg: Message) -> None:
+@router.callback_query(F.data == "/this showAdminTips", F.message.as_("msg"))
+async def show_platform_admin_steps_inline_handler(query: CallbackQuery, msg: Message, bot: Bot) -> None:
 	"""
 	Handler, вызываемый, если пользователь в welcome-сообщении нажал на кнопку с инструкцией по выдаче прав администратора.
 	"""
 
 	await TelehooperAPI.edit_or_resend_message(
-		(
+		bot,
+		text=(
 			"<b>🫂 Группа-диалог</b>.\n"
 			"\n"
 			"Отлично! Добавив меня в группу, Вы сможете выбрать нужный Вам диалог из подключённого сервиса.\n"
@@ -300,9 +301,9 @@ async def on_user_promoted_handler(event: ChatMemberUpdated, bot: Bot):
 	#
 	# Если группа была конвертирована в супергруппу, то бот не сможет его отредактировать, поэтому мы его просто отправим.
 	try:
-		await group_convert_message(event.chat.id, event.from_user, group["StatusMessageID"], called_from_command=False)
+		await group_convert_message(bot, event.chat.id, event.from_user, group["StatusMessageID"], called_from_command=False)
 	except:
-		await group_convert_message(event.chat.id, event.from_user, None, called_from_command=False)
+		await group_convert_message(bot, event.chat.id, event.from_user, None, called_from_command=False)
 
 @router.chat_member(ChatMemberUpdatedFilter(member_status_changed=(ADMINISTRATOR | CREATOR) >> (RESTRICTED | MEMBER)))
 async def on_user_demotion_handler(event: ChatMemberUpdated, bot: Bot):

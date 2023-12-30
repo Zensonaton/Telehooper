@@ -209,20 +209,14 @@ class TelehooperUser:
 		self.settingsOverriden = self.document["SettingsOverriden"]
 		await self.document.save()
 
-	async def get_connected_groups(self, bot: Bot | None = None) -> list["TelehooperGroup"]:
+	async def get_connected_groups(self, bot: Bot) -> list["TelehooperGroup"]:
 		"""
 		Возвращает список из всех подключённых TelehooperGroup, с которым связан данный пользователь.
 
 		Если, по какой-то причине, запись в БД у пользователя ссылается на несуществующую группу, то запись о таковой группе будет удалена.
 
-		:param bot: Объект бота. Если не передан, будет попытка извлечь его самостоятельно.
+		:param bot: Объект бота.
 		"""
-
-		db = await get_db()
-
-		if not bot:
-			bot = Bot.get_current()
-			assert bot
 
 		groups = []
 
@@ -1202,18 +1196,13 @@ class TelehooperAPI:
 		return TelehooperUser(await db_get_user(user), user)
 
 	@staticmethod
-	async def get_user_by_id(user_id: int, bot: Bot | None = None) -> TelehooperUser | None:
+	async def get_user_by_id(user_id: int, bot: Bot) -> TelehooperUser | None:
 		"""
 		Возвращает объект TelehooperUser, либо None, если данного пользователя нет в БД, или же если он не писал боту.
 
 		:param user_id: ID пользователя в Telegram.
-		:param bot: Объект бота. Если не указано, то бот попытается получить его самостоятельно.
+		:param bot: Объект бота.
 		"""
-
-		if not bot:
-			bot = Bot.get_current()
-
-		assert bot
 
 		try:
 			user = (await (bot).get_chat_member(user_id, user_id)).user
@@ -1223,19 +1212,17 @@ class TelehooperAPI:
 			return None
 
 	@staticmethod
-	async def get_group(user: TelehooperUser, chat: Chat | int, db_group: Document | None = None) -> TelehooperGroup | None:
+	async def get_group(user: TelehooperUser, chat: Chat | int, bot: Bot, db_group: Document | None = None) -> TelehooperGroup | None:
 		"""
 		Возвращает объект группы, либо None, если данной группы нет в БД, или же если бот не состоит в ней.
 
 		:param user: Пользователь, который создал (владеет) группой.
 		:param chat: Объект группы в Telegram.
+		:param bot: Объект бота.
 		:param db_group: Документ группы в БД. Если не указано, бот попытается получить его самостоятельно.
 		"""
 
 		chat_id = chat if isinstance(chat, int) else chat.id
-
-		bot = Bot.get_current()
-		assert bot
 
 		if not db_group:
 			db_group = await get_group(chat_id)
@@ -1522,15 +1509,12 @@ class TelehooperAPI:
 		# TODO: Удалить вложение из БД.
 
 	@staticmethod
-	async def edit_or_resend_message(text: str, chat_id: int, message_to_edit: Message | int | None, thread_id: int | None = None, reply_markup: InlineKeyboardMarkup | ReplyKeyboardMarkup | ReplyKeyboardRemove | ForceReply | None = None, disable_web_page_preview: bool = False, allow_sending_without_reply: bool = False, bot: Bot | None = None, query: CallbackQuery | None = None) -> Message | int | None:
+	async def edit_or_resend_message(bot: Bot, text: str, chat_id: int, message_to_edit: Message | int | None, thread_id: int | None = None, reply_markup: InlineKeyboardMarkup | ReplyKeyboardMarkup | ReplyKeyboardRemove | ForceReply | None = None, disable_web_page_preview: bool = False, allow_sending_without_reply: bool = False, query: CallbackQuery | None = None) -> Message | int | None:
 		"""
 		Пытается отредактировать либо отправить сообщение в группу. Возвращает объект сообщения.
 		"""
 
 		message_id = message_to_edit.message_id if isinstance(message_to_edit, Message) else message_to_edit
-
-		bot = bot if bot else Bot.get_current()
-		assert bot
 
 		async def _send() -> Message:
 			return await bot.send_message(
@@ -1581,15 +1565,15 @@ class TelehooperAPI:
 			return await _send()
 
 	@staticmethod
-	async def delete_group_data(chat: int | Chat, fully_delete: bool = True, bot: Bot | None = None) -> None:
+	async def delete_group_data(chat: int | Chat, bot: Bot, fully_delete: bool = True) -> None:
 		"""
 		Полностью удаляет группу, её подгруппы и все связанные с ними данные из БД. Используется, если пользователь удалил бота из группы.
 
 		Данный метод работает для группы в целом, даже если в ней есть топики.
 
 		:param chat: Объект группы или её ID в Telegram.
+		:param bot: Объект бота.
 		:param fully_delete: Совершить полное удаление данных группы из БД. Если False, то данные будут оставлены в БД, но информация о подключённых диалогах внутри группы будет удалена.
-		:param bot: Объект бота. Если не указан, то бот не будет удаляться из группы.
 		"""
 
 		if isinstance(chat, Chat):
@@ -1671,7 +1655,7 @@ class TelehooperAPI:
 
 		return user_ids
 
-async def get_subgroup(msg_or_query: Message | CallbackQuery) -> dict | None:
+async def get_subgroup(msg_or_query: Message | CallbackQuery, bot: Bot) -> dict | None:
 	"""
 	Фильтр для входящих сообщений в группе. Если данная группа является диалог-группой, то данный метод вернёт объект TelehooperSubGroup.
 
@@ -1686,7 +1670,7 @@ async def get_subgroup(msg_or_query: Message | CallbackQuery) -> dict | None:
 	assert msg, "Сообщение не было найдено"
 
 	telehooper_user = await TelehooperAPI.get_user(cast(User, msg_or_query.from_user))
-	telehooper_group = await TelehooperAPI.get_group(telehooper_user, msg.chat)
+	telehooper_group = await TelehooperAPI.get_group(telehooper_user, msg.chat, bot)
 
 	if not telehooper_group:
 		return None

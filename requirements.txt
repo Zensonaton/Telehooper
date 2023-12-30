@@ -1,5 +1,5 @@
 aiofiles
-aiogram==3.0.0b7
+aiogram==3.2.0
 aiohttp
 loguru
 Pillow

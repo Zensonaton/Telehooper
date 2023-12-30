@@ -1,7 +1,6 @@
 # coding: utf-8
 
 from aiogram import Bot, F, Router
-from aiogram.filters import Text
 from aiogram.types import (CallbackQuery, InlineKeyboardButton,
                            InlineKeyboardMarkup, Message, User)
 from loguru import logger
@@ -9,6 +8,7 @@ from pydantic import SecretStr
 
 import utils
 from api import TelehooperAPI
+from config import config
 from services.service_api_base import ServiceDisconnectReason
 from services.vk import utils as vk_utils
 from services.vk.consts import (VK_INVISIBLE_CHARACTER,
@@ -18,13 +18,12 @@ from services.vk.consts import (VK_INVISIBLE_CHARACTER,
 from services.vk.exceptions import AccountDeactivatedException
 from services.vk.service import VKServiceAPI
 from services.vk.vk_api.api import VKAPI
-from config import config
 
 
 router = Router()
 
-@router.callback_query(Text("/me vk"), F.message.as_("msg"), F.from_user.as_("user"))
-async def me_vk_inline_handler(query: CallbackQuery, msg: Message, user: User) -> None:
+@router.callback_query(F.data == "/me vk", F.message.as_("msg"), F.from_user.as_("user"))
+async def me_vk_inline_handler(query: CallbackQuery, msg: Message, user: User, bot: Bot) -> None:
 	"""
 	Inline Callback Handler для команды `/me`.
 
@@ -60,7 +59,8 @@ async def me_vk_inline_handler(query: CallbackQuery, msg: Message, user: User) -
 		dialogues_str = "\n".join(dialogues)
 
 		await TelehooperAPI.edit_or_resend_message(
-			(
+			bot,
+			text=(
 				"<b>👤 Профиль — ВКонтакте</b>.\n"
 				"\n"
 				"Вы управляете этой страницей ВКонтакте:\n"
@@ -87,7 +87,8 @@ async def me_vk_inline_handler(query: CallbackQuery, msg: Message, user: User) -
 
 	# У пользователя нет подключённой страницы ВКонтакте.
 	await TelehooperAPI.edit_or_resend_message(
-		(
+		bot,
+		text=(
 			"<b>🌐 Подключение сервиса — ВКонтакте</b>.\n"
 			"\n"
 			"Шаги для подключения ВКонтакте:\n"
@@ -112,7 +113,7 @@ async def me_vk_inline_handler(query: CallbackQuery, msg: Message, user: User) -
 		query=query
 	)
 
-@router.message(Text(startswith="https://oauth.vk.com/blank.html#access_token="), F.from_user.as_("user"))
+@router.message(F.text.startswith("https://oauth.vk.com/blank.html#access_token="), F.from_user.as_("user"))
 async def connect_vk_token_handler(msg: Message, user: User, bot: Bot) -> None:
 	"""
 	Handler для команды `/connect`.
@@ -251,7 +252,7 @@ async def connect_vk_token_handler(msg: Message, user: User, bot: Bot) -> None:
 
 		await vkServiceAPI.start_listening(bot)
 
-@router.message(Text(startswith="https://oauth.vk.com/authorize"))
+@router.message(F.text.startswith("https://oauth.vk.com/authorize"))
 async def connect_vk_wrong_url_handler(msg: Message) -> None:
 	"""
 	Handler для команды `/connect`.
@@ -331,8 +332,8 @@ async def authorize_by_token(user: User, token: SecretStr) -> dict:
 
 	return user_info
 
-@router.callback_query(Text("/me vk disconnect"), F.message.as_("msg"), F.from_user.as_("user"))
-async def me_vk_disconnect_inline_handler(query: CallbackQuery, msg: Message, user: User) -> None:
+@router.callback_query(F.data == "/me vk disconnect", F.message.as_("msg"), F.from_user.as_("user"))
+async def me_vk_disconnect_inline_handler(query: CallbackQuery, msg: Message, user: User, bot: Bot) -> None:
 	"""
 	Inline Callback Handler для команды `/me`.
 
@@ -342,11 +343,14 @@ async def me_vk_disconnect_inline_handler(query: CallbackQuery, msg: Message, us
 	telehooper_user = await TelehooperAPI.get_user(user)
 
 	await TelehooperAPI.edit_or_resend_message(
-		"<b>⛔️ Отключение ВКонтакте</b>.\n"
-		"\n"
-		f"Вы уверены, что хотите отключить страницу «{telehooper_user.connections['VK']['FullName']}» от Telehooper?\n"
-		"\n"
-		"⚠️ Отключив страницу, Telehooper перестанет получать сообщения от ВКонтакте. Все подключённые диалоги будут отключены от бота.\n",
+		bot,
+		text=(
+			"<b>⛔️ Отключение ВКонтакте</b>.\n"
+			"\n"
+			f"Вы уверены, что хотите отключить страницу «{telehooper_user.connections['VK']['FullName']}» от Telehooper?\n"
+			"\n"
+			"⚠️ Отключив страницу, Telehooper перестанет получать сообщения от ВКонтакте. Все подключённые диалоги будут отключены от бота.\n"
+		),
 		message_to_edit=msg,
 		chat_id=msg.chat.id,
 		reply_markup=InlineKeyboardMarkup(inline_keyboard=
@@ -358,8 +362,8 @@ async def me_vk_disconnect_inline_handler(query: CallbackQuery, msg: Message, us
 		query=query
 	)
 
-@router.callback_query(Text("/me vk disconnect confirm"), F.message.as_("msg"), F.from_user.as_("user"))
-async def me_vk_disconnect_confirm_inline_handler(query: CallbackQuery, msg: Message, user: User) -> None:
+@router.callback_query(F.data == "/me vk disconnect confirm", F.message.as_("msg"), F.from_user.as_("user"))
+async def me_vk_disconnect_confirm_inline_handler(query: CallbackQuery, msg: Message, user: User, bot: Bot) -> None:
 	"""
 	Inline Callback Handler для команды `/me`.
 
@@ -374,11 +378,14 @@ async def me_vk_disconnect_confirm_inline_handler(query: CallbackQuery, msg: Mes
 	await vkService.disconnect_service(ServiceDisconnectReason.INITIATED_BY_USER)
 
 	await TelehooperAPI.edit_or_resend_message(
-		"<b>⛔️ Отключение ВКонтакте</b>.\n"
-		"\n"
-		f"Страница «{telehooper_user.connections['VK']['FullName']}» была отключена от Telehooper.\n"
-		"\n"
-		"ℹ️ Вы можете снова подключиться, введя команду /connect.\n",
+		bot,
+		text=(
+			"<b>⛔️ Отключение ВКонтакте</b>.\n"
+			"\n"
+			f"Страница «{telehooper_user.connections['VK']['FullName']}» была отключена от Telehooper.\n"
+			"\n"
+			"ℹ️ Вы можете снова подключиться, введя команду /connect.\n"
+		),
 		message_to_edit=msg,
 		chat_id=msg.chat.id,
 		reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔝 В начало", callback_data="/me")]]),

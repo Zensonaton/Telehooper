@@ -11,6 +11,7 @@ import cachetools
 import PIL
 from aiocouch import Document
 from aiogram import Bot
+from aiogram.enums import InputMediaType
 from aiogram.exceptions import (TelegramBadRequest, TelegramForbiddenError,
                                 TelegramNetworkError)
 from aiogram.types import Audio, BufferedInputFile, CallbackQuery
@@ -593,7 +594,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 							attachment_media.append(
 								InputMediaPhoto(
-									type="photo",
+									type=InputMediaType.PHOTO,
 									media=sizes_sorted[0]["url"]
 								)
 							)
@@ -698,7 +699,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 									# Прикрепляем видео.
 									attachment_media.append(
 										InputMediaVideo(
-											type="video",
+											type=InputMediaType.VIDEO,
 											media=BufferedInputFile(
 												video_bytes,
 												filename=f"{attachment['title'].strip()} {quality[4:]}p.mp4"
@@ -712,7 +713,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 						elif attachment_type == "audio_message":
 							attachment_media.append(
 								InputMediaAudio(
-									type="audio",
+									type=InputMediaType.AUDIO,
 									media=attachment["link_ogg"]
 								)
 							)
@@ -827,7 +828,15 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 										file_bytes = await response.read()
 
 								# Прикрепляем документ.
-								attachment_media.append(InputMediaDocument(type="document", media=BufferedInputFile(file=file_bytes, filename=attachment["title"])))
+								attachment_media.append(
+									InputMediaDocument(
+										type=InputMediaType.DOCUMENT,
+										media=BufferedInputFile(
+											file=file_bytes,
+											filename=attachment["title"]
+										)
+									)
+								)
 						elif attachment_type == "audio":
 							# Обрабатываем музыку.
 
@@ -855,9 +864,10 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 										# По-настоящему загружаем аудио.
 										file_bytes = await response.read()
 
+								# Прикрепляем аудио.
 								attachment_media.append(
 									InputMediaAudio(
-										type="audio",
+										type=InputMediaType.AUDIO,
 										media=BufferedInputFile(
 											file=file_bytes,
 											filename=f"{attachment['artist']} - {attachment['title']}.mp3"
@@ -869,7 +879,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 						elif attachment_type == "graffiti":
 							attachment_media.append(
 								InputMediaPhoto(
-									type="photo",
+									type=InputMediaType.PHOTO,
 									media=attachment["url"]
 								)
 							)
@@ -886,7 +896,12 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 						elif attachment_type == "poll":
 							attachment_items.append(f"<a href=\"{message_url}\">📊 Опрос: «{attachment['question']}»</a>")
 						elif attachment_type == "gift":
-							attachment_media.append(InputMediaPhoto(type="photo", media=attachment["thumb_256"]))
+							attachment_media.append(
+								InputMediaPhoto(
+									type=InputMediaType.PHOTO,
+									media=attachment["thumb_256"]
+								)
+							)
 
 							attachment_items.append(f"<a href=\"{message_url}\">🎁 Подарок</a>")
 						elif attachment_type == "market":
