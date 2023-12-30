@@ -12,3 +12,4 @@ pyrate-limiter
 Pillow
 pytest
 psutil
+pydantic_settings
