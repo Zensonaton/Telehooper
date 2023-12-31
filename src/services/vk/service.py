@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from asyncio.exceptions import TimeoutError
+import json
 from typing import TYPE_CHECKING, Literal, Optional, cast
 
 import aiohttp
@@ -41,7 +42,7 @@ from services.vk.exceptions import (AccessDeniedException,
                                     TooManyRequestsException)
 from services.vk.utils import (create_message_link, extract_id_from_domain,
                                get_attachment_key, get_message_mentions,
-                               prepare_sticker)
+                               prepare_sticker, random_id)
 from services.vk.vk_api.api import VKAPI
 from services.vk.vk_api.longpoll import (BaseVKLongpollEvent,
                                          LongpollMessageEditEvent,
@@ -1536,11 +1537,27 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 	async def send_callback(self, message_id: int, peer_id: int, data: str) -> None:
 		await self.vkAPI.messages_sendMessageEvent(message_id=message_id, peer_id=peer_id, payload=data)
 
-	async def send_message(self, chat_id: int, text: str, reply_to_message: int | None = None, attachments: list[str] | str | None = None, latitude: float | None = None, longitude: float | None = None, bypass_queue: bool = False) -> int | None:
+	async def send_message(self, chat_id: int, text: str, reply_to_message: int | None = None, attachments: list[str] | str | None = None, latitude: float | None = None, longitude: float | None = None, bypass_queue: bool = False) -> tuple[int, int] | None:
 		if not bypass_queue and not await self.acquire_queue("message"):
 			return None
 
-		return await self.vkAPI.messages_send(peer_id=chat_id, message=text, reply_to=reply_to_message, attachment=attachments, lat=latitude, long=longitude)
+		args = self.vkAPI._cleanup_none({
+			"random_id": random_id(),
+			"peer_id": chat_id,
+			"message": text,
+			"reply_to": reply_to_message,
+			"attachment": attachments,
+			"lat": latitude,
+			"long": longitude
+		})
+
+		return cast(tuple[int, int], await self.vkAPI.execute(
+			code=(
+				f"var msgID = API.messages.send({args});"
+				f"var convMID = API.messages.getById({{\"message_ids\":[msgID]}}).items[0].conversation_message_id;"
+				f"return [msgID, convMID];"
+			)
+		))
 
 	async def set_reactions(self, chat_id: int, message_id: int, reactions: str | list[str], bypass_queue: bool = False) -> None:
 		if not bypass_queue and not await self.acquire_queue("message"):
@@ -1909,7 +1926,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 				await self.set_online()
 
 			# Отправляем сообщение.
-			vk_message_id = await self.send_message(
+			vk_message_send_result = await self.send_message(
 				chat_id=peer_id,
 				text=message_text,
 				reply_to_message=reply_message_id,
@@ -1919,20 +1936,11 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 			)
 
 			# В некоторых случаях сообщение может быть не отправлено из-за большой очереди.
-			if not vk_message_id:
+			if not vk_message_send_result:
 				return
 
-			# Если сообщение было отправлено в беседу, то мы можем получить ConversationMID для хранения в памяти.
-			conversation_mid = None
-			if is_multiuser_chat:
-				try:
-					message_data = await self.vkAPI.messages_getById(vk_message_id)
-					if message_data and message_data["items"]:
-						message_data = message_data["items"][0]
-
-					conversation_mid = message_data["conversation_message_id"]
-				except:
-					pass
+			# Извлекаем ID сообщения, а так же его ID в беседе.
+			vk_message_id, conversation_mid = vk_message_send_result
 
 			# Сохраняем ID сообщения.
 			await TelehooperAPI.save_message(
@@ -1940,7 +1948,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 				self.service_user_id,
 				msg.message_id,
 				vk_message_id,
-				conversation_mid,
+				conversation_mid or None,
 				sent_via_bot=True
 			)
 		except TooManyRequestsException:
