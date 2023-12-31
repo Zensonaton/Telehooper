@@ -595,6 +595,9 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 					return
 
+				# Делаем так, что бы сообщения от имени владельца страницы отправлялись от имени основного бота Telehooper.
+				original_message_sender_id = original_message_sender_id if original_message_sender_id != self.service_user_id else None
+
 				# Проходимся по всем вложениям.
 				if message_extended and "attachments" in message_extended:
 					for attch_index, attachment in enumerate(message_extended["attachments"]):
@@ -934,9 +937,6 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 							attachment_items.append(f"<a href=\"{message_url}\">📝 История</a>")
 						else:
 							raise TypeError(f"Неизвестный тип вложения \"{attachment_type}\"")
-
-			# Делаем так, что бы сообщения от имени владельца страницы отправлялись от имени основного бота Telehooper.
-			original_message_sender_id = original_message_sender_id if original_message_sender_id != self.service_user_id else None
 
 			# Проверяем, не было ли это событие беседы из ВК.
 			if is_convo and event.source_act:
