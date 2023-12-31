@@ -46,13 +46,17 @@ async def message_error_handler(event: ErrorEvent, msg: Message, bot: Bot) -> No
 
 	logger.exception(f"Ошибка при обработке Telegram-сообщения от пользователя {utils.get_telegram_logging_info(msg.from_user)}:", event.exception)
 
+	exception_text = str(event.exception)
+	if len(exception_text) > 100:
+		exception_text = exception_text[:100] + "..."
+
 	await msg.answer(
 		"<b>⚠️ У бота произошла ошибка</b>.\n"
 		"\n"
 		"<i><b>Упс!</b></i> Что-то пошло не так, и бот столкнулся с ошибкой. 😓\n"
 		"\n"
 		"<b>Текст ошибки, если Вас попросили его отправить</b>:\n"
-		f"<code>{event.exception.__class__.__name__}: {event.exception}</code>.\n"
+		f"<code>{event.exception.__class__.__name__}: {exception_text}</code>.\n"
 		"\n"
 		f"ℹ️ Пожалуйста, подождите, перед тем как попробовать снова. Если проблема не проходит через время - попробуйте попросить помощи либо создать баг-репорт (Github Issue), по ссылке в команде <a href=\"{utils.create_command_url('/h 6')}\">/help</a>."
 	)
