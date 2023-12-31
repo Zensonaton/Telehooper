@@ -17,10 +17,10 @@ from aiogram.types import Audio, BufferedInputFile, CallbackQuery, Chat
 from aiogram.types import Document as TelegramDocument
 from aiogram.types import (ForceReply, InlineKeyboardMarkup, InputFile,
                            InputMediaAudio, InputMediaDocument,
-                           InputMediaPhoto, InputMediaVideo, Message,
-                           MessageReactionUpdated, PhotoSize,
-                           ReplyKeyboardMarkup, ReplyKeyboardRemove, Sticker,
-                           User, Video, VideoNote, Voice)
+                           InputMediaPhoto, InputMediaVideo,
+                           LinkPreviewOptions, Message, MessageReactionUpdated,
+                           PhotoSize, ReplyKeyboardMarkup, ReplyKeyboardRemove,
+                           Sticker, User, Video, VideoNote, Voice)
 from loguru import logger
 from magic_filter import MagicFilter
 from pyrate_limiter import BucketFullException, Rate
@@ -608,7 +608,7 @@ class TelehooperGroup:
 			allow_sending_without_reply=True
 		)]
 
-	async def send_message(self, text: str, attachments: list[InputMediaAudio | InputMediaDocument | InputMediaPhoto | InputMediaVideo] | None = None, reply_to: int | None = None, topic: int = 0, silent: bool = False, keyboard: InlineKeyboardMarkup | None = None, disable_web_preview: bool = False, sender_id: int | None = None, bypass_queue: bool = False) -> list[int] | None:
+	async def send_message(self, text: str, attachments: list[InputMediaAudio | InputMediaDocument | InputMediaPhoto | InputMediaVideo] | None = None, reply_to: int | None = None, topic: int = 0, silent: bool = False, keyboard: InlineKeyboardMarkup | None = None, disable_web_preview: bool = False, web_preview_url: str | None = None, sender_id: int | None = None, bypass_queue: bool = False) -> list[int] | None:
 		"""
 		Отправляет сообщение в группу. Возвращает ID отправленного(-ых) сообщений.
 
@@ -619,6 +619,7 @@ class TelehooperGroup:
 		:param silent: Отправить ли сообщение без уведомления.
 		:param keyboard: Клавиатура, которую нужно прикрепить к сообщению.
 		:param disable_web_preview: Отключить ли превью ссылок в сообщении.
+		:param web_preview_url: URL страницы, для которой должен быть сделан превью ссылки. Работает лишь в случае, если disable_web_preview = False.
 		:param sender_id: ID пользователя, с которым должен быть найден ассоциированный минибот.
 		:param bypass_queue: Отправить ли сообщение без учёта очереди.
 		"""
@@ -656,7 +657,10 @@ class TelehooperGroup:
 			disable_notification=silent,
 			allow_sending_without_reply=True,
 			reply_markup=keyboard,
-			disable_web_page_preview=disable_web_preview
+			link_preview_options=LinkPreviewOptions(
+				is_disabled=disable_web_preview,
+				url=web_preview_url
+			)
 		)).message_id]
 
 	async def start_activity(self, type: Literal["typing", "upload_photo", "record_video", "upload_video", "record_audio", "upload_audio", "upload_document", "find_location", "record_video_note", "upload_video_note"] = "typing", topic: int = 0, sender_id: int | None = None, bypass_queue: bool = False) -> None:
@@ -959,7 +963,7 @@ class TelehooperSubGroup:
 			bypass_queue=bypass_queue
 		)
 
-	async def send_message_in(self, text: str, attachments: list[InputMediaAudio | InputMediaDocument | InputMediaPhoto | InputMediaVideo] | None = None, reply_to: int | None = None, silent: bool = False, keyboard: InlineKeyboardMarkup | None = None, disable_web_preview: bool = False, sender_id: int | None = None, bypass_queue: bool = False) -> list[int] | None:
+	async def send_message_in(self, text: str, attachments: list[InputMediaAudio | InputMediaDocument | InputMediaPhoto | InputMediaVideo] | None = None, reply_to: int | None = None, silent: bool = False, keyboard: InlineKeyboardMarkup | None = None, disable_web_preview: bool = False, web_preview_url: str | None = None, sender_id: int | None = None, bypass_queue: bool = False) -> list[int] | None:
 		"""
 		Отправляет сообщение в Telegram-группу.
 
@@ -969,6 +973,7 @@ class TelehooperSubGroup:
 		:param silent: Отправить ли сообщение без уведомления.
 		:param keyboard: Клавиатура, которую нужно прикрепить к сообщению.
 		:param disable_web_preview: Отключить ли превью ссылок.
+		:param web_preview_url: URL страницы, для которой должен быть сделан превью ссылки. Работает лишь в случае, если disable_web_preview = False.
 		:param sender_id: ID пользователя, с которым должен быть найден ассоциированный минибот.
 		:param bypass_queue: Отправить ли сообщение без учёта лимитов.
 		"""
@@ -981,6 +986,7 @@ class TelehooperSubGroup:
 			reply_to=reply_to,
 			keyboard=keyboard,
 			disable_web_preview=disable_web_preview,
+			web_preview_url=web_preview_url,
 			sender_id=sender_id,
 			bypass_queue=bypass_queue
 		)

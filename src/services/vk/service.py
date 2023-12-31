@@ -421,6 +421,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 			message_text_stripped = event.text.lower().strip()
 			original_message_sender_id = event.from_id
 			first_message_text_url = utils.extract_url(message_text_stripped)
+			webpage_preview_url = first_message_text_url
 
 			# Заменяем в тексте сообщения упоминания, поскольку ВК их возвращает в формате [id1|@durov].
 			# Здесь мы их просто заменяем на часть типа @durov.
@@ -907,10 +908,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 							attachment_items.append(f"<a href=\"{'m.' if use_mobile_vk else ''}vk.com/wall{attachment['owner_id']}_{attachment['id']}\">🔄 Запись от {'пользователя' if attachment['owner_id'] > 0 else 'группы'} {post_creator_info.name}</a>")
 						elif attachment_type == "link":
-							# TODO: Используя API Telegram, передать превью на именно эту ссылку.
-							# На момент написания данного комментария, aiogram ещё не обновлён, и нового API для этого нет.
-
-							pass
+							webpage_preview_url = attachment["url"]
 						elif attachment_type == "poll":
 							attachment_items.append(f"<a href=\"{message_url}\">📊 Опрос: «{attachment['question']}»</a>")
 						elif attachment_type == "gift":
@@ -1016,7 +1014,8 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 					reply_to=reply_to,
 					keyboard=keyboard,
 					sender_id=original_message_sender_id,
-					disable_web_preview=first_message_text_url != full_message_first_url
+					disable_web_preview=first_message_text_url != full_message_first_url,
+					web_preview_url=webpage_preview_url
 				)
 
 				# Если произошёл rate limit, то ответ на отправку сообщений будет равен None.
