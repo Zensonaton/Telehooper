@@ -623,7 +623,13 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 							# Проверяем, видеосообщение (кружочек) ли это?
 							is_video_note = attachments.get(f"attach{attch_index + 1}_kind") == "video_message"
 
-							async with ChatActionSender(chat_id=subgroup.parent.chat.id, action="upload_video", bot=subgroup.parent.bot):
+							# Для отображения прогресса отправки сообщения с вложениями, бот должен показать пользователям надпись "Telehooper отправляет видео...".
+							# Если мы находимся в беседе, то нужно найти того минибота, который связан с пользователем, который отправляет видео.
+							upload_bot = subgroup.parent.bot
+							if is_convo:
+								upload_bot = await subgroup.parent.get_associated_bot(original_message_sender_id) or subgroup.parent.bot
+
+							async with ChatActionSender(chat_id=subgroup.parent.chat.id, action="upload_video", bot=upload_bot):
 								video = (await self.vkAPI.video_get(videos=get_attachment_key(attachment)))["items"][0]
 								if "files" not in video:
 									# В случаях, если видео помечено как "доступно только подписчикам", ВК не даёт ссылок на скачивание.
@@ -828,7 +834,13 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 							return
 						elif attachment_type == "doc":
-							async with ChatActionSender(chat_id=subgroup.parent.chat.id, action="upload_document", bot=subgroup.parent.bot):
+							# Для отображения прогресса отправки сообщения с вложениями, бот должен показать пользователям надпись "Telehooper отправляет документ...".
+							# Если мы находимся в беседе, то нужно найти того минибота, который связан с пользователем, который отправляет документ.
+							upload_bot = subgroup.parent.bot
+							if is_convo:
+								upload_bot = await subgroup.parent.get_associated_bot(original_message_sender_id) or subgroup.parent.bot
+
+							async with ChatActionSender(chat_id=subgroup.parent.chat.id, action="upload_document", bot=upload_bot):
 								async with aiohttp.ClientSession() as client:
 									async with client.get(attachment["url"]) as response:
 										assert response.status == 200, f"Не удалось загрузить документ с ID {attachment['id']}"
@@ -866,7 +878,13 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 								continue
 
-							async with ChatActionSender(chat_id=subgroup.parent.chat.id, action="upload_audio", bot=subgroup.parent.bot):
+							# Для отображения прогресса отправки сообщения с вложениями, бот должен показать пользователям надпись "Telehooper отправляет аудио...".
+							# Если мы находимся в беседе, то нужно найти того минибота, который связан с пользователем, который отправляет аудио.
+							upload_bot = subgroup.parent.bot
+							if is_convo:
+								upload_bot = await subgroup.parent.get_associated_bot(original_message_sender_id) or subgroup.parent.bot
+
+							async with ChatActionSender(chat_id=subgroup.parent.chat.id, action="upload_audio", bot=upload_bot):
 								async with aiohttp.ClientSession() as client:
 									async with client.get(attachment["url"]) as response:
 										assert response.status == 200, f"Не удалось загрузить аудио с ID {attachment['id']}"
@@ -1067,9 +1085,13 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 					sent_via_bot=False
 				)
 
-			# Отправляем сообщения с вложениями.
-			# Для отображения прогресса отправки, бот должен показать пользователям надпись "Telehooper отправляет документ...".
-			async with ChatActionSender.upload_document(chat_id=subgroup.parent.chat.id, bot=subgroup.parent.bot, initial_sleep=1):
+			# Для отображения прогресса отправки сообщения с вложениями, бот должен показать пользователям надпись "Telehooper отправляет документ...".
+			# Если мы находимся в беседе, то нужно найти того минибота, который связан с пользователем, который отправляет документ.
+			upload_bot = subgroup.parent.bot
+			if is_convo:
+				upload_bot = await subgroup.parent.get_associated_bot(original_message_sender_id) or subgroup.parent.bot
+
+			async with ChatActionSender.upload_document(chat_id=subgroup.parent.chat.id, bot=upload_bot, initial_sleep=1):
 				try:
 					await _send_and_save()
 				except (TelegramNetworkError, TimeoutError):
@@ -2294,3 +2316,4 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 			await self.user.document.save()
 		except:
 			pass
+		#
