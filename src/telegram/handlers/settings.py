@@ -63,7 +63,7 @@ async def settings_command_message(msg: Message, bot: Bot, user: TelehooperUser,
 		elif setting["ButtonType"] == "range":
 			current_value += f"Значение: {value}"
 		elif setting["ButtonType"] == "enum":
-			current_value += f"Значение: {setting['EnumValues'][value]}"
+			current_value += f"Значение: {setting['EnumValues'][str(value)]}"
 
 		_text = (
 			f"<b>⚙️ Изменение настройки \"{setting['Name']}\"</b>.\n"
