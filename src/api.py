@@ -716,7 +716,7 @@ class TelehooperGroup:
 				message_id=id
 			)
 
-	async def delete_message(self, id: list[int] | int, sender_id: int | None = None, bypass_queue: bool = False) -> None:
+	async def delete_messages(self, id: list[int] | int, sender_id: int | None = None, bypass_queue: bool = False) -> None:
 		"""
 		Удаляет одно или несколько сообщений в Telegram-группе.
 
@@ -733,11 +733,10 @@ class TelehooperGroup:
 		if isinstance(id, int):
 			id = [id]
 
-		for message_id in id:
-			await bot.delete_message(
-				self.chat.id,
-				message_id=message_id
-			)
+		await bot.delete_messages(
+			self.chat.id,
+			message_ids=id
+		)
 
 	async def set_title(self, title: str) -> None:
 		"""
@@ -1035,7 +1034,7 @@ class TelehooperSubGroup:
 		:param sender_id: ID пользователя, с которым должен быть найден ассоциированный минибот.
 		"""
 
-		await self.parent.delete_message(
+		await self.parent.delete_messages(
 			id,
 			sender_id=sender_id
 		)
