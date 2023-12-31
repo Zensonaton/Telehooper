@@ -760,9 +760,8 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 								return sticker_bytes
 
-							# В данный момент, поддержка анимированных стикеров отсутствует из-за особенности в сжатии библиотеки gzip.
 							is_animated = "animation_url" in attachment
-							sticker_url = attachment.get("animation_url") if is_animated else attachment["images"][-1]["url"]
+							sticker_url = attachment.get("animation_url") if is_animated else attachment["images_with_background"][-1]["url"]
 							attachment_cache_name = f"sticker{attachment['sticker_id']}{'anim' if is_animated else 'static'}"
 
 							# Пытаемся получить информацию о данном стикере из кэша вложений.
