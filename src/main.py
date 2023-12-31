@@ -58,6 +58,10 @@ async def bot_init() -> None:
 	logger.info("Восстанавливаю сессии сервисов...")
 	await bot.reconnect_services()
 
+	# Загружаем кэш вложений.
+	logger.info("Загружаю кэш вложений...")
+	await bot.load_cached_attachments()
+
 	# Устанавливаем команды.
 	await bot.set_commands()
 

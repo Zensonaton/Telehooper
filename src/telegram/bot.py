@@ -22,7 +22,7 @@ import utils
 from api import TelehooperAPI, TelehooperSubGroup, TelehooperUser
 from config import config
 from consts import COMMANDS, COMMANDS_USERS_GROUPS
-from DB import get_db
+from DB import get_attachment_cache, get_db
 from services.vk.service import VKServiceAPI
 
 
@@ -246,3 +246,16 @@ async def connect_minibots(session: BaseSession) -> dict[str, Bot]:
 	minibots = dict(sorted(minibots.items(), key=lambda item: [int(s) if s.isdigit() else s.lower() for s in re.split(r"([0-9]+)", item[0])]))
 
 	return minibots
+
+async def load_cached_attachments() -> None:
+	"""
+	Загружает кэшированные вложения из БД.
+	"""
+
+	db = await get_db()
+
+	async for doc in db.docs(prefix="global_attchcache_"):
+		logger.debug(f"Кэшированных вложений для сервиса {doc['Service']}: {len(doc['Attachments'])}")
+
+		for key, value in doc["Attachments"].items():
+			await TelehooperAPI.save_attachment(doc["Service"], key, value, encrypt=False, save_in_db=False)

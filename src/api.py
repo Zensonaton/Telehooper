@@ -28,7 +28,7 @@ from pyrate_limiter.limiter import Limiter
 
 import utils
 from config import config
-from DB import get_db, get_default_subgroup, get_group
+from DB import get_attachment_cache, get_db, get_default_subgroup, get_group
 from DB import get_user as db_get_user
 from exceptions import DisallowedInDebugException
 from services.service_api_base import BaseTelehooperServiceAPI, ServiceDialogue
@@ -861,6 +861,13 @@ class TelehooperCachedAttachment:
 		self.key = key
 		self.value = value
 
+	def as_dict(self) -> dict:
+		"""
+		Возвращает данный объект как словарь.
+		"""
+
+		return {self.key: self.value}
+
 class TelehooperSubGroup:
 	"""
 	Класс для под-группы в группе-диалоге. Используется для всех диалогов внутри группы Telegram. Класс существует поскольку группы могут быть топиками с множеством диалогов.
@@ -1450,46 +1457,64 @@ class TelehooperAPI:
 			return msg
 
 	@staticmethod
-	async def save_attachment(service_name: str, key: str, value: str):
+	async def save_attachment(service_name: str, key: str, value: str, encrypt: bool = True, save_in_db: bool = True):
 		"""
 		Сохраняет вложение с уникальным ID в БД с целью кэширования. Применяется для стикеров и GIF-анимаций.
 
 		:param service_name: Название сервиса, через который было отправлено сообщение.
 		:param key: Уникальный ключ вложения. Данный ключ не должен быть хэширован.
 		:param value: Строка для получения вложения (например, поле `file_id` у Telegram-сообщения, либо attachment у ВК). Данное значение не должно быть зашифрованым.
+		:param encrypt: Указывает, будет ли ключ и значение зашифрованы перед добавлением в память и/ли БД.
+		:param save_in_db: Если True, то данное вложение будет сохранено в БД.
 		"""
 
-		attachment = TelehooperCachedAttachment(
+		# Проверяем, что данное вложение не существует в БД.
+		if await TelehooperAPI.get_attachment(service_name, key):
+			return
+
+		# Шифруем поля, если это нужно.
+		if encrypt:
+			logger.debug(f"Шифрую ключ {key} через SHA, а значение {value} через оригинальный ключ.")
+
+			value = utils.encrypt_with_key(value, key)
+			key = utils.sha256_hash(key)
+
+		_cached_attachments.append(TelehooperCachedAttachment(
 			service_name=service_name,
-			key=utils.sha256_hash(key),
-			value=utils.encrypt_with_key(value, key)
-		)
+			key=key,
+			value=value
+		))
 
-		_cached_attachments.append(attachment)
+		# Если это нужно, то сохраняем вложение в БД.
+		if save_in_db:
+			doc = await get_attachment_cache(service_name)
+			doc["Attachments"] = {}
 
-		# TODO: Проверка на существование перед добавлением.
-		# TODO: Сохранить в БД.
+			for attachment in _cached_attachments:
+				doc["Attachments"].update(attachment.as_dict())
+
+			try:
+				await doc.save()
+			except:
+				pass
 
 	@staticmethod
-	async def get_attachment(service_name: str, key: str, bypass_cache: bool = False) -> str | None:
+	async def get_attachment(service_name: str, key: str) -> str | None:
 		"""
 		Возвращает значение вложения по его уникальному ключу.
 
 		:param service_name: Название сервиса, через который было отправлено сообщение.
 		:param key: Уникальный ключ вложения. Не должен быть хэширован.
-		:param bypass_cache: Игнорировать ли кэш. Если да, то бот будет искать вложение только в БД.
 		"""
 
-		# Если нам это разрешено, возвращаем ID сообщения из кэша.
-		if not bypass_cache:
-			for attachment in _cached_attachments:
-				if attachment.service_name != service_name:
-					continue
+		for attachment in _cached_attachments:
+			if attachment.service_name != service_name:
+				continue
 
-				if attachment.key == utils.sha256_hash(key):
-					return utils.decrypt_with_key(attachment.value, key)
+			if attachment.key != utils.sha256_hash(key):
+				continue
 
-		# TODO: Извлечь информацию о вложении из БД.
+			return utils.decrypt_with_key(attachment.value, key)
 
 		return None
 

@@ -105,30 +105,31 @@ async def get_user(user: User, create_by_default: bool = True) -> Document:
 	await user_db.save()
 	return user_db
 
-async def get_global(create_by_default: bool = True) -> Document:
+async def get_attachment_cache(service: str, create_by_default: bool = True) -> Document:
 	"""
-	Возвращает глобальную запись из БД.
+	Возвращает запись из БД, хранимую в себе кэш вложений определённого сервиса.
 
-	Если `create_by_default` равен `True`, то глобальная запись будет создана, если она не был найдена, в противном случае будет вызвана ошибка.
+	:param service: Сервис, кэш вложений которого должен быть возвращён.
+	:param create_by_default: Если равен `True`, то будет произведена запись если она не была найдена, в противном случае будет вызвана ошибка.
 	"""
 
 	db = await get_db()
 
 	try:
-		return await db["global"]
+		return await db[f"global_attchcache_{service}"]
 	except NotFoundError:
 		if not create_by_default:
-			raise NotFoundError(f"Глобальная запись не была найдена в базе данных.")
+			raise NotFoundError(f"Запись кэша вложений для сервиса {service} не была найдена в БД")
 
-		# Глобальная запись не была найдена, поэтому мы создаем её.
-		global_db = await db.create(
-			"global",
+		# Запись кэша вложений не была найдена, поэтому создаём её.
+		cache_db = await db.create(
+			f"global_attchcache_{service}",
 			exists_ok=False,
-			data=get_default_global()
+			data=get_default_attachment_cache(service)
 		)
-		await global_db.save()
+		await cache_db.save()
 
-		return global_db
+		return cache_db
 
 def get_default_user(user: User, version: int = utils.get_bot_version()) -> dict:
 	"""
@@ -152,13 +153,17 @@ def get_default_user(user: User, version: int = utils.get_bot_version()) -> dict
 		}
 	}
 
-def get_default_global(version: int = utils.get_bot_version()) -> dict:
+def get_default_attachment_cache(service: str, version: int = utils.get_bot_version()) -> dict:
 	"""
-	Возвращает шаблон глобальной записи для сохранения в базу данных.
+	Возвращает шаблон записи для кэша вложений сервиса.
+
+	:param service: Сервис, для которого должен быть создан шаблон кэша вложений.
 	"""
 
 	return {
-		"DocVer": version
+		"DocVer": version,
+		"Service": service,
+		"Attachments": {}
 	}
 
 async def get_group(chat: int | Chat) -> Document | None:
