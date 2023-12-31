@@ -604,7 +604,8 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 							attachment_media.append(
 								InputMediaPhoto(
 									type=InputMediaType.PHOTO,
-									media=sizes_sorted[0]["url"]
+									media=sizes_sorted[0]["url"],
+									parse_mode="HTML"
 								)
 							)
 						elif attachment_type == "video":
@@ -712,7 +713,8 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 											media=BufferedInputFile(
 												video_bytes,
 												filename=f"{attachment['title'].strip()} {quality[4:]}p.mp4"
-											)
+											),
+											parse_mode="HTML"
 										)
 									)
 
@@ -723,7 +725,8 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 							attachment_media.append(
 								InputMediaAudio(
 									type=InputMediaType.AUDIO,
-									media=attachment["link_ogg"]
+									media=attachment["link_ogg"],
+									parse_mode="HTML"
 								)
 							)
 						elif attachment_type == "sticker":
@@ -843,7 +846,8 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 										media=BufferedInputFile(
 											file=file_bytes,
 											filename=attachment["title"]
-										)
+										),
+										parse_mode="HTML"
 									)
 								)
 						elif attachment_type == "audio":
@@ -882,14 +886,16 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 											filename=f"{attachment['artist']} - {attachment['title']}.mp3"
 										),
 										title=attachment["title"],
-										performer=attachment["artist"]
+										performer=attachment["artist"],
+										parse_mode="HTML"
 									)
 								)
 						elif attachment_type == "graffiti":
 							attachment_media.append(
 								InputMediaPhoto(
 									type=InputMediaType.PHOTO,
-									media=attachment["url"]
+									media=attachment["url"],
+									parse_mode="HTML"
 								)
 							)
 						elif attachment_type == "wall":
@@ -908,7 +914,8 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 							attachment_media.append(
 								InputMediaPhoto(
 									type=InputMediaType.PHOTO,
-									media=attachment["thumb_256"]
+									media=attachment["thumb_256"],
+									parse_mode="HTML"
 								)
 							)
 
