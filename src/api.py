@@ -23,7 +23,8 @@ from aiogram.types import (ForceReply, InlineKeyboardMarkup, InputFile,
                            User, Video, VideoNote, Voice)
 from loguru import logger
 from magic_filter import MagicFilter
-from pyrate_limiter import BucketFullException, Limiter, RequestRate
+from pyrate_limiter import BucketFullException, Rate
+from pyrate_limiter.limiter import Limiter
 
 import utils
 from config import config
@@ -306,7 +307,7 @@ class TelehooperGroup:
 
 		# 1 сообщение в секунду,
 		# 20 сообщений в минуту.
-		self.limiter = Limiter(RequestRate(1, 1), RequestRate(20, 60))
+		self.limiter = Limiter([Rate(1, 1), Rate(20, 60)])
 
 	def _parse_document(self, group: Document) -> None:
 		"""
@@ -361,18 +362,6 @@ class TelehooperGroup:
 				await asyncio.sleep(delay_time)
 			else:
 				return True
-
-	def get_bucket_size(self, key: str) -> int:
-		"""
-		Возвращает 'заполненность' очереди по заданному имени.
-
-		:param key: Ключ, по которому нужно получить заполненность очереди.
-		"""
-
-		try:
-			return self.limiter.get_current_volume(key)
-		except:
-			return 0
 
 	async def convert_to_dialogue_group(self, user: TelehooperUser, dialogue: ServiceDialogue, pinned_message: Message, serviceAPI: BaseTelehooperServiceAPI) -> None:
 		"""

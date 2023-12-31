@@ -9,7 +9,8 @@ from typing import TYPE_CHECKING, Literal, Optional
 from aiogram import Bot
 from aiogram.types import (Audio, CallbackQuery, Document, Message,
                            MessageReactionUpdated, PhotoSize, Video, VideoNote)
-from pyrate_limiter import BucketFullException, Limiter, RequestRate
+from pyrate_limiter import BucketFullException, Rate
+from pyrate_limiter.limiter import Limiter
 
 if TYPE_CHECKING:
 	from api import TelehooperMessage, TelehooperSubGroup, TelehooperUser
@@ -114,7 +115,7 @@ class BaseTelehooperServiceAPI:
 	limiter: Limiter
 	"""Лимитер для этого сервиса."""
 
-	def __init__(self, service_name: str, service_id: int, user: "TelehooperUser", limiter: Limiter = Limiter(RequestRate(1, 1), RequestRate(20, 60))) -> None:
+	def __init__(self, service_name: str, service_id: int, user: "TelehooperUser", limiter: Limiter = Limiter([Rate(1, 1), Rate(20, 60)])) -> None:
 		"""
 		Инициализирует данный Service API.
 
@@ -150,18 +151,6 @@ class BaseTelehooperServiceAPI:
 				await asyncio.sleep(delay_time)
 			else:
 				return True
-
-	def get_bucket_size(self, key: str) -> int:
-		"""
-		Возвращает 'заполненность' очереди по заданному имени.
-
-		:param key: Ключ, по которому нужно получить заполненность очереди.
-		"""
-
-		try:
-			return self.limiter.get_current_volume(key)
-		except:
-			return 0
 
 	async def start_listening(self, bot: Bot | None = None) -> None:
 		"""

@@ -24,7 +24,8 @@ from aiogram.types import (InlineKeyboardButton, InlineKeyboardMarkup,
 from aiogram.utils.chat_action import ChatActionSender
 from loguru import logger
 from pydantic import SecretStr
-from pyrate_limiter import Limiter, RequestRate
+from pyrate_limiter import Rate
+from pyrate_limiter.limiter import Limiter
 
 import utils
 from config import config
@@ -33,7 +34,8 @@ from services.service_api_base import (BaseTelehooperServiceAPI,
                                        ServiceDialogue,
                                        ServiceDisconnectReason,
                                        TelehooperServiceUserInfo)
-from services.vk.consts import VK_LONGPOLL_GLOBAL_ERRORS_AMOUNT, VK_REACTION_EMOJIS
+from services.vk.consts import (VK_LONGPOLL_GLOBAL_ERRORS_AMOUNT,
+                                VK_REACTION_EMOJIS)
 from services.vk.exceptions import (AccessDeniedException,
                                     TokenRevokedException,
                                     TooManyRequestsException)
@@ -77,7 +79,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 	_autoReadChats: dict[int, asyncio.Task]
 	"""Словарь, хранящий asyncio.Task для 'прочитывания' сообщений после их отправки собеседником. Используется для настройки `Services.VK.AutoRead`."""
 
-	def __init__(self, token: SecretStr, vk_user_id: int, user: "TelehooperUser", limiter: Limiter = Limiter(RequestRate(2, 1), RequestRate(20, 60))) -> None:
+	def __init__(self, token: SecretStr, vk_user_id: int, user: "TelehooperUser", limiter: Limiter = Limiter([Rate(2, 1), Rate(20, 60)])) -> None:
 		super().__init__("VK", vk_user_id, user)
 
 		self.token = token
@@ -1901,7 +1903,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 			# Если разрешено, то устанавливаем статус "онлайн".
 			# Перед запросом проверяется, что с момента обновления онлайна ботом прошло как минимум 60 секунд.
-			if utils.time_since(self._lastOnlineStatus) > 60 and self.get_bucket_size("message") < 5 and await self.user.get_setting("Services.VK.SetOnline"):
+			if utils.time_since(self._lastOnlineStatus) > 60 and await self.user.get_setting("Services.VK.SetOnline"):
 				self._lastOnlineStatus = utils.get_timestamp()
 
 				await self.set_online()
