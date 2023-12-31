@@ -48,7 +48,8 @@ async def bot_shutdown_handler(bot: Bot) -> None:
 	bot_state = await get_bot_status_fields()
 
 	logger.info("Telegram-бот отключается. Состояние перед выключением:")
-	logger.info(bot_state)
+	for line in bot_state.splitlines():
+		logger.info(line.replace("<b>", "").replace("</b>", "").lstrip(" • ").replace("\n", ""))
 
 	# Получаем список пользователей с ролью "logBotState".
 	admin_users = await TelehooperAPI.get_users_with_role("logBotState", allow_any=False)
