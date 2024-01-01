@@ -94,19 +94,19 @@
    version: "3.8"
 
    services:
-   telegram-bot-api:
-      image: aiogram/telegram-bot-api:latest
-      environment:
-         TELEGRAM_API_ID: "..."
-         TELEGRAM_API_HASH: "..."
-         TELEGRAM_LOCAL: Yes
+      telegram-bot-api:
+         image: aiogram/telegram-bot-api:latest
+         environment:
+            TELEGRAM_API_ID: "..."
+            TELEGRAM_API_HASH: "..."
+            TELEGRAM_LOCAL: Yes
 
-      volumes:
-         - telegram-bot-api-data:/var/lib/telegram-bot-api
-      ports:
-         - "8081:8081"
-         - "8082:8082"
-      restart: unless-stopped
+         volumes:
+            - telegram-bot-api-data:/var/lib/telegram-bot-api
+         ports:
+            - "8081:8081"
+            - "8082:8082"
+         restart: unless-stopped
 
    nginx:
       image: nginx:latest
@@ -118,8 +118,8 @@
       restart: unless-stopped
 
    volumes:
-   telegram-bot-api-data:
-      external: true
+      telegram-bot-api-data:
+         external: true
    ```
 
    Не забудьте заменить поля `TELEGRAM_API_ID` и `TELEGRAM_API_HASH`.
