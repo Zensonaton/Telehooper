@@ -194,7 +194,11 @@ async def reconnect_services() -> None:
 				except (TelegramForbiddenError, TelegramBadRequest):
 					logger.debug(f"Удаляю Telegram-группу {group.chat.id} для пользователя {utils.get_telegram_logging_info(telegram_user)}, поскольку бот не смог получить о ней информацию.")
 
-					await TelehooperAPI.delete_group_data(group.chat.id, fully_delete=True, bot=bot)
+					await TelehooperAPI.delete_group_data(
+						group.chat.id,
+						fully_delete=True,
+						bot=bot
+					)
 				except Exception as error:
 					logger.exception(f"Не удалось переподключить группу {group.chat.id} для пользователя {utils.get_telegram_logging_info(telegram_user)}:", error)
 		except Exception as error:

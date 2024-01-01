@@ -360,7 +360,11 @@ async def on_user_chat_kick_handler(event: ChatMemberUpdated, bot: Bot):
 		return
 
 	# Удаляем группу из БД.
-	await TelehooperAPI.delete_group_data(event.chat.id, fully_delete=True, bot=bot)
+	await TelehooperAPI.delete_group_data(
+		event.chat.id,
+		fully_delete=True,
+		bot=bot
+	)
 
 @router.message(F.migrate_to_chat_id)
 async def group_to_supergroup_convert_handler(message: Message, bot: Bot):

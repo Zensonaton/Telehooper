@@ -244,7 +244,11 @@ class TelehooperUser:
 			except (TelegramForbiddenError, TelegramBadRequest):
 				logger.debug(f"Удаляю Telegram-группу {group_id} для пользователя {utils.get_telegram_logging_info(self.telegramUser)}, поскольку бот не смог получить о ней информацию.")
 
-				await TelehooperAPI.delete_group_data(group_id, fully_delete=True, bot=bot)
+				await TelehooperAPI.delete_group_data(
+					group_id,
+					fully_delete=True,
+					bot=bot
+				)
 
 		return groups
 
@@ -1622,23 +1626,53 @@ class TelehooperAPI:
 	@staticmethod
 	async def delete_group_data(chat: int | Chat, bot: Bot, fully_delete: bool = True) -> None:
 		"""
-		Полностью удаляет группу, её подгруппы и все связанные с ними данные из БД. Используется, если пользователь удалил бота из группы.
-
-		Данный метод работает для группы в целом, даже если в ней есть топики.
+		Полностью удаляет группу, её подгруппы и все связанные с ними данные из БД. Используется, если пользователь удалил бота из группы. Данный метод работает для группы в целом, даже если в ней есть топики.
 
 		:param chat: Объект группы или её ID в Telegram.
-		:param bot: Объект бота.
+		:param bot: Объект бота. Если передаётся минибот вместо главного объекта бота, то вместо удаления данных о группе будет удалена запись минибота в БД.
 		:param fully_delete: Совершить полное удаление данных группы из БД. Если False, то данные будут оставлены в БД, но информация о подключённых диалогах внутри группы будет удалена.
 		"""
+
+		from telegram.bot import get_minibots
 
 		if isinstance(chat, Chat):
 			chat = chat.id
 
-		logger.debug(f"Группа с ID {chat} была отправлена на удаление.")
-
 		db_group = await get_group(chat)
 		if not db_group:
 			return
+
+		# Если был передан минибот вместо главного бота, то мы просто должны удалить запись минибота из БД группы.
+		if bot.id in [i.id for i in get_minibots().values()]:
+			# Ищем @username минибота.
+			username: str | None = None
+			for minibotusername, minibot in get_minibots().items():
+				if bot.id != minibot.id:
+					continue
+
+				username = minibotusername
+				break
+
+			assert username, "@username минибота не был найден"
+
+			logger.debug(f"Обрабатываю событие удаление минибота @{username} из группы ID {chat}")
+
+			# Удаляем минибота из списка миниботов группы.
+			db_group["Minibots"].remove(username)
+
+			# Удаляем все ассоциации с данным миниботом.
+			for userID, minibotusername in db_group["AssociatedMinibots"].copy().items():
+				if username != minibotusername:
+					continue
+
+				del db_group["AssociatedMinibots"][userID]
+
+			# Сохраняем изменения в БД.
+			await db_group.save()
+
+			return
+
+		logger.debug(f"Группа с ID {chat} была отправлена на удаление.")
 
 		telehooper_user = None
 		try:

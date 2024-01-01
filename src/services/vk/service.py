@@ -408,6 +408,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 		message_url = None
 		keyboard = None
+		original_message_sender_id = event.from_id if event.from_id != self.service_user_id else None
 		try:
 			attachment_media: list[InputMediaAudio | InputMediaDocument | InputMediaPhoto | InputMediaVideo] = []
 			attachment_items: list[str] = []
@@ -423,7 +424,6 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 			is_bot = (event.from_id or 0) < 0
 			from_self = (not is_convo and is_outbox) or (is_convo and event.from_id and event.from_id == self.service_user_id)
 			message_text_stripped = event.text.lower().strip()
-			original_message_sender_id = event.from_id if event.from_id != self.service_user_id else None
 			first_message_text_url = utils.extract_url(message_text_stripped)
 			webpage_preview_url = first_message_text_url
 
@@ -1127,7 +1127,11 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 				# Запускаем задачу по "прочитыванию" чата через время.
 				self._autoReadChats[subgroup.service_chat_id] = asyncio.create_task(read_task(subgroup.service_chat_id, read_setting_timer))
 		except TelegramForbiddenError:
-			await TelehooperAPI.delete_group_data(subgroup.parent.chat.id, fully_delete=True, bot=subgroup.parent.bot)
+			await TelehooperAPI.delete_group_data(
+				subgroup.parent.chat.id,
+				fully_delete=True,
+				bot=await subgroup.parent.get_associated_bot(original_message_sender_id) or subgroup.parent.bot
+			)
 		except Exception as e:
 			logger.exception(f"Ошибка отправки сообщения Telegram-пользователю {utils.get_telegram_logging_info(self.user.telegramUser)}:", e)
 
@@ -1180,12 +1184,8 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 					"record_audio" if type(event) is LongpollVoiceMessageEvent else "typing",
 					sender_id=user_id if user_id != subgroup.service.service_user_id else None
 				)
-		except TelegramForbiddenError:
-			await TelehooperAPI.delete_group_data(
-				subgroup.parent.chat.id,
-				fully_delete=True,
-				bot=subgroup.parent.bot
-			)
+		except:
+			pass
 
 	async def handle_vk_message_edit(self, event: LongpollMessageEditEvent) -> None:
 		"""
@@ -1220,7 +1220,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 			try:
 				await subgroup.delete_message(telegram_message.telegram_message_ids)
 			except TelegramForbiddenError:
-				await TelehooperAPI.delete_group_data(subgroup.parent.chat.id, fully_delete=True, bot=subgroup.parent.bot)
+				pass
 			except Exception:
 				pass
 
@@ -1249,7 +1249,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 				disable_web_preview=disable_web_preview
 			)
 		except TelegramForbiddenError:
-			await TelehooperAPI.delete_group_data(subgroup.parent.chat.id, fully_delete=True, bot=subgroup.parent.bot)
+			pass
 		except Exception as error:
 			logger.debug(f"Отредактировать сообщение не удалось: {error}")
 
@@ -1290,7 +1290,11 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 				sender_id=sender_id
 			)
 		except TelegramForbiddenError:
-			await TelehooperAPI.delete_group_data(subgroup.parent.chat.id, fully_delete=True, bot=subgroup.parent.bot)
+			await TelehooperAPI.delete_group_data(
+				subgroup.parent.chat.id,
+				fully_delete=True,
+				bot=subgroup.parent.bot
+			)
 		except Exception:
 			try:
 				# Если не удалось удалить при помощи минибота, то удаляем главным ботом.
@@ -1630,16 +1634,41 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 	async def handle_telegram_message(self, msg: Message, subgroup: "TelehooperSubGroup", user: "TelehooperUser", attachments: list[PhotoSize | Video | Audio | TelegramDocument | Voice | Sticker | VideoNote]) -> None:
 		from api import TelehooperAPI
+		from telegram.bot import get_minibots
 
 
 		try:
 			message_text = msg.text or msg.caption or ""
 
-			logger.debug(f"[TG] Обработка сообщения в Telegram: \"{message_text}\" в \"{subgroup}\" {'с вложениями' if attachments else ''}")
+			logger.debug(f"[TG] Обработка сообщения в Telegram: \"{message_text or '<пусто>'}\" в \"{subgroup}\" {'с вложениями' if attachments else ''}")
 
-			# Если это сервисное сообщение об удалении (кика) бота из группы, то обрабатываем это.
-			if msg.left_chat_member and msg.left_chat_member.id == subgroup.parent.bot.id:
-				await TelehooperAPI.delete_group_data(subgroup.parent.chat.id, fully_delete=True, bot=subgroup.parent.bot)
+			# Обрабатываем случай удаления пользователя из группы.
+			# Если был удалён основной или минибот, то нам нужно удалить группу либо минибота оттуда.
+			if msg.left_chat_member:
+				if msg.left_chat_member.id == subgroup.parent.bot.id:
+					# Удаление основного бота.
+					await TelehooperAPI.delete_group_data(
+						subgroup.parent.chat.id,
+						fully_delete=True,
+						bot=subgroup.parent.bot
+					)
+
+				if msg.left_chat_member.id in [i.id for i in get_minibots().values()]:
+					# Удаление минибота. Извлекаем объект такового из памяти.
+					bot: Bot | None = None
+					for minibot in get_minibots().values():
+						if msg.left_chat_member.id != minibot.id:
+							continue
+
+						bot = minibot
+						break
+
+					assert bot, "Не был найден объект минибота"
+
+					await TelehooperAPI.delete_group_data(
+						subgroup.parent.chat.id,
+						bot=bot
+					)
 
 				return
 
