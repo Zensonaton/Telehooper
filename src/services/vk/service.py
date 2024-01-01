@@ -683,10 +683,13 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 											content_size = int(response.headers.get("Content-Length", "0"))
 											assert content_size, "Не был выдан размер файла для загрузки"
 
-											# Пытаемся найти самое большое видео, размер которого не превышает 50 МБ.
+											# Пытаемся найти самое большое видео, размер которого не превышает лимит.
 											if content_size > utils.max_upload_bytes():
 												if is_last:
-													raise Exception("Не было найдено видео меньшего размера")
+													# Передаём ссылку на видео, если файл меньшего размера не был найден.
+													attachment_items.append(f"<a href=\"{'m.' if use_mobile_vk else ''}vk.com/{get_attachment_key(attachment, 'video', include_access_key=False)}\">📹 Видео «{attachment['title']}»</a>")
+
+													break
 
 												logger.debug(f"Файл качества {quality} оказался слишком большой ({content_size} байт).")
 
@@ -852,11 +855,11 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 										content_size = int(response.headers.get("Content-Length", "0"))
 										assert content_size, "Не был выдан размер файла для загрузки"
 
-										# Проверяем, не превышает ли размер файла 50 МБ.
+										# Проверяем, не превышает ли размер файла лимит.
 										if content_size > utils.max_upload_bytes():
-											logger.debug(f"Файл оказался слишком большой ({content_size} байт).")
+											attachment_items.append(f"<a href=\"{message_url}\">📁 Документ «{attachment['title']}»</a>")
 
-											raise Exception("Размер файла слишком большой")
+											break
 
 										# По-настоящему загружаем документ.
 										file_bytes = await response.read()
@@ -896,11 +899,11 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 										content_size = int(response.headers.get("Content-Length", "0"))
 										assert content_size, "Не был выдан размер файла для загрузки"
 
-										# Проверяем, не превышает ли размер файла 50 МБ.
+										# Проверяем, не превышает ли размер файла лимит.
 										if content_size > utils.max_upload_bytes():
-											logger.debug(f"Файл оказался слишком большой ({content_size} байт).")
+											attachment_items.append(f"<a href=\"{message_url}\">🎵 {attachment['artist']} - {attachment['title']}</a>")
 
-											raise Exception("Размер файла слишком большой")
+											break
 
 										# По-настоящему загружаем аудио.
 										file_bytes = await response.read()
