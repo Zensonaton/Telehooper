@@ -1419,7 +1419,7 @@ class TelehooperAPI:
 				return
 
 	@staticmethod
-	async def get_message_by_telegram_id(service_name: str, message_id: int, service_owner_id: int) -> TelehooperMessage | None:
+	async def get_message_by_telegram_id(service_name: str, service_owner_id: int, message_id: int) -> TelehooperMessage | None:
 		"""
 		Возвращает информацию о отправленном через бота сообщения по его ID в Telegram.
 
@@ -1438,7 +1438,7 @@ class TelehooperAPI:
 			return msg
 
 	@staticmethod
-	async def get_message_by_service_id(service_name: str, message_id: int, service_owner_id: int) -> TelehooperMessage | None:
+	async def get_message_by_service_id(service_name: str, service_owner_id: int, message_id: int) -> TelehooperMessage | None:
 		"""
 		Возвращает информацию о отправленном через бота сообщения по его ID в сервисе.
 
@@ -1452,6 +1452,28 @@ class TelehooperAPI:
 				continue
 
 			if message_id not in msg.service_message_ids:
+				continue
+
+			return msg
+
+	@staticmethod
+	async def get_message_by_service_conversation_id(service_name: str, service_owner_id: int, conversation_message_id: int) -> TelehooperMessage | None:
+		"""
+		Возвращает информацию о отправленном через бота сообщения по его ID беседы в сервисе.
+
+		:param service_name: Название сервиса, через который было отправлено сообщение.
+		:param service_owner_id: ID пользователя сервиса, который связан с этим сообщением.
+		:param conversation_message_id: ID сообщения беседы в сервисе.
+		"""
+
+		for msg in _cached_message_ids.get(service_owner_id, []):
+			if msg.service != service_name:
+				continue
+
+			if not msg.service_conversation_message_ids:
+				continue
+
+			if conversation_message_id not in msg.service_conversation_message_ids:
 				continue
 
 			return msg

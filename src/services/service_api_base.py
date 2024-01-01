@@ -369,6 +369,16 @@ class BaseTelehooperServiceAPI:
 
 		raise NotImplementedError
 
+	async def get_message_by_service_conversation_id(self, service_owner_id: int, conversation_message_id: int) -> Optional["TelehooperMessage"]:
+		"""
+		Возвращает информацию о отправленном через бота сообщения по его ID беседы в сервисе.
+
+		:param service_owner_id: ID пользователя сервиса, который связан с этим сообщением.
+		:param conversation_message_id: ID сообщения беседы в сервисе.
+		"""
+
+		raise NotImplementedError
+
 	@staticmethod
 	async def reconnect_on_restart(user: "TelehooperUser", db_user: Document, bot: Bot) -> Optional["BaseTelehooperServiceAPI"]:
 		"""

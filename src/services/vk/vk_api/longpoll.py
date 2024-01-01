@@ -15,6 +15,8 @@ from services.vk.vk_api.api import VKAPI
 class BaseVKLongpollEvent:
 	"""
 	Базовое событие Longpoll ВКонтакте.
+
+	Неофициальная документация Longpoll: https://danyadev.github.io/longpoll-doc/
 	"""
 
 	event_type: int
@@ -41,7 +43,7 @@ class BaseVKLongpollEvent:
 
 		event_type = event[0]
 
-		if event_type == 4 and len(event) > 3:
+		if event_type == 10004 and len(event) > 3:
 			# В редких случаях, ВКонтакте возвращает событие о новом сообщении (т.е., LongpollNewMessageEvent)
 			# с очень странным содержимым: в таком событии есть лишь 2 поля, предположительно:
 			# - ID сообщения.
@@ -51,15 +53,13 @@ class BaseVKLongpollEvent:
 			# Что бы избежать странных ошибок, обработка такого типа событий здесь исключается.
 
 			return LongpollNewMessageEvent(event)
-		elif event_type in (61, 62):
-			return LongpollTypingEvent(event)
 		elif event_type == 63:
 			return LongpollTypingEventMultiple(event)
 		elif event_type == 64:
 			return LongpollVoiceMessageEvent(event)
-		elif event_type == 5:
+		elif event_type == 10005:
 			return LongpollMessageEditEvent(event)
-		elif event_type == 2:
+		elif event_type == 10002:
 			return LongpollMessageFlagsEdit(event)
 
 		if raise_error:
@@ -71,79 +71,106 @@ class LongpollNewMessageEvent(BaseVKLongpollEvent):
 	"""
 	Longpoll-событие, вызываемое при получении нового сообщения ВКонтакте.
 
-	ID события: `4`.
+	ID события: `10004`.
 	"""
 
-	message_id: int
+	conversation_message_id: int
+	"""ID сообщения относительно текущей беседы."""
+	flags: VKLongpollMessageFlags
+	"""Флаги сообщения."""
+	minor_id: int | None
 	"""ID сообщения."""
-	date: int
-	"""UNIX-время отправки сообщения."""
 	peer_id: int
-	"""Чат, в котором было отправлено сообщение. Для пользователя: id пользователя. Для групповой беседы: `2000000000 + id` беседы. Для сообщества: `-id` сообщества либо `id + 1000000000`."""
+	"""ID чата, в котором было отправлено сообщение. Для пользователя: id пользователя. Для групповой беседы: `2000000000 + id` беседы. Для сообщества: `-id` сообщества либо `id + 1000000000`."""
+	timestamp: int
+	"""UNIX-время отправки данного сообщения."""
 	text: str
 	"""Текст сообщения."""
+
+	# Объект с дополнительными данными.
+	_additional_: dict
+	"""Дополнительные поля."""
+	title: str | None
+	"""Титульник сообщения."""
+	emoji: bool | None
+	"""Наличие эмодзи в сообщении."""
 	from_id: int | None
-	"""ID пользователя, который отправил сообщение. В некоторых случаях может отсутствовать."""
+	"""ID отправителя сообщения."""
+	has_template: bool | None
+	"""Наличие шаблона."""
+	marked_users: list | None
+	"""Упомянутые пользователи в сообщении."""
+	keyboard: object | None
+	"""Объект клавиатуры от ботом."""
+	expire_ttl: int | None
+	"""Количество секунд до исчезновения сообщения."""
+	ttl: int | None
+	"""Количество секунд до исчезновения сообщения в фантомном чате."""
+	is_expired: bool | None
+	"""Указывает, что сообщение исчезло."""
+	payload: str | None
+	"""Полезная нагрузка сообщения."""
 	source_act: str | None
 	"""Действие, которое было совершено с сообщением. Например, `chat_kick_user`."""
 	source_text: str | None
 	"""Текст, который связан с `source_act`."""
 	source_old_text: str | None
 	"""Старый текст, который связан с `source_act`."""
-	source_mid: int | None
+	source_message_id: int | None
 	"""ID пользователя, с которым связано `source_act`."""
 	source_chat_local_id: int | None
 	"""ID сообщения, с которым связано `source_act`."""
-	flags: VKLongpollMessageFlags
-	"""Флаги сообщения."""
+
 	attachments: dict
 	"""Вложения сообщения."""
 
+	random_id: int
+	"""Случайный ID, передаваемый при отправке сообщения."""
+	message_id: int
+	"""ID сообщения."""
+	update_timestamp: int | None
+	"""UNIX-время редактирования сообщения, если оно было хоть раз отредактировано."""
+
 	def __init__(self, event: list) -> None:
 		super().__init__(event)
 
-		self.message_id = self.event_data[0]
+		self.conversation_message_id = self.event_data[0]
 		self.flags = VKLongpollMessageFlags(self.event_data[1])
-		self.peer_id = self.event_data[2]
-		self.date = self.event_data[3]
-		self.text = self.event_data[4]
-		self.from_id = self.event_data[5].get("from")
+		self.minor_id = self.event_data[2]
+		self.peer_id = self.event_data[3]
+		self.timestamp = self.event_data[4]
+		self.text =  self.event_data[5]
+
+		self._additional_ = self.event_data[6]
+		self.title = self._additional_.get("title", None)
+		self.emoji = self._additional_.get("emoji", None) == "1"
+		self.from_id = self._additional_.get("from", None)
 		if self.from_id:
 			self.from_id = int(self.from_id)
-		self.source_act = self.event_data[5].get("source_act")
-		self.source_mid = self.event_data[5].get("source_mid")
-		if self.source_mid:
-			self.source_mid = int(self.source_mid)
-		self.source_chat_local_id = self.event_data[5].get("source_chat_local_id")
+		self.has_template = self._additional_.get("has_template", None) == "1"
+		self.marked_users = self._additional_.get("marked_users", None)
+		self.keyboard = self._additional_.get("keyboard", None)
+		self.expire_ttl = self._additional_.get("expire_ttl", None)
+		if self.expire_ttl:
+			self.expire_ttl = int(self.expire_ttl)
+		self.ttl = self._additional_.get("ttl", None)
+		self.is_expired = self._additional_.get("is_expired", None) == "1"
+		self.payload = self._additional_.get("payload", None)
+		self.source_act = self._additional_.get("source_act")
+		self.source_message_id = self._additional_.get("source_mid")
+		if self.source_message_id:
+			self.source_message_id = int(self.source_message_id)
+		self.source_chat_local_id = self._additional_.get("source_chat_local_id")
 		if self.source_chat_local_id:
 			self.source_chat_local_id = int(self.source_chat_local_id)
-		self.source_text = self.event_data[5].get("source_text")
-		self.source_old_text = self.event_data[5].get("source_old_text")
-		self.attachments = self.event_data[6]
+		self.source_text = self._additional_.get("source_text")
+		self.source_old_text = self._additional_.get("source_old_text")
 
-class LongpollTypingEvent(BaseVKLongpollEvent):
-	"""
-	Longpoll-событие, вызываемое когда какой-то из пользователей ВКонтакте начинает печатать. Вызывается каждые 5~ секунд.
+		self.attachments = self.event_data[7]
 
-	ID событий:
-	- `61` для обычного диалога.
-	- `62` для группового чата.
-	"""
-
-	user_id: int
-	"""ID пользователя, который печатает сообщение."""
-	peer_id: int
-	"""Чат, в котором начали печатать сообщение."""
-
-	def __init__(self, event: list) -> None:
-		super().__init__(event)
-
-		self.user_id = self.event_data[0]
-		self.peer_id = self.user_id
-		if self.event_type == 62:
-			# В беседах, передаваемый ID чата равен ID пользователя + 2e9.
-
-			self.peer_id = int(2e9 + self.event_data[1])
+		self.random_id = self.event_data[8]
+		self.message_id = self.event_data[9]
+		self.update_timestamp = self.event_data[10] or None
 
 class LongpollTypingEventMultiple(BaseVKLongpollEvent):
 	"""
@@ -152,10 +179,10 @@ class LongpollTypingEventMultiple(BaseVKLongpollEvent):
 	ID события: `63`.
 	"""
 
-	user_ids: list[int]
-	"""ID пользователей, которые печатают сообщение. Максимальное количество в данном объекте - 5 пользователей."""
 	peer_id: int
 	"""Чат, в котором начали печатать сообщение."""
+	user_ids: list[int]
+	"""ID пользователей, которые печатают сообщение. Максимальное количество в данном объекте - 5 пользователей."""
 	total_count: int
 	"""Количество пользователей, которые печатают сообщение."""
 	timestamp: int
@@ -164,8 +191,8 @@ class LongpollTypingEventMultiple(BaseVKLongpollEvent):
 	def __init__(self, event: list) -> None:
 		super().__init__(event)
 
-		self.user_ids = self.event_data[0]
-		self.peer_id = self.event_data[1]
+		self.peer_id = self.event_data[0]
+		self.user_ids = self.event_data[1]
 		self.total_count = self.event_data[2]
 		self.timestamp = self.event_data[3]
 
@@ -191,54 +218,113 @@ class LongpollMessageEditEvent(BaseVKLongpollEvent):
 	"""
 	Longpoll-событие, вызываемое при редактировании сообщения.
 
-	ID события: `5`.
+	ID события: `10005`.
 	"""
 
+	flags: VKLongpollMessageFlags
+	"""Флаги сообщения."""
+	minor_id: int | None
+	"""ID сообщения."""
+	peer_id: int
+	"""ID чата, в котором было отправлено сообщение. Для пользователя: id пользователя. Для групповой беседы: `2000000000 + id` беседы. Для сообщества: `-id` сообщества либо `id + 1000000000`."""
+	timestamp: int
+	"""UNIX-время отправки данного сообщения."""
+	text: str
+	"""Текст сообщения."""
+
+	# Объект с дополнительными данными.
+	_additional_: dict
+	"""Дополнительные поля."""
+	title: str | None
+	"""Титульник сообщения."""
+	emoji: bool | None
+	"""Наличие эмодзи в сообщении."""
+	from_id: int | None
+	"""ID отправителя сообщения."""
+	has_template: bool | None
+	"""Наличие шаблона."""
+	marked_users: list | None
+	"""Упомянутые пользователи в сообщении."""
+	keyboard: object | None
+	"""Объект клавиатуры от ботом."""
+	expire_ttl: int | None
+	"""Количество секунд до исчезновения сообщения."""
+	ttl: int | None
+	"""Количество секунд до исчезновения сообщения в фантомном чате."""
+	is_expired: bool | None
+	"""Указывает, что сообщение исчезло."""
+	payload: str | None
+	"""Полезная нагрузка сообщения."""
+	source_act: str | None
+	"""Действие, которое было совершено с сообщением. Например, `chat_kick_user`."""
+	source_text: str | None
+	"""Текст, который связан с `source_act`."""
+	source_old_text: str | None
+	"""Старый текст, который связан с `source_act`."""
+	source_message_id: int | None
+	"""ID пользователя, с которым связано `source_act`."""
+	source_chat_local_id: int | None
+	"""ID сообщения, с которым связано `source_act`."""
+
+	attachments: dict
+	"""Вложения сообщения."""
+
+	random_id: int
+	"""Случайный ID, передаваемый при отправке сообщения."""
 	message_id: int
 	"""ID сообщения."""
-	flags: VKLongpollMessageFlags
-	"""Флаги нового сообщения."""
-	peer_id: int
-	"""Чат, в котором было отправлено сообщение."""
-	timestamp: int
-	"""UNIX-время отправки сообщения."""
-	new_text: str
-	"""Новый текст сообщения."""
-	attachments: dict
-	"""Новые вложения сообщения."""
-	is_expired: bool | None
-	"""Истёк ли срок действия сообщения. (если сообщение было самоуничтожающимся)"""
-	pinned_at: int | None
-	"""Время закрепления сообщения. (если это закреплённое сообщение)"""
-	from_id: int | None
-	"""ID пользователя, который отправил сообщение. В некоторых случаях может отсутствовать."""
+	update_timestamp: int | None
+	"""UNIX-время редактирования сообщения, если оно было хоть раз отредактировано."""
 
 	def __init__(self, event: list) -> None:
 		super().__init__(event)
 
-		self.message_id = self.event_data[0]
-		self.flags = VKLongpollMessageFlags(self.event_data[1])
+		self.flags = VKLongpollMessageFlags(self.event_data[0])
+		self.minor_id = self.event_data[1]
 		self.peer_id = self.event_data[2]
 		self.timestamp = self.event_data[3]
-		self.new_text = self.event_data[4]
-		self.is_expired = self.event_data[5].get("is_expired")
-		self.pinned_at = self.event_data[5].get("pinned_at")
-		if self.pinned_at:
-			self.pinned_at = int(self.pinned_at)
-		self.from_id = self.event_data[5].get("from")
+		self.text =  self.event_data[4]
+
+		self._additional_ = self.event_data[5]
+		self.title = self._additional_.get("title", None)
+		self.emoji = self._additional_.get("emoji", None) == "1"
+		self.from_id = self._additional_.get("from", None)
 		if self.from_id:
 			self.from_id = int(self.from_id)
+		self.has_template = self._additional_.get("has_template", None) == "1"
+		self.marked_users = self._additional_.get("marked_users", None)
+		self.keyboard = self._additional_.get("keyboard", None)
+		self.expire_ttl = self._additional_.get("expire_ttl", None)
+		if self.expire_ttl:
+			self.expire_ttl = int(self.expire_ttl)
+		self.ttl = self._additional_.get("ttl", None)
+		self.is_expired = self._additional_.get("is_expired", None) == "1"
+		self.payload = self._additional_.get("payload", None)
+		self.source_act = self._additional_.get("source_act")
+		self.source_message_id = self._additional_.get("source_mid")
+		if self.source_message_id:
+			self.source_message_id = int(self.source_message_id)
+		self.source_chat_local_id = self._additional_.get("source_chat_local_id")
+		if self.source_chat_local_id:
+			self.source_chat_local_id = int(self.source_chat_local_id)
+		self.source_text = self._additional_.get("source_text")
+		self.source_old_text = self._additional_.get("source_old_text")
+
 		self.attachments = self.event_data[6]
+
+		self.random_id = self.event_data[7]
+		self.message_id = self.event_data[8]
+		self.update_timestamp = self.event_data[9] or None
 
 class LongpollMessageFlagsEdit(BaseVKLongpollEvent):
 	"""
 	Longpoll-событие, вызываемое при редактировании флагов сообщения.
 
-	ID события: `2`.
+	ID события: `10002`.
 	"""
 
-	message_id: int
-	"""ID сообщения."""
+	conversation_message_id: int
+	"""ID сообщения в беседе."""
 	new_flags: VKLongpollMessageFlags
 	"""Новые флаги сообщения."""
 	peer_id: int
@@ -247,7 +333,7 @@ class LongpollMessageFlagsEdit(BaseVKLongpollEvent):
 	def __init__(self, event: list) -> None:
 		super().__init__(event)
 
-		self.message_id = self.event_data[0]
+		self.conversation_message_id = self.event_data[0]
 		self.new_flags = VKLongpollMessageFlags(self.event_data[1])
 		self.peer_id = self.event_data[2]
 
@@ -267,7 +353,7 @@ class VKAPILongpoll:
 	version: int
 	"""Версия Longpoll."""
 
-	def __init__(self, api: VKAPI, wait: int = 50, mode: int = 234, version: int = 3, user_id: int | None = None):
+	def __init__(self, api: VKAPI, wait: int = 50, mode: int = 1706, version: int = 19):
 		self.api = api
 
 		self.wait = wait

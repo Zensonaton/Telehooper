@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import asyncio
-from asyncio.exceptions import TimeoutError
 import json
+from asyncio.exceptions import TimeoutError
 from typing import TYPE_CHECKING, Literal, Optional, cast
 
 import aiohttp
@@ -48,7 +48,6 @@ from services.vk.vk_api.longpoll import (BaseVKLongpollEvent,
                                          LongpollMessageEditEvent,
                                          LongpollMessageFlagsEdit,
                                          LongpollNewMessageEvent,
-                                         LongpollTypingEvent,
                                          LongpollTypingEventMultiple,
                                          LongpollVoiceMessageEvent,
                                          VKAPILongpoll)
@@ -97,7 +96,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 		async def handle_updates() -> None:
 			while self._globalErrorAmount < VK_LONGPOLL_GLOBAL_ERRORS_AMOUNT:
 				try:
-					longpoll = VKAPILongpoll(self.vkAPI, user_id=self.service_user_id)
+					longpoll = VKAPILongpoll(self.vkAPI)
 
 					async for event in longpoll.listen_for_updates():
 						await self.handle_longpoll_update(event)
@@ -180,7 +179,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 		if type(event) is LongpollNewMessageEvent:
 			await self.handle_vk_message(event)
-		elif type(event) is LongpollTypingEvent or type(event) is LongpollTypingEventMultiple or type(event) is LongpollVoiceMessageEvent:
+		elif type(event) is LongpollTypingEventMultiple or type(event) is LongpollVoiceMessageEvent:
 			await self.handle_vk_typing(event)
 		elif type(event) is LongpollMessageEditEvent:
 			await self.handle_vk_message_edit(event)
@@ -229,7 +228,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 		# Проверяем, указан ли текст сообщения, или в нём есть вложения. Если да, то добавляем ":":
 		#   [Вы]: ...
-		if (event.text if isinstance(event, LongpollNewMessageEvent) else event.new_text) or has_attachments:
+		if (event.text if isinstance(event, LongpollNewMessageEvent) else event.text) or has_attachments:
 			msg_prefix += ": "
 
 		return msg_prefix
@@ -312,17 +311,17 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 				issuer_name_with_link = f"<a href=\"{'m.' if use_mobile_vk else ''}vk.com/id{event.from_id}\">{utils.compact_name(issuer_info.name) if use_compact_names else issuer_info.name}</a>"
 				issuer_male = issuer_info.male or False
 
-			if event.source_mid:
-				victim_info = await self.get_user_info(event.source_mid)
+			if event.source_message_id:
+				victim_info = await self.get_user_info(event.source_message_id)
 
-				victim_name_with_link = f"<a href=\"{'m.' if use_mobile_vk else ''}vk.com/id{event.source_mid}\">{utils.compact_name(victim_info.name) if use_compact_names else victim_info.name}</a>"
+				victim_name_with_link = f"<a href=\"{'m.' if use_mobile_vk else ''}vk.com/id{event.source_message_id}\">{utils.compact_name(victim_info.name) if use_compact_names else victim_info.name}</a>"
 				victim_male = victim_info.male or False
 
 			event_action = cast(str, event.source_act)
 
 			# Во ВКонтакте, событие "X вернулся/вышел из беседы" работает как
 			# "X пригласил/исключил X из беседы", поэтому здесь такая проверка.
-			if event.from_id == event.source_mid and event_action in ["chat_invite_user", "chat_kick_user"]:
+			if event.from_id == event.source_message_id and event_action in ["chat_invite_user", "chat_kick_user"]:
 				event_action = "chat_return" if event_action == "chat_invite_user" else "chat_leave"
 
 			messages = {
@@ -332,6 +331,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 				"chat_title_update": f"{issuer_name_with_link} изменил{'' if issuer_male else 'а'} имя беседы на «{event.source_text}»",
 				"chat_invite_user": f"{issuer_name_with_link} добавил{'' if issuer_male else 'а'} пользователя {victim_name_with_link}",
 				"chat_kick_user": f"{issuer_name_with_link} удалил{'' if issuer_male else 'а'} пользователя {victim_name_with_link} из беседы",
+				"chat_kick_don": f"{issuer_name_with_link} удалил{'' if issuer_male else 'а'} дон-пользователя {victim_name_with_link} из беседы",
 				"chat_invite_user_by_link": f"{issuer_name_with_link} присоеденил{'ся' if issuer_male else 'ась'} к беседе используя пригласительную ссылку",
 				"chat_invite_user_by_message_request": f"{issuer_name_with_link} присоденил{'ся' if issuer_male else 'ась'} к беседе используя запрос на вступление",
 				"chat_pin_message": f"{issuer_name_with_link} закрепил{'' if issuer_male else 'а'} сообщение",
@@ -340,14 +340,18 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 				"conversation_style_update": f"{issuer_name_with_link} обновил стиль чата",
 				"chat_leave": f"{issuer_name_with_link} покинул{'' if issuer_male else 'а'} беседу",
 				"chat_return": f"{issuer_name_with_link} вернул{'ся' if issuer_male else 'ась'} в беседу",
-				# "call_ended": f"{issuer_name_with_link} начал{'' if issuer_male else 'а'} вызов ВКонтакте. Присоедениться можно <a href=\"https://vk.com/call/join/{group_chat_join_link}\">по ссылке</a>"
+				"chat_group_call_started": f"{issuer_name_with_link} начал{'' if issuer_male else 'а'} вызов ВКонтакте", # Это событие уже не приходит, но я добавил его на всякий случай.
+				"group_call_in_progress": f"{issuer_name_with_link} начал{'' if issuer_male else 'а'} вызов ВКонтакте",
+				"chat_invite_user_by_call": f"{issuer_name_with_link} был{'' if issuer_male else 'а'} приглаш{'ён' if issuer_male else 'ена'} в звонок",
+				"chat_invite_user_by_call_join_link": f"{issuer_name_with_link} присоеденил{'ся' if issuer_male else 'ась'} к звонку по ссылке",
+				"chat_invite_user_by_message_request": f"{issuer_name_with_link} запрашивает разрешения на добавление в беседу",
 			}
 			message = messages.get(event_action)
 
 			if not message:
 				logger.warning(f"[VK] Неизвестное событие беседы: {event_action}")
 
-				message = f"Неизвестное действие: <code>«{event_action}»</code>"
+				message = f"Неизвестное событие беседы: <code>{event_action}</code>"
 
 				return
 
@@ -419,7 +423,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 			is_bot = (event.from_id or 0) < 0
 			from_self = (not is_convo and is_outbox) or (is_convo and event.from_id and event.from_id == self.service_user_id)
 			message_text_stripped = event.text.lower().strip()
-			original_message_sender_id = event.from_id
+			original_message_sender_id = event.from_id if event.from_id != self.service_user_id else None
 			first_message_text_url = utils.extract_url(message_text_stripped)
 			webpage_preview_url = first_message_text_url
 
@@ -509,6 +513,9 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 
 						original_message_sender_id = cur_message_extended["from_id"]
 
+				# Делаем так, что бы сообщения от имени владельца страницы отправлялись от имени основного бота Telehooper.
+				original_message_sender_id = original_message_sender_id if original_message_sender_id != self.service_user_id else None
+
 				# Обрабатываем клавиатуру.
 				if "keyboard" in message_extended:
 					buttons = []
@@ -594,9 +601,6 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 					)
 
 					return
-
-				# Делаем так, что бы сообщения от имени владельца страницы отправлялись от имени основного бота Telehooper.
-				original_message_sender_id = original_message_sender_id if original_message_sender_id != self.service_user_id else None
 
 				# Проходимся по всем вложениям.
 				if message_extended and "attachments" in message_extended:
@@ -946,7 +950,6 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 						elif attachment_type == "market_album":
 							pass
 						elif attachment_type == "wall_reply":
-							# Получаем информацию о том, откуда был взят этот пост.
 							commented_post_creator_info = await self.get_user_info(attachment["owner_id"])
 
 							attachment_items.append(f"<a href=\"{message_url}\">📝 Комментарий к записи от {commented_post_creator_info.name}</a>")
@@ -956,7 +959,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 							raise TypeError(f"Неизвестный тип вложения \"{attachment_type}\"")
 
 			# Проверяем, не было ли это событие беседы из ВК.
-			if is_convo and event.source_act:
+			if is_convo and event.source_act: # TODO
 				await handle_message_events()
 
 				return
@@ -1150,7 +1153,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 			except:
 				pass
 
-	async def handle_vk_typing(self, event: LongpollTypingEvent | LongpollTypingEventMultiple | LongpollVoiceMessageEvent) -> None:
+	async def handle_vk_typing(self, event: LongpollTypingEventMultiple | LongpollVoiceMessageEvent) -> None:
 		"""
 		Обработчик события начала "печати" либо записи голосового сообщения во ВКонтакте.
 
@@ -1167,11 +1170,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 			return
 
 		# Получаем список всех "печатающих" пользователей.
-		typing_users: list[int] = []
-		if isinstance(event, LongpollTypingEvent):
-			typing_users = [event.user_id]
-		elif isinstance(event, LongpollTypingEventMultiple) or isinstance(event, LongpollVoiceMessageEvent):
-			typing_users = [event.user_ids] if isinstance(event.user_ids, int) else event.user_ids
+		typing_users = [event.user_ids] if isinstance(event.user_ids, int) else event.user_ids
 
 		logger.debug(f"[VK] Событие печати для подгруппы \"{subgroup.service_dialogue_name}\", {len(typing_users)} печатающих")
 
@@ -1204,23 +1203,9 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 		if not subgroup:
 			return
 
-		# Уродливая проверка, поскольку ВК по какой-то причине "редактирует" сообщение при его закрепе.
-		#
-		# В моём случае, ничего не будет происходить, если "редактирование" имеет
-		# поле "pinned_at", и разница между текущим и этим временем менее 2 секунды.
-		# Возможно, это не самый лучший способ, но он работает.
-		if event.pinned_at and (utils.time_since(event.pinned_at)) < 2:
+		# Проверяем, что сообщение было по-настоящему отредактировано.
+		if not event.update_timestamp:
 			return
-
-		# Проверка на то, какой тип сообщения был отредактирован. Если отредактировано было голосовое сообщение, то пропускаем обновление.
-		#
-		# Понятия не имею почему, но в ВК решили, что при добавлении текста расшифровки голосового сообщения, оно будет редактироваться.
-		for i in range(int(event.attachments.get("attachments_count", 0))):
-			attachment_type = event.attachments.get(f"attach{i + 1}_type")
-			attachment_kind = event.attachments.get(f"attach{i + 1}_kind")
-
-			if attachment_type == "doc" and attachment_kind == "audiomsg":
-				return
 
 		logger.debug(f"[VK] Событие редактирования сообщения для подгруппы \"{subgroup.service_dialogue_name}\"")
 
@@ -1244,18 +1229,18 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 		# Подготавливаем текст сообщения, который будет отправлен.
 		use_mobile_vk = await self.user.get_setting("Services.VK.MobileVKURLs")
 		msg_prefix = await self.get_message_prefix(event, is_outbox=event.flags.outbox) # FIXME: Тут теряется информация о вложениях сообщения.
-		msg_body   = await self.parse_message_mentions(utils.telegram_safe_str(event.new_text), use_mobile_vk=use_mobile_vk)
+		msg_body   = await self.parse_message_mentions(utils.telegram_safe_str(event.text), use_mobile_vk=use_mobile_vk)
 		msg_suffix = " <i>(ред.)</i>"
 
 		full_message_text = msg_prefix + msg_body + msg_suffix
 
 		# Если у нас первый найденный URL в сообщении не совпадает с "готовом" сообщении, то нужно выключить веб-превью,
 		# что бы бот не показывал превью для лишних элементов по типу страниц ВКонтакте при упоминаниях.
-		disable_web_preview = utils.extract_url(event.new_text) != utils.extract_url(full_message_text)
+		disable_web_preview = utils.extract_url(event.text) != utils.extract_url(full_message_text)
 
 		# Редактируем сообщение.
 		try:
-			logger.debug(f"Редактирую сообщение с ID0 {telegram_message.telegram_message_ids[0]}")
+			logger.debug(f"Редактирую сообщение с ID {telegram_message.telegram_message_ids[0]}")
 
 			await subgroup.edit_message(
 				full_message_text,
@@ -1265,8 +1250,8 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 			)
 		except TelegramForbiddenError:
 			await TelehooperAPI.delete_group_data(subgroup.parent.chat.id, fully_delete=True, bot=subgroup.parent.bot)
-		except Exception:
-			pass
+		except Exception as error:
+			logger.debug(f"Отредактировать сообщение не удалось: {error}")
 
 	async def handle_vk_message_flags_change(self, event: LongpollMessageFlagsEdit) -> None:
 		"""
@@ -1287,10 +1272,10 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 		if not subgroup:
 			return
 
-		logger.debug(f"[VK] Событие удаления сообщения с ID {event.message_id} для подгруппы \"{subgroup.service_dialogue_name}\"")
+		logger.debug(f"[VK] Событие удаления сообщения с ВК convMID {event.conversation_message_id} для подгруппы \"{subgroup.service_dialogue_name}\"")
 
 		# Пытаемся получить ID сообщения в Telegram, которое нужно отредактировать.
-		telegram_message = await subgroup.service.get_message_by_service_id(self.service_user_id, event.message_id)
+		telegram_message = await subgroup.service.get_message_by_service_conversation_id(self.service_user_id, event.conversation_message_id)
 
 		if not telegram_message:
 			return
@@ -2230,12 +2215,17 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 	async def get_message_by_telegram_id(self, service_owner_id: int, message_id: int) -> Optional["TelehooperMessage"]:
 		from api import TelehooperAPI
 
-		return await TelehooperAPI.get_message_by_telegram_id("VK", message_id, service_owner_id)
+		return await TelehooperAPI.get_message_by_telegram_id("VK", service_owner_id, message_id)
 
 	async def get_message_by_service_id(self, service_owner_id: int, message_id: int) -> Optional["TelehooperMessage"]:
 		from api import TelehooperAPI
 
-		return await TelehooperAPI.get_message_by_service_id("VK", message_id, service_owner_id)
+		return await TelehooperAPI.get_message_by_service_id("VK", service_owner_id, message_id)
+
+	async def get_message_by_service_conversation_id(self, service_owner_id: int, conversation_message_id: int) -> Optional["TelehooperMessage"]:
+		from api import TelehooperAPI
+
+		return await TelehooperAPI.get_message_by_service_conversation_id("VK", service_owner_id, conversation_message_id)
 
 	@staticmethod
 	async def reconnect_on_restart(user: "TelehooperUser", db_user: Document, bot: Bot) -> Optional["VKServiceAPI"]:
