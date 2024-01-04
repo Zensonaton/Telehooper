@@ -85,7 +85,7 @@ class VKAPI:
 		Выполняет GET-запрос к API ВКонтакте.
 
 		:param method: Метод API.
-		:param params: Параметры запроса.я
+		:param params: Параметры запроса.
 		"""
 
 		if params is None:
@@ -113,7 +113,7 @@ class VKAPI:
 		params["v"] = self.version
 
 		async with aiohttp.ClientSession() as session:
-			async with session.post(f"https://api.vk.com/method/{method}", headers={"User-Agent": ""}, params=self._cleanup_none(params)) as response:
+			async with session.post(f"https://api.vk.com/method/{method}", headers={"User-Agent": "VKAndroidApp/8.61-18574 (Android 13; SDK 33; arm64-v8a; Google Pixel 5; ru; 1920x1080)"}, params=self._cleanup_none(params)) as response:
 				return self._parse_response(await response.json(), method)
 
 	async def account_setOnline(self) -> dict:
