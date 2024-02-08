@@ -43,7 +43,7 @@ class BaseVKLongpollEvent:
 
 		event_type = event[0]
 
-		if event_type == 10004 and len(event) > 3:
+		if event_type == 10004 and len(event) > 4:
 			# В редких случаях, ВКонтакте возвращает событие о новом сообщении (т.е., LongpollNewMessageEvent)
 			# с очень странным содержимым: в таком событии есть лишь 2 поля, предположительно:
 			# - ID сообщения.
