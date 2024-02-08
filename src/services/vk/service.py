@@ -933,7 +933,7 @@ class VKServiceAPI(BaseTelehooperServiceAPI):
 							# Получаем информацию о том, откуда был взят этот пост.
 							post_creator_info = await self.get_user_info(attachment["from_id"])
 
-							attachment_items.append(f"<a href=\"{'m.' if use_mobile_vk else ''}vk.com/wall{attachment['owner_id']}_{attachment['id']}\">🔄 Запись от {'пользователя' if attachment['owner_id'] > 0 else 'группы'} {post_creator_info.name}</a>")
+							attachment_items.append(f"<a href=\"{'m.' if use_mobile_vk else ''}vk.com/wall{attachment['owner_id']}_{attachment['id']}\">🔄 Запись от {'пользователя' if attachment['owner_id'] > 0 else 'группы'} {utils.telegram_safe_str(post_creator_info.name)}</a>")
 						elif attachment_type == "link":
 							webpage_preview_url = attachment["url"]
 						elif attachment_type == "poll":
